@@ -33,29 +33,34 @@ def render_search_filter():
     with col_search:
         st.text_input("Tìm kiếm", placeholder="🔍 Tìm mã cổ phiếu, CTCK...", label_visibility="collapsed")
 
-def render_news_grid():
-    # Dữ liệu giả định (Sau này sẽ lấy từ Backend/Database lên)
-    mock_news = [
-        {"tag": "Biểu phí", "title": "TCBS tung gói Zero Fee trọn đời cho tài khoản mở mới từ tháng 4", "date": "2026-03-24", "ctck": "TCBS"},
-        {"tag": "Cập nhật Margin", "title": "SSI hạ tỷ lệ ký quỹ hàng loạt cổ phiếu Bất động sản (NVL, DXG)", "date": "2026-03-23", "ctck": "SSI"},
-        {"tag": "Sản phẩm mới", "title": "VNDirect ra mắt tính năng giao dịch phái sinh siêu tốc D-Pro", "date": "2026-03-22", "ctck": "VNDirect"},
-        {"tag": "Cập nhật Margin", "title": "MBS cấp lại Room Margin cho nhóm cổ phiếu ngân hàng (MBB, TCB)", "date": "2026-03-21", "ctck": "MBS"},
-    ]
+import streamlit as st
+from backend.ssi_api import fetch_ssi_news # Thêm dòng import này ở đầu file hoặc trong hàm
 
-    # Khởi tạo lưới 2 cột
+def render_news_grid():
+    # 1. Kéo dữ liệu thật từ Backend
+    df_news = fetch_ssi_news()
+    
+    # Nếu không lấy được dữ liệu, hiển thị thông báo chuyên nghiệp
+    if df_news.empty:
+        st.info("Đang bảo trì kết nối với máy chủ CTCK. Vui lòng quay lại sau.")
+        return
+
+    # 2. Khởi tạo lưới 2 cột
     col1, col2 = st.columns(2)
     
-    # Rải dữ liệu vào 2 cột
-    for i, news in enumerate(mock_news):
-        # Dùng phép chia lấy dư để xếp xen kẽ: bài 0 vào cột 1, bài 1 vào cột 2...
+    # 3. Rải dữ liệu thật vào thẻ
+    for i, row in df_news.iterrows():
         target_col = col1 if i % 2 == 0 else col2
         
         with target_col:
+            # Gắn link vào thẻ, khi click sẽ mở bài viết gốc ở tab mới
             card_html = f"""
-            <div class='news-card'>
-                <div class='card-tag'>{news['ctck']} • {news['tag']}</div>
-                <div class='card-title'>{news['title']}</div>
-                <div class='card-date'>{news['date']}</div>
-            </div>
+            <a href="{row['link']}" target="_blank" style="text-decoration: none; color: inherit;">
+                <div class='news-card'>
+                    <div class='card-tag'>{row['ctck']} • {row['tag']}</div>
+                    <div class='card-title'>{row['title']}</div>
+                    <div class='card-date'>{row['date']}</div>
+                </div>
+            </a>
             """
             st.markdown(card_html, unsafe_allow_html=True)
