@@ -24,10 +24,6 @@ def apply_custom_css():
         .hero-desc { font-size: 16px; color: #474D57; line-height: 1.5; margin-bottom: 24px; }
         .hero-meta { font-size: 14px; color: #1E2329; font-weight: 600; }
         .hero-hashtag { font-size: 14px; color: #474D57; font-weight: 400; margin-left: 12px; }
-    </style>
-    """
-    st.markdown(custom_css, unsafe_allow_html=True)
-/* ... (giữ nguyên phần CSS cũ ở trên) ... */
 
         /* CSS cho thanh tiêu đề danh sách */
         .section-title { font-size: 24px; font-weight: 700; color: #1E2329; margin-top: 48px; margin-bottom: 24px; }
@@ -44,10 +40,13 @@ def apply_custom_css():
             height: 100%;
         }
         .news-card:hover {
-            border-color: #FCD535; /* Màu vàng Binance khi hover */
+            border-color: #FCD535;
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
             transform: translateY(-2px);
         }
         .card-tag { font-size: 12px; font-weight: 500; color: #848E9C; text-transform: uppercase; margin-bottom: 12px; }
         .card-title { font-size: 18px; font-weight: 600; color: #1E2329; margin-bottom: 12px; line-height: 1.4; }
         .card-date { font-size: 14px; color: #848E9C; }
+    </style>
+    """
+    st.markdown(custom_css, unsafe_allow_html=True)
