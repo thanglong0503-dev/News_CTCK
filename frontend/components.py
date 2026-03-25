@@ -20,3 +20,42 @@ def render_hero_section():
                 <span class='hero-hashtag'>#MarginRate #BrokerFee</span>
             </div>
         """, unsafe_allow_html=True)
+def render_search_filter():
+    st.markdown("<div class='section-title'>Latest Insights (Tin tức mới nhất)</div>", unsafe_allow_html=True)
+    
+    # Chia cột cho thanh tìm kiếm và nút lọc
+    col_filter, col_space, col_search = st.columns([2, 1, 1])
+    
+    with col_filter:
+        # Sử dụng pills (nút dạng viên thuốc) của Streamlit để làm bộ lọc
+        st.pills("Bộ lọc:", ["Tất cả", "Cập nhật Margin", "Biểu phí", "Sản phẩm mới"], default="Tất cả", label_visibility="collapsed")
+        
+    with col_search:
+        st.text_input("Tìm kiếm", placeholder="🔍 Tìm mã cổ phiếu, CTCK...", label_visibility="collapsed")
+
+def render_news_grid():
+    # Dữ liệu giả định (Sau này sẽ lấy từ Backend/Database lên)
+    mock_news = [
+        {"tag": "Biểu phí", "title": "TCBS tung gói Zero Fee trọn đời cho tài khoản mở mới từ tháng 4", "date": "2026-03-24", "ctck": "TCBS"},
+        {"tag": "Cập nhật Margin", "title": "SSI hạ tỷ lệ ký quỹ hàng loạt cổ phiếu Bất động sản (NVL, DXG)", "date": "2026-03-23", "ctck": "SSI"},
+        {"tag": "Sản phẩm mới", "title": "VNDirect ra mắt tính năng giao dịch phái sinh siêu tốc D-Pro", "date": "2026-03-22", "ctck": "VNDirect"},
+        {"tag": "Cập nhật Margin", "title": "MBS cấp lại Room Margin cho nhóm cổ phiếu ngân hàng (MBB, TCB)", "date": "2026-03-21", "ctck": "MBS"},
+    ]
+
+    # Khởi tạo lưới 2 cột
+    col1, col2 = st.columns(2)
+    
+    # Rải dữ liệu vào 2 cột
+    for i, news in enumerate(mock_news):
+        # Dùng phép chia lấy dư để xếp xen kẽ: bài 0 vào cột 1, bài 1 vào cột 2...
+        target_col = col1 if i % 2 == 0 else col2
+        
+        with target_col:
+            card_html = f"""
+            <div class='news-card'>
+                <div class='card-tag'>{news['ctck']} • {news['tag']}</div>
+                <div class='card-title'>{news['title']}</div>
+                <div class='card-date'>{news['date']}</div>
+            </div>
+            """
+            st.markdown(card_html, unsafe_allow_html=True)
