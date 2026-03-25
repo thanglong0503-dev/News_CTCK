@@ -2,57 +2,55 @@ import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 import streamlit as st
-import time
 
-# Cache dữ liệu trong 1 giờ (3600 giây). Giúp web load tức thì và không bị SSI chặn IP.
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_ssi_news():
-    url = "https://www.ssi.com.vn/tin-tuc/tin-tuc-su-kien-ssi"
-    # Giả lập trình duyệt chuẩn của người dùng thật
+    # Sử dụng chuẩn RSS Feed công khai thay vì cào HTML lậu để tránh Firewall
+    url = "https://cafef.vn/tin-tuc-chung.rss"
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept-Language": "vi-VN,vi;q=0.9"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
     }
     
     try:
         response = requests.get(url, headers=headers, timeout=10)
         if response.status_code != 200:
-            return pd.DataFrame() # Trả về mảng rỗng nếu lỗi mạng
+            return pd.DataFrame()
             
+        # Dùng BeautifulSoup đọc luồng XML/RSS
         soup = BeautifulSoup(response.text, 'html.parser')
         news_list = []
         
-        # Lấy danh sách bài viết (Dựa trên cấu trúc HTML thực tế của SSI thường dùng thẻ <a> có class tin tức)
-        # Lưu ý: Nếu SSI đổi class, ta chỉ cần cập nhật dòng này
-        articles = soup.find_all('a', class_='news-title', limit=10) # Chỉ lấy 10 tin mới nhất cho nhẹ
+        # Cắt lấy 10 bản tin mới nhất
+        items = soup.find_all('item', limit=10)
         
-        for article in articles:
-            title = article.text.strip()
-            link = article.get('href', '')
+        for item in items:
+            title = item.find('title').text.strip() if item.find('title') else ""
+            link = item.find('link').text.strip() if item.find('link') else ""
+            pub_date = item.find('pubdate').text.strip() if item.find('pubdate') else ""
             
-            if link.startswith('/'):
-                link = "https://www.ssi.com.vn" + link
-                
-            # Phân loại Tag tự động dựa trên từ khóa trong tiêu đề
-            tag = "Tin tức"
+            # Xử lý cắt chuỗi ngày tháng cho đẹp (Bỏ múi giờ GMT)
+            clean_date = pub_date[:16] if len(pub_date) > 16 else pub_date
+            
+            # Hệ thống Auto-Tagging (Dán nhãn tự động)
+            tag = "Tin thị trường"
             title_lower = title.lower()
             if "margin" in title_lower or "ký quỹ" in title_lower:
                 tag = "Cập nhật Margin"
-            elif "phí" in title_lower:
+            elif "phí" in title_lower or "lãi suất" in title_lower:
                 tag = "Biểu phí"
-            elif "ra mắt" in title_lower or "sản phẩm" in title_lower:
-                tag = "Sản phẩm mới"
+            elif "ctck" in title_lower or "chứng khoán" in title_lower:
+                tag = "Tin CTCK"
                 
             news_list.append({
-                "ctck": "SSI",
+                "ctck": "Thị trường", 
                 "tag": tag,
                 "title": title,
                 "link": link,
-                "date": "Mới cập nhật" # Tạm gán, vì web SSI cần click vào trong mới thấy ngày
+                "date": clean_date
             })
             
         return pd.DataFrame(news_list)
         
     except Exception as e:
-        print(f"Lỗi Backend SSI: {e}")
+        print(f"Lỗi Backend RSS: {e}")
         return pd.DataFrame()
