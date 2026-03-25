@@ -5,7 +5,7 @@ import streamlit as st
 
 # TTL = 3600 nghĩa là hệ thống chỉ đi cào dữ liệu 1 tiếng 1 lần
 @st.cache_data(ttl=3600, show_spinner="Đang đồng bộ dữ liệu từ CTCK...")
-def fetch_ssi_margin_news():
+#def fetch_ssi_margin_news():
     url = "https://www.ssi.com.vn/tin-tuc/tin-tuc-su-kien-ssi"
     headers = {"User-Agent": "Mozilla/5.0"}
     
