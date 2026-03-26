@@ -92,67 +92,117 @@ def render_hero_section():
     # --- TAB 3: PHÂN TÍCH AI ---
     with tab3:
         st.markdown("<br>", unsafe_allow_html=True)
+        # 1. KÉO CODE AI VÀO (Nhớ import thêm get_f319_sentiment trên cùng file nhé)
+        from backend.ai_analysis import analyze_news_sentiment, generate_technical_alerts, get_f319_sentiment
         market_sentiment_score, top_bullish_news, top_bearish_news = analyze_news_sentiment()
         technical_alerts = generate_technical_alerts()
+        f319_data = get_f319_sentiment() # Lấy data F319
 
+        # --- KHỐI BÁO ĐỘNG KỸ THUẬT & TÂM LÝ TIN TỨC (GIỮ NGUYÊN NHƯ CŨ) ---
         st.markdown("<div style='font-size: 14px; font-weight: 700; color: #E65100; margin-bottom: 16px; text-transform: uppercase;'>Chỉ số Tâm lý Thị trường (Sentiment Index)</div>", unsafe_allow_html=True)
         col_gauge, col_top_news = st.columns([1, 2.2])
-        
         with col_gauge:
             gauge_color = "#0ECB81" if market_sentiment_score >= 50 else "#F6465D"
             gauge_text = "HƯNG PHẤN (BULLISH)" if market_sentiment_score >= 50 else "SỢ HÃI (BEARISH)"
-            css_gauge = """<style>
-.gauge-container { display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 24px; height: 180px;}
-.gauge-score { font-size: 48px; font-weight: 700; color: #1E2329; margin-bottom: 12px; font-family: 'SF Mono', Consolas, monospace;}
-.gauge-label { font-size: 13px; font-weight: 700; color: #fff; border-radius: 4px; padding: 6px 16px; text-transform: uppercase;}
-</style>"""
-            gauge_html = f"""<div class='gauge-container'>
-<div class='gauge-score'>{market_sentiment_score:.0f}</div>
-<div class='gauge-label' style='background-color: {gauge_color}'>{gauge_text}</div>
-</div>"""
-            st.markdown(f"{css_gauge}{gauge_html}", unsafe_allow_html=True)
+            css_gauge = """<style>.gauge-container { display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 24px; height: 180px;} .gauge-score { font-size: 48px; font-weight: 700; color: #1E2329; margin-bottom: 12px; font-family: 'SF Mono', Consolas, monospace;} .gauge-label { font-size: 13px; font-weight: 700; color: #fff; border-radius: 4px; padding: 6px 16px; text-transform: uppercase;}</style>"""
+            st.markdown(f"{css_gauge}<div class='gauge-container'><div class='gauge-score'>{market_sentiment_score:.0f}</div><div class='gauge-label' style='background-color: {gauge_color}'>{gauge_text}</div></div>", unsafe_allow_html=True)
 
         with col_top_news:
             if not top_bullish_news and not top_bearish_news:
                 st.info("Hệ thống đang tổng hợp dữ liệu tin tức...")
             else:
-                css_ai_news = """<style>
-.ai-news-card { background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 20px; height: 180px; display: flex; flex-direction: column; justify-content: center; gap: 16px;}
-.ai-tag { font-size: 11px; font-weight: 700; border-radius: 4px; padding: 4px 8px; text-transform: uppercase; margin-right: 8px;}
-.ai-title { font-size: 14px; font-weight: 600; color: #1E2329; line-height: 1.4; display: inline;}
-.ai-title:hover { color: #E65100; }
-.b-up-t { color: #0ECB81; background-color: #E6FFF3; border: 1px solid #0ECB81;}
-.b-down-t { color: #F6465D; background-color: #FFF1F0; border: 1px solid #F6465D;}
-</style>"""
+                css_ai_news = """<style>.ai-news-card { background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 20px; height: 180px; display: flex; flex-direction: column; justify-content: center; gap: 16px;} .ai-tag { font-size: 11px; font-weight: 700; border-radius: 4px; padding: 4px 8px; text-transform: uppercase; margin-right: 8px;} .ai-title { font-size: 14px; font-weight: 600; color: #1E2329; line-height: 1.4; display: inline;} .ai-title:hover { color: #E65100; } .b-up-t { color: #0ECB81; background-color: #E6FFF3; border: 1px solid #0ECB81;} .b-down-t { color: #F6465D; background-color: #FFF1F0; border: 1px solid #F6465D;}</style>"""
                 rows_html = ""
-                if top_bullish_news:
-                    n = top_bullish_news[0]
-                    rows_html += f"""<div><a href="{n['link']}" target="_blank" style="text-decoration: none;"><span class="ai-tag b-up-t">TÍN HIỆU TÍCH CỰC</span><span class="ai-title">{n['title']}</span></a></div>"""
-                if top_bearish_news:
-                    n = top_bearish_news[0]
-                    rows_html += f"""<div><a href="{n['link']}" target="_blank" style="text-decoration: none;"><span class="ai-tag b-down-t">TÍN HIỆU TIÊU CỰC</span><span class="ai-title">{n['title']}</span></a></div>"""
+                if top_bullish_news: rows_html += f"""<div><a href="{top_bullish_news[0]['link']}" target="_blank" style="text-decoration: none;"><span class="ai-tag b-up-t">TÍN HIỆU TÍCH CỰC</span><span class="ai-title">{top_bullish_news[0]['title']}</span></a></div>"""
+                if top_bearish_news: rows_html += f"""<div><a href="{top_bearish_news[0]['link']}" target="_blank" style="text-decoration: none;"><span class="ai-tag b-down-t">TÍN HIỆU TIÊU CỰC</span><span class="ai-title">{top_bearish_news[0]['title']}</span></a></div>"""
                 st.markdown(f"{css_ai_news}<div class='ai-news-card'>{rows_html}</div>", unsafe_allow_html=True)
 
         st.markdown("<br><div style='font-size: 14px; font-weight: 700; color: #E65100; margin-bottom: 16px; text-transform: uppercase;'>Báo động Kỹ thuật (Technical Alerts)</div>", unsafe_allow_html=True)
-        if not technical_alerts:
-            st.info("Không phát hiện tín hiệu kỹ thuật đột biến trong rổ cổ phiếu quan sát.")
-        else:
-            css_ai_alerts = """<style>
-.a-card-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px;}
-.a-card { background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 16px; text-align: center; transition: all 0.2s ease;}
-.a-card:hover { border-color: #E65100; box-shadow: 0 4px 12px rgba(230, 81, 0, 0.08);}
-.a-ticker { font-size: 16px; font-weight: 700; color: #1E2329; margin-bottom: 12px;}
-.a-type { font-size: 11px; font-weight: 700; padding: 6px 8px; border-radius: 4px; color: #fff; text-transform: uppercase; display: inline-block; margin-bottom: 12px; width: 100%; box-sizing: border-box;}
-.a-details { font-size: 12px; color: #707A8A; line-height: 1.5; font-weight: 500;}
-</style>"""
-            cards_html = ""
-            for a in technical_alerts:
-                cards_html += f"""<div class="a-card">
-<div class="a-ticker">{a['ticker']}</div>
-<div class="a-type" style="background-color: {a['color']};">{a['type']}</div>
-<div class="a-details">{a['details']}</div>
-</div>"""
+        if technical_alerts:
+            css_ai_alerts = """<style>.a-card-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px;} .a-card { background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 16px; text-align: center; transition: all 0.2s ease;} .a-card:hover { border-color: #E65100; box-shadow: 0 4px 12px rgba(230, 81, 0, 0.08);} .a-ticker { font-size: 16px; font-weight: 700; color: #1E2329; margin-bottom: 12px;} .a-type { font-size: 11px; font-weight: 700; padding: 6px 8px; border-radius: 4px; color: #fff; text-transform: uppercase; display: inline-block; margin-bottom: 12px; width: 100%; box-sizing: border-box;} .a-details { font-size: 12px; color: #707A8A; line-height: 1.5; font-weight: 500;}</style>"""
+            cards_html = "".join([f"""<div class="a-card"><div class="a-ticker">{a['ticker']}</div><div class="a-type" style="background-color: {a['color']};">{a['type']}</div><div class="a-details">{a['details']}</div></div>""" for a in technical_alerts])
             st.markdown(f"{css_ai_alerts}<div class='a-card-grid'>{cards_html}</div>", unsafe_allow_html=True)
+
+        # --- KHỐI MỚI: RADAR MẠNG XÃ HỘI (F319) CHUẨN UI BINANCE ---
+        st.markdown("<br><div style='font-size: 14px; font-weight: 700; color: #E65100; margin-bottom: 16px; text-transform: uppercase; border-top: 1px solid #EAECEF; padding-top: 32px;'>Cộng Đồng Nhà Đầu Tư (F319 Social Sentiment)</div>", unsafe_allow_html=True)
+        
+        col_social_stats, col_social_posts = st.columns([1.2, 1])
+
+        # CSS Tổng cho Khối F319
+        css_social = """<style>
+        .soc-card { background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 24px; min-height: 400px;}
+        .soc-title { font-size: 20px; font-weight: 700; color: #1E2329; margin-bottom: 24px;}
+        .soc-metrics { display: flex; justify-content: space-between; margin-bottom: 32px;}
+        .soc-m-item { display: flex; flex-direction: column; gap: 8px;}
+        .soc-m-lbl { font-size: 12px; color: #707A8A; font-weight: 600;}
+        .soc-m-val { font-size: 24px; color: #1E2329; font-weight: 700; font-family: 'SF Mono', Consolas, monospace;}
+        
+        /* Thanh Progress Bar Xanh Đỏ */
+        .p-bar-labels { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; margin-bottom: 8px;}
+        .p-bar-container { display: flex; height: 16px; width: 100%; border-radius: 4px; overflow: hidden; margin-bottom: 16px;}
+        .p-bar-bull { background-color: #0ECB81; transition: width 0.5s;}
+        .p-bar-bear { background-color: #F6465D; transition: width 0.5s;}
+        
+        /* Danh sách bài đăng */
+        .soc-post { border-bottom: 1px solid #F0F2F5; padding-bottom: 16px; margin-bottom: 16px;}
+        .soc-post:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0;}
+        .s-author-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;}
+        .s-author { font-size: 14px; font-weight: 700; color: #1E2329; display: flex; align-items: center; gap: 8px;}
+        .s-avatar { width: 24px; height: 24px; background-color: #E65100; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px;}
+        .s-time { font-size: 12px; color: #848E9C;}
+        .s-content { font-size: 14px; color: #1E2329; line-height: 1.5; font-weight: 500;}
+        .s-bull-tag { color: #0ECB81; font-weight: 700; font-size: 12px;}
+        .s-bear-tag { color: #F6465D; font-weight: 700; font-size: 12px;}
+        </style>"""
+        
+        # Cột Trái: Thống kê & Thanh Progress Bar
+        with col_social_stats:
+            stats_html = f"""
+            <div class="soc-card">
+                <div class="soc-title">Dữ liệu thảo luận (24h)</div>
+                <div class="soc-metrics">
+                    <div class="soc-m-item"><span class="soc-m-lbl">Tương tác nổi bật</span><span class="soc-m-val">🔥</span></div>
+                    <div class="soc-m-item"><span class="soc-m-lbl">Lượt đề cập (Mentions)</span><span class="soc-m-val">{f319_data['total_mentions']:,}</span></div>
+                    <div class="soc-m-item"><span class="soc-m-lbl">Bài đăng liên quan</span><span class="soc-m-val">{f319_data['total_posts']}</span></div>
+                </div>
+                
+                <div class="p-bar-labels">
+                    <span style="color: #0ECB81;">Bìm bịp (Tăng giá) {f319_data['bullish_pct']}%</span>
+                    <span style="color: #F6465D;">Chim lợn (Giảm giá) {f319_data['bearish_pct']}%</span>
+                </div>
+                <div class="p-bar-container">
+                    <div class="p-bar-bull" style="width: {f319_data['bullish_pct']}%;"></div>
+                    <div class="p-bar-bear" style="width: {f319_data['bearish_pct']}%;"></div>
+                </div>
+                <div style="font-size: 13px; color: #707A8A; line-height: 1.5; margin-top: 24px;">
+                    Dữ liệu được hệ thống AI rà soát và tổng hợp tự động từ các diễn đàn chứng khoán lớn tại Việt Nam (F319, F247...). Mức độ "Hưng phấn" áp đảo thường xuất hiện tại các vùng đỉnh ngắn hạn.
+                </div>
+            </div>
+            """
+            st.markdown(f"{css_social}{stats_html}", unsafe_allow_html=True)
+
+        # Cột Phải: Feed Bài đăng
+        with col_social_posts:
+            posts_html = ""
+            for p in f319_data['posts']:
+                tag_class = "s-bull-tag" if p['sentiment'] == "Bullish" else "s-bear-tag"
+                tag_text = "↑ Mua/Tăng" if p['sentiment'] == "Bullish" else "↓ Bán/Giảm"
+                posts_html += f"""
+                <div class="soc-post">
+                    <div class="s-author-row">
+                        <div class="s-author"><div class="s-avatar">{p['author'][0]}</div>{p['author']}</div>
+                        <div class="s-time">{p['time']}</div>
+                    </div>
+                    <div class="s-content">{p['content']} <br><span class="{tag_class}">{tag_text}</span></div>
+                </div>
+                """
+                
+            st.markdown(f"""
+            <div class="soc-card" style="height: 400px; overflow-y: auto;">
+                <div class="soc-title">Bài đăng mới nhất</div>
+                {posts_html}
+            </div>
+            """, unsafe_allow_html=True)
 
     # --- CAROUSEL TIN TỨC NẰM DƯỚI CÙNG ---
     st.markdown("<br><div style='font-size: 14px; font-weight: 700; color: #E65100; margin-bottom: 16px; text-transform: uppercase; border-top: 1px solid #EAECEF; padding-top: 24px;'>Tin Tức Giao Dịch Nổi Bật</div>", unsafe_allow_html=True)
