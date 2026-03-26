@@ -123,12 +123,23 @@ def render_hero_section():
             cards_html = "".join([f"""<div class="a-card"><div class="a-ticker">{a['ticker']}</div><div class="a-type" style="background-color: {a['color']};">{a['type']}</div><div class="a-details">{a['details']}</div></div>""" for a in technical_alerts])
             st.markdown(f"{css_ai_alerts}<div class='a-card-grid'>{cards_html}</div>", unsafe_allow_html=True)
 
-        # --- KHỐI MỚI: RADAR MẠNG XÃ HỘI (F319) CHUẨN UI BINANCE ---
+        # --- KHỐI MỚI: RADAR MẠNG XÃ HỘI CHUẨN UI BINANCE ---
         st.markdown("<br><div style='font-size: 14px; font-weight: 700; color: #E65100; margin-bottom: 16px; text-transform: uppercase; border-top: 1px solid #EAECEF; padding-top: 32px;'>Cộng Đồng Nhà Đầu Tư (Social Sentiment)</div>", unsafe_allow_html=True)
         
-        col_social_stats, col_social_posts = st.columns([1.2, 1])
-
-        css_social = """<style>
+        # Kiểm tra xem có dữ liệu thật không
+        if not f319_data['posts']:
+            # Giao diện khi KHÔNG có dữ liệu
+            st.markdown("""
+            <div style='background-color: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 60px 20px; text-align: center; margin-bottom: 24px;'>
+                <div style='font-size: 32px; color: #848E9C; margin-bottom: 16px;'>📭</div>
+                <div style='font-size: 16px; font-weight: 700; color: #474D57;'>Hệ thống hiện chưa ghi nhận dữ liệu thảo luận nào.</div>
+                <div style='font-size: 14px; color: #848E9C; margin-top: 8px;'>Có thể do giới hạn kết nối hoặc API đang bảo trì. Vui lòng thử lại sau.</div>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            # Giao diện khi CÓ dữ liệu thật
+            col_social_stats, col_social_posts = st.columns([1.2, 1])
+            css_social = """<style>
 .soc-card { background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 24px; min-height: 400px;}
 .soc-title { font-size: 20px; font-weight: 700; color: #1E2329; margin-bottom: 24px;}
 .soc-metrics { display: flex; justify-content: space-between; margin-bottom: 32px;}
@@ -149,10 +160,9 @@ def render_hero_section():
 .s-bull-tag { color: #0ECB81; font-weight: 700; font-size: 12px;}
 .s-bear-tag { color: #F6465D; font-weight: 700; font-size: 12px;}
 </style>"""
-        
-        with col_social_stats:
-            # Code HTML được ÉP SÁT LỀ TRÁI chống lỗi Markdown
-            stats_html = f"""<div class="soc-card">
+            
+            with col_social_stats:
+                stats_html = f"""<div class="soc-card">
 <div class="soc-title">Dữ liệu thảo luận (24h)</div>
 <div class="soc-metrics">
 <div class="soc-m-item"><span class="soc-m-lbl">Tương tác nổi bật</span><span class="soc-m-val">🔥</span></div>
@@ -168,26 +178,25 @@ def render_hero_section():
 <div class="p-bar-bear" style="width: {f319_data['bearish_pct']}%;"></div>
 </div>
 <div style="font-size: 13px; color: #707A8A; line-height: 1.5; margin-top: 24px;">
-Dữ liệu được hệ thống AI rà soát và tổng hợp tự động từ các diễn đàn chứng khoán lớn tại Việt Nam (F319, F247...). Mức độ "Hưng phấn" áp đảo thường xuất hiện tại các vùng đỉnh ngắn hạn.
+Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đảo thường xuất hiện tại các vùng đỉnh ngắn hạn.
 </div>
 </div>"""
-            st.markdown(f"{css_social}{stats_html}", unsafe_allow_html=True)
+                st.markdown(f"{css_social}{stats_html}", unsafe_allow_html=True)
 
-        with col_social_posts:
-            posts_html = ""
-            for p in f319_data['posts']:
-                tag_class = "s-bull-tag" if p['sentiment'] == "Bullish" else "s-bear-tag"
-                tag_text = "↑ Mua/Tăng" if p['sentiment'] == "Bullish" else "↓ Bán/Giảm"
-                # ÉP SÁT LỀ TRÁI
-                posts_html += f"""<div class="soc-post">
+            with col_social_posts:
+                posts_html = ""
+                for p in f319_data['posts']:
+                    tag_class = "s-bull-tag" if p['sentiment'] == "Bullish" else "s-bear-tag"
+                    tag_text = "↑ Mua/Tăng" if p['sentiment'] == "Bullish" else "↓ Bán/Giảm"
+                    posts_html += f"""<div class="soc-post">
 <div class="s-author-row">
-<div class="s-author"><div class="s-avatar">{p['author'][0]}</div>{p['author']}</div>
+<div class="s-author"><div class="s-avatar">{p['author'][2].upper() if len(p['author']) > 2 else 'U'}</div>{p['author']}</div>
 <div class="s-time">{p['time']}</div>
 </div>
 <div class="s-content">{p['content']} <br><span class="{tag_class}">{tag_text}</span></div>
 </div>"""
-                
-            st.markdown(f"""<div class="soc-card" style="height: 400px; overflow-y: auto;">
+                    
+                st.markdown(f"""<div class="soc-card" style="height: 400px; overflow-y: auto;">
 <div class="soc-title">Bài đăng mới nhất</div>
 {posts_html}
 </div>""", unsafe_allow_html=True)
