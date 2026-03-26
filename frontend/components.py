@@ -128,81 +128,69 @@ def render_hero_section():
         
         col_social_stats, col_social_posts = st.columns([1.2, 1])
 
-        # CSS Tổng cho Khối F319
         css_social = """<style>
-        .soc-card { background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 24px; min-height: 400px;}
-        .soc-title { font-size: 20px; font-weight: 700; color: #1E2329; margin-bottom: 24px;}
-        .soc-metrics { display: flex; justify-content: space-between; margin-bottom: 32px;}
-        .soc-m-item { display: flex; flex-direction: column; gap: 8px;}
-        .soc-m-lbl { font-size: 12px; color: #707A8A; font-weight: 600;}
-        .soc-m-val { font-size: 24px; color: #1E2329; font-weight: 700; font-family: 'SF Mono', Consolas, monospace;}
+.soc-card { background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 24px; min-height: 400px;}
+.soc-title { font-size: 20px; font-weight: 700; color: #1E2329; margin-bottom: 24px;}
+.soc-metrics { display: flex; justify-content: space-between; margin-bottom: 32px;}
+.soc-m-item { display: flex; flex-direction: column; gap: 8px;}
+.soc-m-lbl { font-size: 12px; color: #707A8A; font-weight: 600;}
+.soc-m-val { font-size: 24px; color: #1E2329; font-weight: 700; font-family: 'SF Mono', Consolas, monospace;}
+.p-bar-labels { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; margin-bottom: 8px;}
+.p-bar-container { display: flex; height: 16px; width: 100%; border-radius: 4px; overflow: hidden; margin-bottom: 16px;}
+.p-bar-bull { background-color: #0ECB81; transition: width 0.5s;}
+.p-bar-bear { background-color: #F6465D; transition: width 0.5s;}
+.soc-post { border-bottom: 1px solid #F0F2F5; padding-bottom: 16px; margin-bottom: 16px;}
+.soc-post:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0;}
+.s-author-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;}
+.s-author { font-size: 14px; font-weight: 700; color: #1E2329; display: flex; align-items: center; gap: 8px;}
+.s-avatar { width: 24px; height: 24px; background-color: #E65100; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px;}
+.s-time { font-size: 12px; color: #848E9C;}
+.s-content { font-size: 14px; color: #1E2329; line-height: 1.5; font-weight: 500;}
+.s-bull-tag { color: #0ECB81; font-weight: 700; font-size: 12px;}
+.s-bear-tag { color: #F6465D; font-weight: 700; font-size: 12px;}
+</style>"""
         
-        /* Thanh Progress Bar Xanh Đỏ */
-        .p-bar-labels { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; margin-bottom: 8px;}
-        .p-bar-container { display: flex; height: 16px; width: 100%; border-radius: 4px; overflow: hidden; margin-bottom: 16px;}
-        .p-bar-bull { background-color: #0ECB81; transition: width 0.5s;}
-        .p-bar-bear { background-color: #F6465D; transition: width 0.5s;}
-        
-        /* Danh sách bài đăng */
-        .soc-post { border-bottom: 1px solid #F0F2F5; padding-bottom: 16px; margin-bottom: 16px;}
-        .soc-post:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0;}
-        .s-author-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;}
-        .s-author { font-size: 14px; font-weight: 700; color: #1E2329; display: flex; align-items: center; gap: 8px;}
-        .s-avatar { width: 24px; height: 24px; background-color: #E65100; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px;}
-        .s-time { font-size: 12px; color: #848E9C;}
-        .s-content { font-size: 14px; color: #1E2329; line-height: 1.5; font-weight: 500;}
-        .s-bull-tag { color: #0ECB81; font-weight: 700; font-size: 12px;}
-        .s-bear-tag { color: #F6465D; font-weight: 700; font-size: 12px;}
-        </style>"""
-        
-        # Cột Trái: Thống kê & Thanh Progress Bar
         with col_social_stats:
-            stats_html = f"""
-            <div class="soc-card">
-                <div class="soc-title">Dữ liệu thảo luận (24h)</div>
-                <div class="soc-metrics">
-                    <div class="soc-m-item"><span class="soc-m-lbl">Tương tác nổi bật</span><span class="soc-m-val">🔥</span></div>
-                    <div class="soc-m-item"><span class="soc-m-lbl">Lượt đề cập (Mentions)</span><span class="soc-m-val">{f319_data['total_mentions']:,}</span></div>
-                    <div class="soc-m-item"><span class="soc-m-lbl">Bài đăng liên quan</span><span class="soc-m-val">{f319_data['total_posts']}</span></div>
-                </div>
-                
-                <div class="p-bar-labels">
-                    <span style="color: #0ECB81;">Bìm bịp (Tăng giá) {f319_data['bullish_pct']}%</span>
-                    <span style="color: #F6465D;">Chim lợn (Giảm giá) {f319_data['bearish_pct']}%</span>
-                </div>
-                <div class="p-bar-container">
-                    <div class="p-bar-bull" style="width: {f319_data['bullish_pct']}%;"></div>
-                    <div class="p-bar-bear" style="width: {f319_data['bearish_pct']}%;"></div>
-                </div>
-                <div style="font-size: 13px; color: #707A8A; line-height: 1.5; margin-top: 24px;">
-                    Dữ liệu được hệ thống AI rà soát và tổng hợp tự động từ các diễn đàn chứng khoán lớn tại Việt Nam (F319, F247...). Mức độ "Hưng phấn" áp đảo thường xuất hiện tại các vùng đỉnh ngắn hạn.
-                </div>
-            </div>
-            """
+            # Code HTML được ÉP SÁT LỀ TRÁI chống lỗi Markdown
+            stats_html = f"""<div class="soc-card">
+<div class="soc-title">Dữ liệu thảo luận (24h)</div>
+<div class="soc-metrics">
+<div class="soc-m-item"><span class="soc-m-lbl">Tương tác nổi bật</span><span class="soc-m-val">🔥</span></div>
+<div class="soc-m-item"><span class="soc-m-lbl">Lượt đề cập (Mentions)</span><span class="soc-m-val">{f319_data['total_mentions']:,}</span></div>
+<div class="soc-m-item"><span class="soc-m-lbl">Bài đăng liên quan</span><span class="soc-m-val">{f319_data['total_posts']}</span></div>
+</div>
+<div class="p-bar-labels">
+<span style="color: #0ECB81;">Bìm bịp (Tăng giá) {f319_data['bullish_pct']}%</span>
+<span style="color: #F6465D;">Chim lợn (Giảm giá) {f319_data['bearish_pct']}%</span>
+</div>
+<div class="p-bar-container">
+<div class="p-bar-bull" style="width: {f319_data['bullish_pct']}%;"></div>
+<div class="p-bar-bear" style="width: {f319_data['bearish_pct']}%;"></div>
+</div>
+<div style="font-size: 13px; color: #707A8A; line-height: 1.5; margin-top: 24px;">
+Dữ liệu được hệ thống AI rà soát và tổng hợp tự động từ các diễn đàn chứng khoán lớn tại Việt Nam (F319, F247...). Mức độ "Hưng phấn" áp đảo thường xuất hiện tại các vùng đỉnh ngắn hạn.
+</div>
+</div>"""
             st.markdown(f"{css_social}{stats_html}", unsafe_allow_html=True)
 
-        # Cột Phải: Feed Bài đăng
         with col_social_posts:
             posts_html = ""
             for p in f319_data['posts']:
                 tag_class = "s-bull-tag" if p['sentiment'] == "Bullish" else "s-bear-tag"
                 tag_text = "↑ Mua/Tăng" if p['sentiment'] == "Bullish" else "↓ Bán/Giảm"
-                posts_html += f"""
-                <div class="soc-post">
-                    <div class="s-author-row">
-                        <div class="s-author"><div class="s-avatar">{p['author'][0]}</div>{p['author']}</div>
-                        <div class="s-time">{p['time']}</div>
-                    </div>
-                    <div class="s-content">{p['content']} <br><span class="{tag_class}">{tag_text}</span></div>
-                </div>
-                """
+                # ÉP SÁT LỀ TRÁI
+                posts_html += f"""<div class="soc-post">
+<div class="s-author-row">
+<div class="s-author"><div class="s-avatar">{p['author'][0]}</div>{p['author']}</div>
+<div class="s-time">{p['time']}</div>
+</div>
+<div class="s-content">{p['content']} <br><span class="{tag_class}">{tag_text}</span></div>
+</div>"""
                 
-            st.markdown(f"""
-            <div class="soc-card" style="height: 400px; overflow-y: auto;">
-                <div class="soc-title">Bài đăng mới nhất</div>
-                {posts_html}
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(f"""<div class="soc-card" style="height: 400px; overflow-y: auto;">
+<div class="soc-title">Bài đăng mới nhất</div>
+{posts_html}
+</div>""", unsafe_allow_html=True)
 
     # --- CAROUSEL TIN TỨC NẰM DƯỚI CÙNG ---
     st.markdown("<br><div style='font-size: 14px; font-weight: 700; color: #E65100; margin-bottom: 16px; text-transform: uppercase; border-top: 1px solid #EAECEF; padding-top: 24px;'>Tin Tức Giao Dịch Nổi Bật</div>", unsafe_allow_html=True)
@@ -223,6 +211,7 @@ def render_hero_section():
         cards_html = ""
         for i, row in hot_news_df.iterrows():
             summary = ' '.join(row['title'].split()[:18]) + "..."
+            # ÉP SÁT LỀ TRÁI
             cards_html += f"""<a href="{row['link']}" target="_blank" class="scroll-card" style="text-decoration: none; color: inherit;">
 <div>
 <div style="color: #E65100; font-size: 11px; margin-bottom: 8px; font-weight: 700; text-transform: uppercase;">{row['ctck']} • {row['date']}</div>
