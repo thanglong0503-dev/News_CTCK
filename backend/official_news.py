@@ -1,12 +1,11 @@
 import requests
-from bs4 import BeautifulSoup
+import xml.etree.ElementTree as ET
 import pandas as pd
 import streamlit as st
 import email.utils
 
 @st.cache_data(ttl=1800, show_spinner=False)
 def fetch_mainstream_news():
-    # Danh sách các luồng RSS mượt và không chặn IP
     sources = [
         {"name": "CafeF", "url": "https://cafef.vn/thi-truong-chung-khoan.rss"},
         {"name": "VnExpress", "url": "https://vnexpress.net/rss/kinh-doanh/chung-khoan.rss"},
@@ -22,29 +21,33 @@ def fetch_mainstream_news():
     
     for source in sources:
         try:
-            # Gửi request xin dữ liệu
-            response = requests.get(source["url"], headers=headers, timeout=15)
+            response = requests.get(source["url"], headers=headers, timeout=10)
             if response.status_code == 200:
-                # Dùng BeautifulSoup cày nát HTML/XML để bóc tách
-                soup = BeautifulSoup(response.content, 'html.parser')
+                # Dùng ElementTree để bảo toàn nguyên vẹn Tiêu đề (CDATA)
+                root = ET.fromstring(response.content)
                 
-                # html.parser tự động chuyển mọi thẻ thành chữ thường, nên pubDate thành pubdate
-                items = soup.find_all('item')[:15] # Lấy tận 15 tin nóng nhất từ MỖI BÁO
+                # Tuyệt kỹ XPath './/item': Quét sạch mọi ngóc ngách tìm bản tin
+                items = root.findall('.//item')[:15]
                 
                 for item in items:
+                    # Rút trích Tiêu đề
                     title_elem = item.find('title')
+                    title = title_elem.text.strip() if title_elem is not None and title_elem.text else ""
+                    
+                    # Rút trích Link
                     link_elem = item.find('link')
-                    pubdate_elem = item.find('pubdate')
-                    
-                    title = title_elem.text.strip() if title_elem else ""
-                    link = link_elem.text.strip() if link_elem else ""
-                    # Nếu báo giấu link ở thẻ khác, tìm thử guid
-                    if not link and item.find('guid'):
-                        link = item.find('guid').text.strip()
+                    link = link_elem.text.strip() if link_elem is not None and link_elem.text else ""
+                    if not link: 
+                        guid_elem = item.find('guid')
+                        link = guid_elem.text.strip() if guid_elem is not None and guid_elem.text else ""
                         
-                    pub_date_str = pubdate_elem.text.strip() if pubdate_elem else ""
+                    # Rút trích Ngày tháng
+                    pubdate_elem = item.find('pubDate') 
+                    if pubdate_elem is None:
+                        pubdate_elem = item.find('pubdate')
+                    pub_date_str = pubdate_elem.text.strip() if pubdate_elem is not None and pubdate_elem.text else ""
                     
-                    # Bỏ qua nếu dòng tin bị lỗi rỗng
+                    # Nếu báo bị lỗi mất tiêu đề hoặc link thì bỏ qua dòng đó
                     if not title or not link:
                         continue
                         
@@ -83,7 +86,7 @@ def fetch_mainstream_news():
             
     df = pd.DataFrame(news_list)
     
-    # 3. Trộn toàn bộ tin của các báo và sắp xếp theo số giây gần nhất
+    # 3. Trộn và sắp xếp thời gian chuẩn xác
     if not df.empty and 'timestamp' in df.columns:
         df = df.sort_values(by='timestamp', ascending=False).drop(columns=['timestamp'])
         
