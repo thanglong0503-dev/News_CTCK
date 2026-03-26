@@ -12,51 +12,47 @@ def render_header():
 
 # --- KHỐI 2: TỔNG QUAN THỊ TRƯỜNG (UI BINANCE) & TIN NÓNG ---
 def render_hero_section():
-    # 2.1 BAR MENU ĐIỀU HƯỚNG TỔNG QUAN
     st.markdown("""
-        <div style="display: flex; gap: 24px; margin-bottom: 16px; align-items: baseline;">
+        <div style="display: flex; gap: 24px; margin-bottom: 20px; align-items: baseline;">
             <h2 style='font-size: 22px; font-weight: 700; color: #1E2329; margin: 0;'>Tổng quan</h2>
             <span style='font-size: 16px; font-weight: 600; color: #848E9C; cursor: pointer;'>Dữ liệu Giao dịch</span>
             <span style='font-size: 16px; font-weight: 600; color: #848E9C; cursor: pointer;'>Lựa chọn của AI</span>
         </div>
     """, unsafe_allow_html=True)
 
-    # Lấy dữ liệu Real-time
     market_data, groups = fetch_realtime_data()
 
     # Tạo 4 cột ngang nhau
     cols = st.columns(4)
     
-    # CSS CHUẨN UI BINANCE (Đẩy sát lề trái chống lỗi Markdown)
+    # CSS CHUẨN UI BINANCE (Ép lề trái chống lỗi)
     css_binance = """<style>
-.b-card { background: #fff; border: 1px solid #EAECEF; border-radius: 12px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.01); transition: box-shadow 0.2s; }
+.b-card { background: #fff; border: 1px solid #EAECEF; border-radius: 12px; padding: 20px 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.01); transition: box-shadow 0.2s; min-height: 240px; }
 .b-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-.b-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-.b-title { font-weight: 600; font-size: 14px; color: #1E2329; }
-.b-more { font-size: 12px; color: #707A8A; text-decoration: none; }
-.b-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.b-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #F0F2F5; padding-bottom: 12px;}
+.b-title { font-weight: 700; font-size: 15px; color: #1E2329; }
+.b-more { font-size: 13px; color: #707A8A; text-decoration: none; font-weight: 500; }
+.b-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
 .b-row:last-child { margin-bottom: 0; }
-.b-left { display: flex; align-items: center; gap: 8px; width: 40%; }
-.b-icon { font-size: 20px; }
-.b-name { font-weight: 600; font-size: 14px; color: #1E2329; }
-.b-price { font-size: 14px; color: #1E2329; text-align: left; width: 35%; font-family: monospace; font-weight: 500;}
-.b-change { font-size: 14px; font-weight: 600; text-align: right; width: 25%; }
+.b-name { font-weight: 600; font-size: 14px; color: #1E2329; width: 35%; }
+.b-price { font-size: 14px; color: #1E2329; text-align: right; width: 35%; font-family: 'SF Mono', Consolas, monospace; font-weight: 500;}
+.b-change { font-size: 14px; font-weight: 600; text-align: right; width: 30%; }
 .c-up { color: #0ECB81; } /* Xanh lá chuẩn Binance */
 .c-down { color: #F6465D; } /* Đỏ chuẩn Binance */
 </style>"""
 
-    # In 4 thẻ dữ liệu ra màn hình
+    # Vòng lặp in 4 thẻ dữ liệu ra màn hình
     for col, (group_name, tickers) in zip(cols, groups.items()):
         with col:
             rows_html = ""
             for t in tickers:
-                data = market_data.get(t, {"name": t, "icon": "➖", "price": "N/A", "change": 0})
+                data = market_data.get(t, {"name": t, "price": "N/A", "change": 0})
                 color_class = "c-up" if data['change'] >= 0 else "c-down"
                 sign = "+" if data['change'] > 0 else ""
                 change_str = f"{sign}{data['change']:.2f}%" if data['price'] != "N/A" else "N/A"
 
                 rows_html += f"""<div class="b-row">
-<div class="b-left"><span class="b-icon">{data['icon']}</span><span class="b-name">{data['name']}</span></div>
+<div class="b-name">{data['name']}</div>
 <div class="b-price">{data['price']}</div>
 <div class="b-change {color_class}">{change_str}</div>
 </div>"""
@@ -67,7 +63,7 @@ def render_hero_section():
 </div>"""
             st.markdown(f"{css_binance}{card_html}", unsafe_allow_html=True)
 
-    # 2.2 VÒNG QUAY TIN TỨC ĐẶT NGAY BÊN DƯỚI (Full width)
+    # Lắp lại cái Vòng quay Tin Nóng (Carousel) nằm ngang bên dưới 4 thẻ
     st.markdown("<br><div class='category-tag' style='margin-bottom: 16px;'>🔥 Tin Nổi Bật Giao Dịch</div>", unsafe_allow_html=True)
     df_news = fetch_mainstream_news()
     if not df_news.empty:
@@ -79,7 +75,7 @@ def render_hero_section():
 .scroll-container::-webkit-scrollbar { height: 4px; }
 .scroll-container::-webkit-scrollbar-track { background: transparent; border-radius: 4px; }
 .scroll-container::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 4px; }
-.scroll-card { scroll-snap-align: start; min-width: calc(33.333% - 11px); background: #fff; border: 1px solid #E5E7EB; border-radius: 8px; padding: 24px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; height: 180px; transition: all 0.2s ease; }
+.scroll-card { scroll-snap-align: start; min-width: calc(33.333% - 11px); background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; height: 160px; transition: all 0.2s ease; }
 .scroll-card:hover { border-color: #F6465D; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
 </style>"""
 
@@ -89,7 +85,7 @@ def render_hero_section():
             cards_html += f"""<a href="{row['link']}" target="_blank" class="scroll-card" style="text-decoration: none; color: inherit;">
 <div>
 <div style="color: #707A8A; font-size: 11px; margin-bottom: 8px; font-weight: 600; text-transform: uppercase;">{row['ctck']} • {row['date']}</div>
-<div style="color: #1E2329; font-size: 16px; font-weight: 700; line-height: 1.35;">{summary}</div>
+<div style="color: #1E2329; font-size: 15px; font-weight: 700; line-height: 1.4;">{summary}</div>
 </div>
 </a>"""
         st.markdown(f"{css_car}<div class='scroll-container'>{cards_html}</div>", unsafe_allow_html=True)
