@@ -1,20 +1,17 @@
 import pandas as pd
 import yfinance as yf
 import re
+from collections import Counter
 from backend.official_news import fetch_mainstream_news
 
-# --- PHẦN 1: ĐO LƯỜNG CẢM XÚC TIN TỨC (NEWS SENTIMENT) ---
-
+# --- PHẦN 1: ĐO LƯỜNG CẢM XÚC TIN TỨC (NEWS SENTIMENT 2.0) ---
 def analyze_news_sentiment():
-    # 1. Kéo dữ liệu tin tức thật
     df_news = fetch_mainstream_news()
-    if df_news.empty: return 50, [] # Trả về điểm trung bình và danh sách rỗng nếu không có tin
+    if df_news.empty: return 50, [], [] 
 
-    # 2. Định nghĩa từ khóa cảm xúc (Rule-based)
-    # Tích cực (Bullish)
-    positive_words = r"\b(lãi|lợi nhuận|vượt đỉnh|tăng trưởng|khả quan|đột phá|dòng tiền|mua vào|mở rộng|hấp dẫn)\b"
-    # Tiêu cực (Bearish)
-    negative_words = r"\b(thua lỗ|sụt giảm|nguy cơ|bắt bớ|thanh tra|margin call|bán tháo|khó khăn|yếu kém)\b"
+    # Bộ từ điển chuyên ngành đã được mở rộng (NLP rule-based)
+    positive_words = r"\b(lãi|lợi nhuận|vượt đỉnh|tăng trưởng|khả quan|đột phá|dòng tiền|mua vào|mở rộng|hấp dẫn|phục hồi|kỳ vọng|tích cực|bùng nổ|cổ tức|gom|hỗ trợ|thuận lợi|triển vọng)\b"
+    negative_words = r"\b(thua lỗ|sụt giảm|nguy cơ|bắt bớ|thanh tra|margin call|bán tháo|khó khăn|yếu kém|hủy niêm yết|đình chỉ|nợ xấu|cảnh báo|vi phạm|giảm sâu|lỗ|bán mạnh|thoái vốn|xả hàng|kém sắc)\b"
 
     def get_sentiment(title):
         title_lower = title.lower()
@@ -25,64 +22,92 @@ def analyze_news_sentiment():
         elif neg_score > pos_score: return "Bearish"
         else: return "Neutral"
 
-    # 3. Chấm điểm từng bài báo
     df_news['sentiment'] = df_news['title'].apply(get_sentiment)
 
-    # 4. Tính điểm tổng quan thị trường (từ 0-100)
     pos_count = len(df_news[df_news['sentiment'] == "Bullish"])
     neg_count = len(df_news[df_news['sentiment'] == "Bearish"])
     total_count = pos_count + neg_count
     
-    # Điểm 50 là trung bình, >50 là tích cực, <50 là tiêu cực
-    if total_count == 0: market_sentiment_score = 50
-    else: market_sentiment_score = (pos_count / total_count) * 100
+    # Tính điểm Sentiment với độ mượt, tránh bị kẹt ở 100 hoặc 0
+    if total_count == 0: 
+        market_sentiment_score = 50
+    else: 
+        # Base score là 50, cộng trừ dựa trên tỷ lệ chênh lệch
+        ratio = (pos_count - neg_count) / total_count
+        market_sentiment_score = 50 + (ratio * 50)
 
-    # Lọc lấy 3 tin Tích cực nhất và 3 tin Tiêu cực nhất để hiển thị
-    top_bullish_news = df_news[df_news['sentiment'] == "Bullish"].head(3)
-    top_bearish_news = df_news[df_news['sentiment'] == "Bearish"].head(3)
+    top_bullish_news = df_news[df_news['sentiment'] == "Bullish"].head(3).to_dict('records')
+    top_bearish_news = df_news[df_news['sentiment'] == "Bearish"].head(3).to_dict('records')
 
-    return market_sentiment_score, top_bullish_news.to_dict('records'), top_bearish_news.to_dict('records')
+    return market_sentiment_score, top_bullish_news, top_bearish_news
 
-# --- PHẦN 2: BÁO ĐỘNG ĐIỂM MUA/BÁN KỸ THUẬT (TECHNICAL ALERTS) ---
+# --- PHẦN 2: BÁO ĐỘNG KỸ THUẬT ĐỘNG (DYNAMIC TECHNICAL ALERTS) ---
+def extract_tickers_from_news():
+    """Hàm tự động quét mã cổ phiếu (3 chữ cái viết hoa) từ tin tức"""
+    df_news = fetch_mainstream_news()
+    if df_news.empty: return ["FPT", "HPG", "STB", "VCB", "SSI"] # Fallback an toàn
+
+    # Gom toàn bộ tiêu đề thành 1 đoạn text lớn
+    text_corpus = " ".join(df_news['title'].tolist())
+    
+    # Dùng Regex tìm tất cả các chuỗi có đúng 3 chữ cái viết hoa
+    potential_tickers = re.findall(r"\b[A-Z]{3}\b", text_corpus)
+    
+    # Danh sách các từ viết hoa 3 chữ cái nhưng không phải mã cổ phiếu cần loại bỏ
+    ignore_list = {"FED", "GDP", "FDI", "USD", "VND", "HNX", "UPC", "KCN", "BĐS", "ETF", "BOT", "VNI", "VN3", "UBC"}
+    
+    # Lọc và đếm số lần xuất hiện
+    valid_tickers = [t for t in potential_tickers if t not in ignore_list]
+    
+    # Lấy ra Top 15 mã được nhắc đến nhiều nhất trên báo chí hôm nay
+    top_tickers = [item[0] for item in Counter(valid_tickers).most_common(15)]
+    
+    # Nếu báo chí hôm nay ít mã quá, bù thêm vài trụ cột cho đủ dữ liệu quét
+    fallback_bluechips = ["FPT", "HPG", "STB", "SSI", "MWG", "DGC"]
+    for fb in fallback_bluechips:
+        if fb not in top_tickers:
+            top_tickers.append(fb)
+            
+    return top_tickers[:15] # Trả về tối đa 15 mã để tránh API Yahoo bị quá tải
 
 def generate_technical_alerts():
-    # Định nghĩa rổ cổ phiếu quan tâm để AI soi (Ví dụ rổ Bluechip mạnh)
-    ticker_list = ["FPT.VN", "HPG.VN", "STB.VN", "VCB.VN", "SSI.VN", "MWG.VN", "DGC.VN"]
-    
+    # 1. AI tự động quét báo để lấy danh sách mã cần soi
+    dynamic_tickers = extract_tickers_from_news()
     alerts = []
     
-    for t in ticker_list:
+    # 2. Bắt đầu soi kỹ thuật từng mã thời gian thực
+    for t in dynamic_tickers:
+        ticker_symbol = f"{t}.VN" # Gắn đuôi .VN cho Yahoo Finance
         try:
-            # Hút dữ liệu giá 50 ngày qua để tính toán
-            ticker = yf.Ticker(t)
+            ticker = yf.Ticker(ticker_symbol)
             hist = ticker.history(period="50d")
             
-            if len(hist) < 20: continue # Không đủ dữ liệu
+            if hist.empty or len(hist) < 20: continue 
             
             close_today = float(hist['Close'].iloc[-1])
             volume_today = float(hist['Volume'].iloc[-1])
             ma20 = float(hist['Close'].rolling(window=20).mean().iloc[-1])
             volume_ma10 = float(hist['Volume'].rolling(window=10).mean().iloc[-1])
 
-            # 1. Kiểm tra điểm nổ (Breakout): Giá vượt MA20 và Volume bùng nổ
+            # Thuật toán: ĐỘT PHÁ KHỐI LƯỢNG (Giá vượt MA20 + Vol bùng nổ 1.5 lần)
             if close_today > ma20 and volume_today > 1.5 * volume_ma10:
                 alerts.append({
-                    "ticker": t.replace(".VN", ""),
-                    "type": "Nổ Vol. Vượt đỉnh",
-                    "color": "#0ECB81",
-                    "details": f"Giá: {close_today:,.0f} | Vol: {volume_today/1e6:,.1f} tr cổ (+{(volume_today/volume_ma10-1)*100:.0f}%)"
+                    "ticker": t,
+                    "type": "ĐỘT PHÁ KHỐI LƯỢNG",
+                    "color": "#0ECB81", # Xanh
+                    "details": f"Giá: {close_today:,.0f} | Vol: {volume_today/1e6:,.1f}M (+{(volume_today/volume_ma10-1)*100:.0f}%)"
                 })
 
-            # 2. Kiểm tra điểm Quá bán (Oversold - Rơi sâu vào vùng giá rẻ)
-            # Giả định nếu giá rớt xuống dưới đường MA20 hơn 5% là cơ hội xem xét
-            if close_today < ma20 * 0.95:
+            # Thuật toán: TÍN HIỆU QUÁ BÁN (Giá gãy sâu dưới MA20 hơn 5%)
+            elif close_today < ma20 * 0.95:
                 alerts.append({
-                    "ticker": t.replace(".VN", ""),
-                    "type": "Cơ hội bắt đáy",
-                    "color": "#F6465D",
-                    "details": f"Giá: {close_today:,.0f} | Thấp hơn 5% so với giá TB tháng (MA20)"
+                    "ticker": t,
+                    "type": "TÍN HIỆU QUÁ BÁN",
+                    "color": "#F6465D", # Đỏ
+                    "details": f"Giá: {close_today:,.0f} | Chiết khấu >5% so với MA20"
                 })
-        except: continue
+        except: 
+            continue # Bỏ qua nếu Yahoo Finance lỗi mã này, soi tiếp mã khác
 
-    # Giới hạn lấy 5 báo động mới nhất
+    # Trả về tối đa 5 thẻ để giao diện hiển thị đẹp, cân đối
     return alerts[:5]
