@@ -115,44 +115,45 @@ def generate_technical_alerts():
 import requests
 import random
 
-# --- PHẦN 3: ĐO LƯỜNG TÂM LÝ DIỄN ĐÀN (GỘP ĐA NGUỒN: F319 + REDDIT) ---
+# --- PHẦN 3: ĐO LƯỜNG TÂM LÝ DIỄN ĐÀN (BẢN CHỐNG SẬP) ---
 def get_f319_sentiment():
     posts = []
     bullish_count = 0
     bearish_count = 0
     
-    # --- LUỒNG 1: HÚT DỮ LIỆU TỪ F319 (Qua Proxy RSS2JSON) ---
+    # --- LUỒNG 1: F319 (Dùng Proxy bản gốc đã chạy thành công) ---
     try:
         rss_url = "http://f319.com/forums/thi-truong-chung-khoan.3/index.rss"
-        # Tăng count lên 20 để vét sạch bài mới
-        proxy_api = f"https://api.rss2json.com/v1/api.json?rss_url={rss_url}&count=20" 
-        res_f319 = requests.get(proxy_api, timeout=5)
+        # Đã xóa cái &count=20 gây lỗi, trả về nguyên bản
+        proxy_api = f"https://api.rss2json.com/v1/api.json?rss_url={rss_url}" 
         
+        res_f319 = requests.get(proxy_api, timeout=7)
         if res_f319.status_code == 200:
             data = res_f319.json()
             if data.get('status') == 'ok':
-                for item in data.get('items', []):
+                items = data.get('items', [])[:15]
+                for item in items:
                     title = item.get('title', '')
                     if len(title) < 10: continue
                     
                     author = item.get('author', '')
                     if not author: author = f"Chứng_Thủ_{random.randint(100,999)}"
                     
-                    pub_date = item.get('pubDate', '')
+                    pub_date = item.get('pubDate', 'Gần đây')
                     time_str = pub_date.split(' ')[1][:5] if ' ' in pub_date else "Vừa xong"
                         
                     posts.append({
                         "author": author,
-                        "time": f"F319 • {time_str}", # Gắn mác nguồn F319
+                        "time": f"F319 • {time_str}",
                         "content": title
                     })
     except Exception as e:
-        print(f"Lỗi hút luồng F319: {e}")
+        print(f"Lỗi F319: {e}")
 
-    # --- LUỒNG 2: HÚT DỮ LIỆU TỪ REDDIT (Cộng đồng r/chungkhoan) ---
+    # --- LUỒNG 2: REDDIT (Chạy ẩn, lỗi cũng không sao) ---
     try:
-        url_reddit = "https://www.reddit.com/r/chungkhoan/new.json?limit=25" # Vét 25 bài
-        headers = {'User-Agent': 'VSR_Terminal_Bot/2.0 (Windows NT 10.0; Win64; x64)'}
+        url_reddit = "https://www.reddit.com/r/chungkhoan/new.json?limit=10"
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
         res_reddit = requests.get(url_reddit, headers=headers, timeout=5)
         
         if res_reddit.status_code == 200:
@@ -161,17 +162,16 @@ def get_f319_sentiment():
                 post_data = item['data']
                 title = post_data.get('title', '')
                 if len(title) < 10: continue
-                
                 author = post_data.get('author', 'Unknown')
                 posts.append({
                     "author": f"u/{author}",
-                    "time": "Reddit • Gần đây", # Gắn mác nguồn Reddit
+                    "time": "Reddit • Gần đây",
                     "content": title
                 })
     except Exception as e:
-        print(f"Lỗi hút luồng Reddit: {e}")
+        print(f"Lỗi Reddit: {e}")
 
-    # --- CHẤM ĐIỂM TÂM LÝ CHO TOÀN BỘ BÀI VIẾT TỪ 2 NGUỒN ---
+    # --- CHẤM ĐIỂM CHUNG CHO CẢ 2 LUỒNG ---
     for p in posts:
         title_lower = p['content'].lower()
         if any(word in title_lower for word in ['múc', 'ce', 'tím', 'vượt', 'lên', 'đáy', 'gom', 'uptrend', 'sóng', 'kéo', 'ngon', 'mua', 'lãi', 'tăng', 'vào']):
@@ -183,14 +183,14 @@ def get_f319_sentiment():
         else:
             p['sentiment'] = "Neutral"
 
-    # Trộn đều mảng dữ liệu để giao diện hiện xen kẽ bài của F319 và Reddit
+    # Trộn đều bài đăng để hiển thị xen kẽ tự nhiên
     random.shuffle(posts)
 
-    # NẾU MẤT MẠNG CẢ 2 NGUỒN
+    # Nếu cả 2 luồng đều chết thì mới chịu thua
     if not posts:
         return {"bullish_pct": 0, "bearish_pct": 0, "total_mentions": 0, "total_posts": 0, "posts": []}
 
-    # TÍNH TOÁN TỔNG THỂ
+    # Tính toán phần trăm
     total_posts = len(posts)
     total_sentiment = bullish_count + bearish_count
     
@@ -204,7 +204,7 @@ def get_f319_sentiment():
     return {
         "bullish_pct": bullish_pct,
         "bearish_pct": bearish_pct,
-        "total_mentions": total_posts * random.randint(15, 35), # Phóng to số mention tương ứng
+        "total_mentions": total_posts * random.randint(15, 35),
         "total_posts": total_posts,
         "posts": posts
     }
