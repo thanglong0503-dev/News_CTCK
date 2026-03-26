@@ -3,55 +3,51 @@ import streamlit as st
 
 @st.cache_data(ttl=300, show_spinner=False)
 def fetch_realtime_data():
-    # Phân bổ 4 cột dữ liệu theo đúng ý ngươi
+    # Cấu trúc 4 cột theo đúng chuẩn Terminal
     groups = {
-        "Vĩ mô & Chỉ số": ["^VNINDEX", "VND=X", "GC=F"],
-        "Danh mục Tích sản": ["PLX.VN", "MBB.VN", "TNG.VN"],
-        "Top Công Nghệ": ["FPT.VN", "CMG.VN", "VGI.VN"],
-        "Volume Lớn nhất": ["SSI.VN", "VND.VN", "HPG.VN"]
+        "Tổng quan thị trường": ["^VNINDEX", "GC=F", "VND=X", "BZ=F", "^IXIC"],
+        "Vốn hóa lớn": ["VCB.VN", "BID.VN", "FPT.VN", "HPG.VN"],
+        "Top SMG (Momentum)": ["DGC.VN", "GMD.VN", "MWG.VN", "SSI.VN"],
+        "Volume Lớn nhất": ["NVL.VN", "STB.VN", "SHB.VN", "VND.VN"]
     }
 
-    # Bảng mapping tên đẹp và Icon (Icon dùng Emoji để chạy mượt 100% không bị lỗi link ảnh)
+    # Đổi tên hiển thị cho chuyên nghiệp (Không dùng Icon nữa)
     meta = {
-        "^VNINDEX": {"name": "VNINDEX", "icon": "🇻🇳"},
-        "VND=X": {"name": "USD/VND", "icon": "💵"},
-        "GC=F": {"name": "VÀNG", "icon": "🥇"},
-        "PLX.VN": {"name": "PLX", "icon": "⛽"},
-        "MBB.VN": {"name": "MBB", "icon": "🏦"},
-        "TNG.VN": {"name": "TNG", "icon": "👕"},
-        "FPT.VN": {"name": "FPT", "icon": "💻"},
-        "CMG.VN": {"name": "CMG", "icon": "🌐"},
-        "VGI.VN": {"name": "VGI", "icon": "📡"},
-        "SSI.VN": {"name": "SSI", "icon": "📈"},
-        "VND.VN": {"name": "VND", "icon": "📊"},
-        "HPG.VN": {"name": "HPG", "icon": "🏗️"}
+        "^VNINDEX": "VNINDEX", "GC=F": "VÀNG (Gold)", "VND=X": "USD/VND", 
+        "BZ=F": "DẦU BRENT", "^IXIC": "NASDAQ",
+        "VCB.VN": "VCB", "BID.VN": "BID", "FPT.VN": "FPT", "HPG.VN": "HPG",
+        "DGC.VN": "DGC", "GMD.VN": "GMD", "MWG.VN": "MWG", "SSI.VN": "SSI",
+        "NVL.VN": "NVL", "STB.VN": "STB", "SHB.VN": "SHB", "VND.VN": "VND"
     }
 
     market_data = {}
     for t in meta.keys():
         try:
-            # Hút dữ liệu 5 ngày qua để so sánh giá hôm nay và hôm qua
             ticker = yf.Ticker(t)
             hist = ticker.history(period="5d")
-            if len(hist) >= 2:
+            if not hist.empty and len(hist) >= 2:
                 close_today = float(hist['Close'].iloc[-1])
                 close_prev = float(hist['Close'].iloc[-2])
                 change_pct = ((close_today - close_prev) / close_prev) * 100
 
-                # Cân đối hiển thị (Giá to thì phẩy ngàn, giá bé thì lấy số thập phân)
-                if close_today > 1000: price_str = f"{close_today:,.0f}"
-                else: price_str = f"{close_today:,.2f}"
-            else:
-                price_str = "0.00"
-                change_pct = 0.0
+                # Định dạng số tiền: Vàng/Nasdaq dùng $, Tiền Việt có dấu phẩy
+                if t in ["GC=F", "BZ=F", "^IXIC"]:
+                    price_str = f"${close_today:,.1f}"
+                elif close_today > 1000: 
+                    price_str = f"{close_today:,.0f}"
+                elif close_today > 10: 
+                    price_str = f"{close_today:,.2f}"
+                else: 
+                    price_str = f"{close_today:,.2f}"
 
-            market_data[t] = {
-                "name": meta[t]["name"],
-                "icon": meta[t]["icon"],
-                "price": f"${price_str}" if "USD" in t else price_str,
-                "change": change_pct
-            }
+                market_data[t] = {
+                    "name": meta[t],
+                    "price": price_str,
+                    "change": change_pct
+                }
+            else:
+                market_data[t] = {"name": meta[t], "price": "N/A", "change": 0.0}
         except:
-            market_data[t] = {"name": meta[t]["name"], "icon": meta[t]["icon"], "price": "N/A", "change": 0.0}
+            market_data[t] = {"name": meta[t], "price": "N/A", "change": 0.0}
 
     return market_data, groups
