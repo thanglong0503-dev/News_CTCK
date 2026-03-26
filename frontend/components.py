@@ -4,12 +4,13 @@ import pandas as pd
 from backend.official_news import fetch_mainstream_news
 from datetime import datetime
 
-# --- KHỐI 1: HEADER & HERO (CAROUSEL THUẦN CSS - ĐẢM BẢO CHẠY 100%) ---
+# --- KHỐI 1: HEADER & HERO (CAROUSEL THUẦN CSS - PHIÊN BẢN TINH TẾ) ---
 def render_header():
     st.markdown("<h1 style='font-size: 32px; color: #1E2329; font-weight: 700; margin-bottom: 8px;'>Vietnam Securities Research</h1>", unsafe_allow_html=True)
     st.markdown("<p style='color: #474D57; font-size: 16px; margin-bottom: 40px;'>Cung cấp phân tích cấp tổ chức, thông tin chuyên sâu và biểu phí khách quan cho nhà đầu tư.</p>", unsafe_allow_html=True)
 
 def render_hero_section():
+    # Chia cột: Cột 1 cho ảnh, Cột 2 cho Carousel tin Hot (Thanh cuộn ngang)
     col_img, col_space, col_carousel = st.columns([1.2, 0.1, 1]) 
     
     with col_img:
@@ -17,38 +18,42 @@ def render_hero_section():
     
     with col_carousel:
         df_news = fetch_mainstream_news()
+        
+        # Tiêu đề khối
         st.markdown("<div class='category-tag' style='margin-bottom: 16px;'>🔥 Bản Tin Tóm Tắt Nhanh</div>", unsafe_allow_html=True)
 
         if df_news.empty:
             st.warning("Đang chờ cập nhật tin nóng...")
             return
 
-        # Lọc lấy 5 tin nóng nhất
+        # Lọc lấy 5 tin nóng nhất để đưa vào vòng quay
         hot_news_df = df_news[df_news['tag'].str.contains('🔥')].head(5)
         if hot_news_df.empty:
             hot_news_df = df_news.head(5)
 
-        # 1. CSS TẠO THANH CUỘN NGANG (Không dùng JS)
+        # 1. CSS TẠO THANH CUỘN NGANG TINH TẾ (Nói không với JS)
         css = """
         <style>
+        /* Khung chứa chính cho phép cuộn ngang */
         .scroll-container {
             display: flex;
             overflow-x: auto;
-            scroll-snap-type: x mandatory;
+            scroll-snap-type: x mandatory; /* Bắt thẻ khi cuộn đến */
             gap: 16px;
-            padding-bottom: 12px;
+            padding-bottom: 8px; /* Khoảng trống cho thanh cuộn */
             scroll-behavior: smooth;
         }
-        /* Làm đẹp thanh cuộn */
-        .scroll-container::-webkit-scrollbar { height: 6px; }
-        .scroll-container::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
-        .scroll-container::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
-        .scroll-container::-webkit-scrollbar-thumb:hover { background: #F6465D; }
         
-        /* Thiết kế thẻ bài viết */
+        /* Làm đẹp thanh cuộn */
+        .scroll-container::-webkit-scrollbar { height: 4px; }
+        .scroll-container::-webkit-scrollbar-track { background: transparent; border-radius: 4px; }
+        .scroll-container::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 4px; }
+        .scroll-container::-webkit-scrollbar-thumb:hover { background: #ccc; }
+        
+        /* Thiết kế thẻ bài viết chi tiết */
         .scroll-card {
             scroll-snap-align: start;
-            min-width: 100%; /* Mỗi thẻ chiếm 100% chiều ngang */
+            min-width: 100%; /* Mỗi thẻ chiếm 100% chiều ngang của khung chứa */
             background: #fff;
             border: 1px solid #E5E7EB;
             border-radius: 8px;
@@ -56,39 +61,46 @@ def render_hero_section():
             box-sizing: border-box;
             display: flex;
             flex-direction: column;
-            justify-content: center;
-            transition: all 0.3s ease;
+            justify-content: space-between;
+            height: 320px; /* Chiều cao cố định cho mượt mà */
+            transition: all 0.2s ease;
         }
-        .scroll-card:hover { border-color: #F6465D; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .scroll-card:hover { border-color: #F6465D; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
         </style>
         """
 
-        # 2. RÁP NỘI DUNG VÀO THẺ
+        # 2. RÁP NỘI DUNG VÀO THÈ HTML
         cards_html = ""
         for i, row in hot_news_df.iterrows():
-            summary = ' '.join(row['title'].split()[:25]) + "..."
+            # Tóm tắt ngắn gọn
+            summary = ' '.join(row['title'].split()[:22]) + "..."
             cards_html += f"""
             <a href="{row['link']}" target="_blank" class="scroll-card" style="text-decoration: none; color: inherit;">
-                <div style="color: #707A8A; font-size: 12px; margin-bottom: 12px; font-weight: 600; text-transform: uppercase;">
-                    {row['ctck']} • {row['date']}
+                <div>
+                    <div style="color: #707A8A; font-size: 12px; margin-bottom: 12px; font-weight: 600; text-transform: uppercase;">
+                        {row['ctck']} • {row['date']}
+                    </div>
+                    <div style="color: #1E2329; font-size: 19px; font-weight: 700; line-height: 1.35; margin-bottom: 12px;">
+                        {row['title']}
+                    </div>
                 </div>
-                <div style="color: #1E2329; font-size: 20px; font-weight: 700; line-height: 1.4; margin-bottom: 12px;">
-                    {row['title']}
-                </div>
-                <div style="color: #474D57; font-size: 15px; line-height: 1.6;">
+                <div style="color: #474D57; font-size: 14px; line-height: 1.5;">
                     {summary}
                 </div>
             </a>
             """
 
-        # 3. HIỂN THỊ LÊN GIAO DIỆN
+        # 3. HIỂN THỊ KHỐI CAROUSEL RA GIAO DIỆN
+        # Kết hợp CSS và các thẻ bài viết vào một khối div
         html_block = f"{css}<div class='scroll-container'>{cards_html}</div>"
         st.markdown(html_block, unsafe_allow_html=True)
 
 # --- KHỐI 2: TÌM KIẾM, LỌC & LƯỚI BÀI VIẾT (Giữ nguyên) ---
 def render_news_section():
+    # Kéo dữ liệu thật
     df_news = fetch_mainstream_news()
     
+    # Khởi tạo session state cho phân trang & tìm kiếm nếu chưa có
     if 'current_page' not in st.session_state:
         st.session_state.current_page = 1
     if 'search_query' not in st.session_state:
@@ -96,17 +108,22 @@ def render_news_section():
 
     st.markdown("<br><div class='section-title' style='margin-top: 0px;'>Tra cứu Thông tin</div>", unsafe_allow_html=True)
     
+    # Giao diện tìm kiếm & Lọc kiểu box xám
     with st.container():
         st.markdown("<div style='background-color: #F0F2F5; padding: 20px; border-radius: 8px; margin-bottom: 24px; border: 1px solid #E5E7EB;'>", unsafe_allow_html=True)
         
+        # Hàng 1: Ô Search và Nút tìm kiếm
         col_input, col_btn = st.columns([5, 1])
         with col_input:
             search_val = st.text_input("Tìm kiếm", value=st.session_state.search_query, placeholder="Gõ mã CK hoặc Tên công ty...", label_visibility="collapsed")
         with col_btn:
             if st.button("🔍 Tìm kiếm", use_container_width=True):
+                # Cập nhật session state
                 st.session_state.search_query = search_val
+                # Reset về trang 1 khi search mới
                 st.session_state.current_page = 1
                 
+        # Hàng 2: Radio Phân loại & Dropdown Thời gian
         col_radio, col_time = st.columns([4, 2])
         with col_radio:
             filter_type = st.radio("Phân loại:", ["Tất cả", "Công ty", "Tin tức", "Lãnh đạo", "Cổ phiếu quan tâm"], horizontal=True, label_visibility="collapsed")
@@ -118,6 +135,7 @@ def render_news_section():
     if df_news.empty:
         return
 
+    # Logic lọc dữ liệu
     filtered_df = df_news.copy()
     if st.session_state.search_query:
         query = st.session_state.search_query.lower()
@@ -132,16 +150,19 @@ def render_news_section():
         today_str = datetime.now().strftime("%d/%m/%Y")
         filtered_df = filtered_df[filtered_df['date'].str.contains(today_str)]
 
+    # Logic phân trang
     ITEMS_PER_PAGE = 8
     total_items = len(filtered_df)
     total_pages = math.ceil(total_items / ITEMS_PER_PAGE) if total_items > 0 else 1
     
+    # Đảm bảo trang hiện tại không vượt quá tổng số trang sau khi lọc
     if st.session_state.current_page > total_pages: st.session_state.current_page = total_pages
         
     start_idx = (st.session_state.current_page - 1) * ITEMS_PER_PAGE
     end_idx = start_idx + ITEMS_PER_PAGE
     paged_df = filtered_df.iloc[start_idx:end_idx]
 
+    # Render lưới bài viết
     if paged_df.empty:
         st.warning("Không tìm thấy kết quả nào phù hợp với từ khóa/bộ lọc của bạn.")
     else:
@@ -160,6 +181,7 @@ def render_news_section():
                 """
                 st.markdown(card_html, unsafe_allow_html=True)
 
+    # Render nút phân trang
     if total_pages > 1:
         st.markdown("<br>", unsafe_allow_html=True)
         pag_cols = st.columns([3, 1, 2, 1, 3]) 
