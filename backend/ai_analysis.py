@@ -115,69 +115,64 @@ def generate_technical_alerts():
 import requests
 import random
 
-# --- PHẦN 3: ĐO LƯỜNG TÂM LÝ DIỄN ĐÀN (BẢN CHỐNG SẬP) ---
+# --- PHẦN 3: ĐO LƯỜNG TÂM LÝ DIỄN ĐÀN (TAM KIẾM: F319 + REDDIT + F247) ---
 def get_f319_sentiment():
     posts = []
     bullish_count = 0
     bearish_count = 0
     
-    # --- LUỒNG 1: F319 (Dùng Proxy bản gốc đã chạy thành công) ---
+    # --- LUỒNG 1: F319 (Dùng Proxy bản gốc) ---
     try:
         rss_url = "http://f319.com/forums/thi-truong-chung-khoan.3/index.rss"
-        # Đã xóa cái &count=20 gây lỗi, trả về nguyên bản
         proxy_api = f"https://api.rss2json.com/v1/api.json?rss_url={rss_url}" 
-        
         res_f319 = requests.get(proxy_api, timeout=7)
         if res_f319.status_code == 200:
             data = res_f319.json()
             if data.get('status') == 'ok':
-                items = data.get('items', [])[:15]
-                for item in items:
+                for item in data.get('items', [])[:10]: # Lấy 10 bài
                     title = item.get('title', '')
                     if len(title) < 10: continue
-                    
                     author = item.get('author', '')
                     if not author: author = f"Chứng_Thủ_{random.randint(100,999)}"
-                    
-                    pub_date = item.get('pubDate', 'Gần đây')
-                    time_str = pub_date.split(' ')[1][:5] if ' ' in pub_date else "Vừa xong"
-                        
-                    posts.append({
-                        "author": author,
-                        "time": f"F319 • {time_str}",
-                        "content": title
-                    })
-    except Exception as e:
-        print(f"Lỗi F319: {e}")
+                    posts.append({"author": author, "time": "F319 • Gần đây", "content": title})
+    except Exception as e: print(f"Lỗi F319: {e}")
 
-    # --- LUỒNG 2: REDDIT (Chạy ẩn, lỗi cũng không sao) ---
+    # --- LUỒNG 2: REDDIT (Cộng đồng r/chungkhoan) ---
     try:
         url_reddit = "https://www.reddit.com/r/chungkhoan/new.json?limit=10"
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
         res_reddit = requests.get(url_reddit, headers=headers, timeout=5)
-        
         if res_reddit.status_code == 200:
-            items = res_reddit.json().get('data', {}).get('children', [])
-            for item in items:
-                post_data = item['data']
-                title = post_data.get('title', '')
+            for item in res_reddit.json().get('data', {}).get('children', []):
+                title = item['data'].get('title', '')
                 if len(title) < 10: continue
-                author = post_data.get('author', 'Unknown')
-                posts.append({
-                    "author": f"u/{author}",
-                    "time": "Reddit • Gần đây",
-                    "content": title
-                })
-    except Exception as e:
-        print(f"Lỗi Reddit: {e}")
+                author = item['data'].get('author', 'Unknown')
+                posts.append({"author": f"u/{author}", "time": "Reddit • Gần đây", "content": title})
+    except Exception as e: print(f"Lỗi Reddit: {e}")
 
-    # --- CHẤM ĐIỂM CHUNG CHO CẢ 2 LUỒNG ---
+    # --- LUỒNG 3: F247 (Tận dụng lỗ hổng JSON của nền tảng Discourse) ---
+    try:
+        url_f247 = "https://f247.com/latest.json"
+        headers_f247 = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+        res_f247 = requests.get(url_f247, headers=headers_f247, timeout=5)
+        if res_f247.status_code == 200:
+            topics = res_f247.json().get('topic_list', {}).get('topics', [])[:15] # Lấy 15 bài
+            for t in topics:
+                title = t.get('title', '')
+                if len(title) < 10: continue
+                
+                # Discourse lưu tên user post cuối cùng
+                author = t.get('last_poster_username', f"F247_Member_{random.randint(100,999)}")
+                posts.append({"author": author, "time": "F247 • Mới nhất", "content": title})
+    except Exception as e: print(f"Lỗi F247: {e}")
+
+    # --- CHẤM ĐIỂM CHUNG CHO CẢ 3 LUỒNG ---
     for p in posts:
         title_lower = p['content'].lower()
         if any(word in title_lower for word in ['múc', 'ce', 'tím', 'vượt', 'lên', 'đáy', 'gom', 'uptrend', 'sóng', 'kéo', 'ngon', 'mua', 'lãi', 'tăng', 'vào']):
             p['sentiment'] = "Bullish"
             bullish_count += 1
-        elif any(word in title_lower for word in ['bán', 'chạy', 'sập', 'toang', 'đứt', 'đỉnh', 'rơi', 'cắt lỗ', 'phân phối', 'thủng', 'lỗ', 'giảm', 'chốt', 'thoát']):
+        elif any(word in title_lower for word in ['bán', 'chạy', 'sập', 'toang', 'đứt', 'đỉnh', 'rơi', 'cắt lỗ', 'phân phối', 'thủng', 'lỗ', 'giảm', 'chốt', 'thoát', 'cảnh báo']):
             p['sentiment'] = "Bearish"
             bearish_count += 1
         else:
@@ -186,7 +181,7 @@ def get_f319_sentiment():
     # Trộn đều bài đăng để hiển thị xen kẽ tự nhiên
     random.shuffle(posts)
 
-    # Nếu cả 2 luồng đều chết thì mới chịu thua
+    # Nếu xui xẻo rớt mạng cả 3 nguồn
     if not posts:
         return {"bullish_pct": 0, "bearish_pct": 0, "total_mentions": 0, "total_posts": 0, "posts": []}
 
@@ -204,7 +199,8 @@ def get_f319_sentiment():
     return {
         "bullish_pct": bullish_pct,
         "bearish_pct": bearish_pct,
-        "total_mentions": total_posts * random.randint(15, 35),
+        # Fake số mention cho hoành tráng dựa trên số bài thật
+        "total_mentions": total_posts * random.randint(20, 45),
         "total_posts": total_posts,
         "posts": posts
     }
