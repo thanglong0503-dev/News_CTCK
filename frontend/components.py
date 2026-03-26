@@ -124,7 +124,7 @@ def render_hero_section():
             st.markdown(f"{css_ai_alerts}<div class='a-card-grid'>{cards_html}</div>", unsafe_allow_html=True)
 
         # --- KHỐI MỚI: RADAR MẠNG XÃ HỘI (F319) CHUẨN UI BINANCE ---
-        st.markdown("<br><div style='font-size: 14px; font-weight: 700; color: #E65100; margin-bottom: 16px; text-transform: uppercase; border-top: 1px solid #EAECEF; padding-top: 32px;'>Cộng Đồng Nhà Đầu Tư (F319 Social Sentiment)</div>", unsafe_allow_html=True)
+        st.markdown("<br><div style='font-size: 14px; font-weight: 700; color: #E65100; margin-bottom: 16px; text-transform: uppercase; border-top: 1px solid #EAECEF; padding-top: 32px;'>Cộng Đồng Nhà Đầu Tư (Social Sentiment)</div>", unsafe_allow_html=True)
         
         col_social_stats, col_social_posts = st.columns([1.2, 1])
 
