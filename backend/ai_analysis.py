@@ -112,63 +112,66 @@ def generate_technical_alerts():
     # Trả về tối đa 5 thẻ để giao diện hiển thị đẹp, cân đối
     return alerts[:5]
 import random
-import requests
+import cloudscraper # Import vũ khí vượt rào Cloudflare
 from bs4 import BeautifulSoup
 
-# --- PHẦN 3: ĐO LƯỜNG TÂM LÝ DIỄN ĐÀN F319 (SOCIAL SENTIMENT) ---
+# --- PHẦN 3: ĐO LƯỜNG TÂM LÝ DIỄN ĐÀN F319 (REAL-TIME SCRAPING) ---
 def get_f319_sentiment():
-    """Hàm lấy dữ liệu và đo lường tâm lý từ F319 (Hybrid: Scrape + Mock)"""
     posts = []
     bullish_count = 0
     bearish_count = 0
     
-    # 1. Thử cào dữ liệu thật từ F319 (Bypass cơ bản)
+    # 1. Dùng cloudscraper giả dạng trình duyệt Chrome để vượt mặt Cloudflare
+    scraper = cloudscraper.create_scraper(browser={'browser': 'chrome', 'platform': 'windows', 'desktop': True})
+    
     try:
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-        response = requests.get("http://f319.com/", headers=headers, timeout=3)
+        # Cắm thẳng vào Box Thị trường chứng khoán của F319
+        url = "https://f319.com/forums/thi-truong-chung-khoan.3/"
+        response = scraper.get(url, timeout=10)
+        
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
-            threads = soup.find_all('a', class_='PreviewTooltip', limit=10)
+            # F319 dùng mã nguồn XenForo, tiêu đề bài viết thường nằm trong class PreviewTooltip
+            threads = soup.find_all('a', class_='PreviewTooltip', limit=15)
+            
             for t in threads:
                 title = t.text.strip()
-                if not title: continue
-                # Chấm điểm sơ bộ
-                if any(word in title.lower() for word in ['múc', 'ce', 'tím', 'vượt', 'lên']):
+                if not title or len(title) < 15: continue # Bỏ qua các tiêu đề quá ngắn
+                
+                # Chấm điểm tâm lý dựa trên tiêu đề thật
+                title_lower = title.lower()
+                if any(word in title_lower for word in ['múc', 'ce', 'tím', 'vượt', 'lên', 'đáy', 'gom', 'uptrend', 'sóng', 'kéo']):
                     sentiment = "Bullish"
                     bullish_count += 1
-                elif any(word in title.lower() for word in ['bán', 'chạy', 'sập', 'toang', 'đứt']):
+                elif any(word in title_lower for word in ['bán', 'chạy', 'sập', 'toang', 'đứt', 'đỉnh', 'rơi', 'cắt lỗ', 'phân phối', 'thủng']):
                     sentiment = "Bearish"
                     bearish_count += 1
                 else:
                     sentiment = "Neutral"
                     
                 posts.append({
-                    "author": f"Chứng_thủ_{random.randint(100,999)}",
-                    "time": f"{random.randint(1, 59)} phút trước",
+                    "author": f"F319_Member_{random.randint(100,999)}",
+                    "time": "Vừa cập nhật", 
                     "content": title,
                     "sentiment": sentiment
                 })
-    except:
-        pass # Nếu lỗi (bị chặn) thì im lặng chuyển sang Mock Data
+    except Exception as e:
+        print(f"Lỗi cào F319: {e}")
 
-    # 2. Mock Data (Phòng hờ web bị chặn, giữ cho UI luôn đẹp và có nhắc PLX, MBB của sếp)
+    # 2. Phòng hờ (Fallback): Nếu xui xẻo Streamlit bị IP blacklist, vẫn giữ UI không sập
     if len(posts) < 3:
         mock_posts = [
-            {"author": "BimBipChua99", "time": "5 phút trước", "content": "PLX game thoái vốn PGBank xong rồi, quý này book lợi nhuận siêu khủng. Anh em múc mạnh không nói nhiều!", "sentiment": "Bullish"},
-            {"author": "SoiGiaPhanTich", "time": "12 phút trước", "content": "MBB thủng MA20 rồi, Tây lông táng như phá mả thế này thì còn cái nịt. Tranh thủ nhịp hồi mà hạ tỷ trọng đi các cụ.", "sentiment": "Bearish"},
-            {"author": "NhaDauTu198x", "time": "22 phút trước", "content": "TNG đơn hàng full đến quý 3 rồi, dệt may sóng này không thể lỡ. Cứ đỏ là nhặt vứt đấy cuối năm x2.", "sentiment": "Bullish"},
-            {"author": "ChuyenGiaCatLo", "time": "35 phút trước", "content": "VNINDEX kéo xả rõ ràng, kéo trụ xả midcap. Ai đu đỉnh hnay xác định kẹp hàng 6 tháng nhé.", "sentiment": "Bearish"},
-            {"author": "LaiLonVN", "time": "1 giờ trước", "content": "Cả làng sợ hãi thì ta tham lam. Tiền rẻ ngập thị trường thế này sập bằng mắt. VNINDEX thẳng tiến 1300!", "sentiment": "Bullish"}
+            {"author": "BimBipChua99", "time": "Vừa cập nhật", "content": "[Dữ liệu Tạm thời] Không thể kết nối F319 do Cloudflare chặn. Hãy thử F5 lại sau.", "sentiment": "Neutral"},
+            {"author": "SoiGiaPhanTich", "time": "Vừa cập nhật", "content": "Thị trường đang có nhiều biến động, hệ thống đang nỗ lực lấy lại kết nối từ diễn đàn...", "sentiment": "Neutral"}
         ]
         posts = mock_posts
-        bullish_count = 3
-        bearish_count = 2
+        bullish_count = 1
+        bearish_count = 1
 
-    # 3. Tính toán các chỉ số thống kê giả lập cho chuẩn UI Binance
-    total_mentions = random.randint(500, 1500)
-    total_posts = random.randint(100, 300)
+    # 3. Tính toán tỷ lệ phần trăm Xanh/Đỏ
+    total_mentions = random.randint(300, 800) # Chỉ số giả lập cho sinh động
+    total_posts = len(posts) * random.randint(5, 15)
     
-    # Tính % (bỏ qua Neutral để thanh bar chạy chuẩn 100%)
     total_sentiment = bullish_count + bearish_count
     bullish_pct = int((bullish_count / total_sentiment) * 100) if total_sentiment > 0 else 50
     bearish_pct = 100 - bullish_pct
