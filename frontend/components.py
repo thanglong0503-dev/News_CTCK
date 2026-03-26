@@ -34,26 +34,33 @@ def render_search_filter():
         st.text_input("Tìm kiếm", placeholder="🔍 Tìm mã cổ phiếu, CTCK...", label_visibility="collapsed")
 
 import streamlit as st
-from backend.ssi_api import fetch_ssi_news # Thêm dòng import này ở đầu file hoặc trong hàm
+import pandas as pd
+from backend.ssi_api import fetch_ssi_news
+from backend.kafi_api import fetch_kafi_news
 
 def render_news_grid():
-    # 1. Kéo dữ liệu thật từ Backend
-    df_news = fetch_ssi_news()
+    # 1. Triệu hồi dữ liệu từ nhiều nguồn Backend
+    df_ssi = fetch_ssi_news()
+    df_kafi = fetch_kafi_news()
     
-    # Nếu không lấy được dữ liệu, hiển thị thông báo chuyên nghiệp
-    if df_news.empty:
+    # 2. Gộp dữ liệu lại thành một cục lớn (Concat)
+    frames = [df for df in [df_ssi, df_kafi] if not df.empty]
+    
+    if not frames:
         st.info("Đang bảo trì kết nối với máy chủ CTCK. Vui lòng quay lại sau.")
         return
+        
+    # Trộn các bảng lại và reset index
+    df_news = pd.concat(frames, ignore_index=True)
 
-    # 2. Khởi tạo lưới 2 cột
+    # 3. Khởi tạo lưới 2 cột
     col1, col2 = st.columns(2)
     
-    # 3. Rải dữ liệu thật vào thẻ
+    # 4. Rải toàn bộ dữ liệu (cả SSI và Kafi) vào thẻ
     for i, row in df_news.iterrows():
         target_col = col1 if i % 2 == 0 else col2
         
         with target_col:
-            # Gắn link vào thẻ, khi click sẽ mở bài viết gốc ở tab mới
             card_html = f"""
             <a href="{row['link']}" target="_blank" style="text-decoration: none; color: inherit;">
                 <div class='news-card'>
