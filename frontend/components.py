@@ -20,19 +20,33 @@ def render_hero_section():
                 <span class='hero-hashtag'>#MarginRate #BrokerFee</span>
             </div>
         """, unsafe_allow_html=True)
+import streamlit as st
+from backend.official_news import fetch_mainstream_news
+
 def render_search_filter():
-    st.markdown("<div class='section-title'>Latest Insights (Tin tức mới nhất)</div>", unsafe_allow_html=True)
+    # 1. Chia cột phần Tiêu đề và Nút bấm (Tỷ lệ 8.5 - 1.5 để nút nằm gọn bên phải)
+    col_title, col_btn = st.columns([8.5, 1.5])
     
-    # Chia cột cho thanh tìm kiếm và nút lọc
+    with col_title:
+        # Ép margin-top về 0 để ngang hàng với nút bấm
+        st.markdown("<div class='section-title' style='margin-top: 0px;'>Latest Insights (Tin tức mới nhất)</div>", unsafe_allow_html=True)
+        
+    with col_btn:
+        # Tạo nút bấm thủ công
+        if st.button("🔄 Tải tin mới", use_container_width=True):
+            # Xóa sạch bộ nhớ đệm (Cache) của hàm cào báo chí
+            fetch_mainstream_news.clear()
+            # F5 tải lại toàn bộ trang web ngay lập tức
+            st.rerun()
+
+    # 2. Giữ nguyên phần chia cột cho thanh tìm kiếm và nút lọc bên dưới
     col_filter, col_space, col_search = st.columns([2, 1, 1])
     
     with col_filter:
-        # Sử dụng pills (nút dạng viên thuốc) của Streamlit để làm bộ lọc
         st.pills("Bộ lọc:", ["Tất cả", "Cập nhật Margin", "Biểu phí", "Sản phẩm mới"], default="Tất cả", label_visibility="collapsed")
         
     with col_search:
-        st.text_input("Tìm kiếm", placeholder="🔍 Tìm mã cổ phiếu, CTCK...", label_visibility="collapsed")
-
+        st.text_input("Tìm kiếm", placeholder="🔍 Tìm mã cổ phiếu...", label_visibility="collapsed")
 import streamlit as st
 # Đổi nguồn Import sang file báo chí
 from backend.official_news import fetch_mainstream_news
