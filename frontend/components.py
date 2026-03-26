@@ -10,7 +10,6 @@ def render_header():
     st.markdown("<p style='color: #474D57; font-size: 16px; margin-bottom: 40px;'>Cung cấp phân tích cấp tổ chức, thông tin chuyên sâu và biểu phí khách quan cho nhà đầu tư.</p>", unsafe_allow_html=True)
 
 def render_hero_section():
-    # Chia cột: Cột 1 cho ảnh, Cột 2 cho Carousel tin Hot (Thanh cuộn ngang)
     col_img, col_space, col_carousel = st.columns([1.2, 0.1, 1]) 
     
     with col_img:
@@ -19,79 +18,38 @@ def render_hero_section():
     with col_carousel:
         df_news = fetch_mainstream_news()
         
-        # Tiêu đề khối
         st.markdown("<div class='category-tag' style='margin-bottom: 16px;'>🔥 Bản Tin Tóm Tắt Nhanh</div>", unsafe_allow_html=True)
 
         if df_news.empty:
             st.warning("Đang chờ cập nhật tin nóng...")
             return
 
-        # Lọc lấy 5 tin nóng nhất để đưa vào vòng quay
         hot_news_df = df_news[df_news['tag'].str.contains('🔥')].head(5)
         if hot_news_df.empty:
             hot_news_df = df_news.head(5)
 
-        # 1. CSS TẠO THANH CUỘN NGANG TINH TẾ (Nói không với JS)
-        css = """
-        <style>
-        /* Khung chứa chính cho phép cuộn ngang */
-        .scroll-container {
-            display: flex;
-            overflow-x: auto;
-            scroll-snap-type: x mandatory; /* Bắt thẻ khi cuộn đến */
-            gap: 16px;
-            padding-bottom: 8px; /* Khoảng trống cho thanh cuộn */
-            scroll-behavior: smooth;
-        }
-        
-        /* Làm đẹp thanh cuộn */
-        .scroll-container::-webkit-scrollbar { height: 4px; }
-        .scroll-container::-webkit-scrollbar-track { background: transparent; border-radius: 4px; }
-        .scroll-container::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 4px; }
-        .scroll-container::-webkit-scrollbar-thumb:hover { background: #ccc; }
-        
-        /* Thiết kế thẻ bài viết chi tiết */
-        .scroll-card {
-            scroll-snap-align: start;
-            min-width: 100%; /* Mỗi thẻ chiếm 100% chiều ngang của khung chứa */
-            background: #fff;
-            border: 1px solid #E5E7EB;
-            border-radius: 8px;
-            padding: 24px;
-            box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            height: 320px; /* Chiều cao cố định cho mượt mà */
-            transition: all 0.2s ease;
-        }
-        .scroll-card:hover { border-color: #F6465D; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
-        </style>
-        """
+        # 1. CSS ĐƯỢC ÉP SÁT LỀ TRÁI (CHỐNG LỖI MARKDOWN)
+        css = """<style>
+.scroll-container { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 16px; padding-bottom: 8px; scroll-behavior: smooth; }
+.scroll-container::-webkit-scrollbar { height: 4px; }
+.scroll-container::-webkit-scrollbar-track { background: transparent; border-radius: 4px; }
+.scroll-container::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 4px; }
+.scroll-container::-webkit-scrollbar-thumb:hover { background: #ccc; }
+.scroll-card { scroll-snap-align: start; min-width: 100%; background: #fff; border: 1px solid #E5E7EB; border-radius: 8px; padding: 24px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; height: 320px; transition: all 0.2s ease; }
+.scroll-card:hover { border-color: #F6465D; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
+</style>"""
 
-        # 2. RÁP NỘI DUNG VÀO THÈ HTML
+        # 2. HTML ĐƯỢC ÉP SÁT LỀ TRÁI (CHỐNG LỖI MARKDOWN)
         cards_html = ""
         for i, row in hot_news_df.iterrows():
-            # Tóm tắt ngắn gọn
             summary = ' '.join(row['title'].split()[:22]) + "..."
-            cards_html += f"""
-            <a href="{row['link']}" target="_blank" class="scroll-card" style="text-decoration: none; color: inherit;">
-                <div>
-                    <div style="color: #707A8A; font-size: 12px; margin-bottom: 12px; font-weight: 600; text-transform: uppercase;">
-                        {row['ctck']} • {row['date']}
-                    </div>
-                    <div style="color: #1E2329; font-size: 19px; font-weight: 700; line-height: 1.35; margin-bottom: 12px;">
-                        {row['title']}
-                    </div>
-                </div>
-                <div style="color: #474D57; font-size: 14px; line-height: 1.5;">
-                    {summary}
-                </div>
-            </a>
-            """
+            cards_html += f"""<a href="{row['link']}" target="_blank" class="scroll-card" style="text-decoration: none; color: inherit;">
+<div style="color: #707A8A; font-size: 12px; margin-bottom: 12px; font-weight: 600; text-transform: uppercase;">{row['ctck']} • {row['date']}</div>
+<div style="color: #1E2329; font-size: 19px; font-weight: 700; line-height: 1.35; margin-bottom: 12px;">{row['title']}</div>
+<div style="color: #474D57; font-size: 14px; line-height: 1.5;">{summary}</div>
+</a>"""
 
-        # 3. HIỂN THỊ KHỐI CAROUSEL RA GIAO DIỆN
-        # Kết hợp CSS và các thẻ bài viết vào một khối div
+        # 3. RÁP LẠI VÀ RENDER
         html_block = f"{css}<div class='scroll-container'>{cards_html}</div>"
         st.markdown(html_block, unsafe_allow_html=True)
 
