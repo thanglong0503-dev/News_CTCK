@@ -1,34 +1,121 @@
-import math
+iimport math
 import streamlit as st
 import pandas as pd
 from backend.official_news import fetch_mainstream_news
 from datetime import datetime
 
-# --- KHỐI 1: HEADER & HERO (CAROUSEL THUẦN CSS - PHIÊN BẢN TINH TẾ) ---
+# --- KHỐI 1: HEADER & HERO ---
 def render_header():
     st.markdown("<h1 style='font-size: 32px; color: #1E2329; font-weight: 700; margin-bottom: 8px;'>Vietnam Securities Research</h1>", unsafe_allow_html=True)
     st.markdown("<p style='color: #474D57; font-size: 16px; margin-bottom: 40px;'>Cung cấp phân tích cấp tổ chức, thông tin chuyên sâu và biểu phí khách quan cho nhà đầu tư.</p>", unsafe_allow_html=True)
 
 def render_hero_section():
-    col_img, col_space, col_carousel = st.columns([1.2, 0.1, 1]) 
+    # Chia cột: Cột 1 cho Bảng Giá Mini, Cột 2 cho Carousel tin Hot (Thanh cuộn ngang)
+    col_watchlist, col_space, col_carousel = st.columns([1.2, 0.1, 1]) 
     
-    with col_img:
-        st.image("https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?q=80&w=2070&auto=format&fit=crop", use_container_width=True)
-    
+    with col_watchlist:
+        # 1. TIÊU ĐỀ WIDGET MINI WATCHLIST
+        st.markdown("<div class='category-tag' style='margin-bottom: 16px;'>Watchlist Mini: Thị Trường</div>", unsafe_allow_html=True)
+
+        # 2. CSS TẠO WIDGET VÀ THANH CUỘN NGANG (Không JS, Chống lỗi)
+        css = """<style>
+.watchlist-container { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 16px; padding-bottom: 8px; scroll-behavior: smooth; }
+.watchlist-container::-webkit-scrollbar { height: 4px; }
+.watchlist-container::-webkit-scrollbar-track { background: transparent; border-radius: 4px; }
+.watchlist-container::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 4px; }
+.watchlist-container::-webkit-scrollbar-thumb:hover { background: #ccc; }
+.watchlist-card { scroll-snap-align: start; min-width: 100%; background: #fff; border: 1px solid #E5E7EB; border-radius: 8px; padding: 24px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; height: 320px; transition: all 0.2s ease; }
+.watchlist-card:hover { border-color: #F6465D; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
+.wl-title { color: #1E2329; font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+.wl-table { width: 100%; border-collapse: collapse; font-family: 'Source Sans Pro', sans-serif; }
+.wl-th { color: #707A8A; font-size: 12px; font-weight: 600; text-transform: uppercase; text-align: left; padding-bottom: 8px; }
+.wl-td-mã { color: #1E2329; font-size: 14px; font-weight: 700; padding-top: 12px; }
+.wl-td-giá { color: #1E2329; font-size: 14px; padding-top: 12px; }
+.wl-up { color: #0277BD; } /* Xanh dương đậm cho tăng */
+.wl-down { color: #F6465D; } /* Đỏ cho giảm */
+</style>"""
+
+        # 3. HTML DỮ LIỆU GIẢ LẬP CHO BẢNG GIÁ MINI
+        # Thẻ 1: Chỉ số Vĩ mô & Watchlist
+        # Thụ lề sát lề trái cho CSS/HTML để chống lỗi Markdown
+        watchlist_html = """<div class="watchlist-card">
+<div>
+<div class="wl-title">Chỉ Số Vĩ Mô & Watchlist</div>
+<table class="wl-table">
+<tr>
+<th class="wl-th">Mã</th>
+<th class="wl-th">Giá</th>
+<th class="wl-th">+/- %</th>
+</tr>
+<tr>
+<td class="wl-td-mã">VNINDEX</td>
+<td class="wl-td-giá">1250.78</td>
+<td class="wl-td-giá wl-up">+0.35%</td>
+</tr>
+<tr>
+<td class="wl-td-mã">USD/VND</td>
+<td class="wl-td-giá">24,785.0</td>
+<td class="wl-td-giá wl-up">+0.12%</td>
+</tr>
+<tr>
+<td class="wl-td-mã">VÀNG SJC</td>
+<td class="wl-td-giá">81.20 tr</td>
+<td class="wl-td-giá wl-up">+0.85%</td>
+</tr>
+</table>
+</div>
+</div>"""
+
+        # Thẻ 2: Watchlist Cổ Phiếu Tích Sản
+        portfolio_html = """<div class="watchlist-card">
+<div>
+<div class="wl-title">Cổ Phiếu Tích Sản</div>
+<table class="wl-table">
+<tr>
+<th class="wl-th">Mã</th>
+<th class="wl-th">Giá</th>
+<th class="wl-th">+/- %</th>
+</tr>
+<tr>
+<td class="wl-td-mã">PLX</td>
+<td class="wl-td-giá">40.25</td>
+<td class="wl-td-giá wl-up">+1.15%</td>
+</tr>
+<tr>
+<td class="wl-td-mã">MBB</td>
+<td class="wl-td-giá">21.80</td>
+<td class="wl-td-giá wl-down">-0.45%</td>
+</tr>
+<tr>
+<td class="wl-td-mã">TNG</td>
+<td class="wl-td-giá">19.50</td>
+<td class="wl-td-giá wl-up">+0.51%</td>
+</tr>
+</table>
+</div>
+</div>"""
+
+        # 4. RÁP LẠI VÀ RENDER
+        # Thụ lề sát lề trái cho CSS/HTML để chống lỗi Markdown
+        html_block = f"{css}<div class='watchlist-container'>{watchlist_html}{portfolio_html}</div>"
+        st.markdown(html_block, unsafe_allow_html=True)
+
     with col_carousel:
         df_news = fetch_mainstream_news()
         
+        # Tiêu đề khối
         st.markdown("<div class='category-tag' style='margin-bottom: 16px;'>🔥 Bản Tin Tóm Tắt Nhanh</div>", unsafe_allow_html=True)
 
         if df_news.empty:
             st.warning("Đang chờ cập nhật tin nóng...")
             return
 
+        # Lọc lấy 5 tin nóng nhất để đưa vào vòng quay
         hot_news_df = df_news[df_news['tag'].str.contains('🔥')].head(5)
         if hot_news_df.empty:
             hot_news_df = df_news.head(5)
 
-        # 1. CSS ĐƯỢC ÉP SÁT LỀ TRÁI (CHỐNG LỖI MARKDOWN)
+        # 1. CSS TẠO THANH CUỘN NGANG TINH TẾ (Nói không với JS)
         css = """<style>
 .scroll-container { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 16px; padding-bottom: 8px; scroll-behavior: smooth; }
 .scroll-container::-webkit-scrollbar { height: 4px; }
@@ -39,17 +126,22 @@ def render_hero_section():
 .scroll-card:hover { border-color: #F6465D; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
 </style>"""
 
-        # 2. HTML ĐƯỢC ÉP SÁT LỀ TRÁI (CHỐNG LỖI MARKDOWN)
+        # 2. HTML RÁP NỘI DUNG VÀO THÈ HTML
         cards_html = ""
         for i, row in hot_news_df.iterrows():
+            # Tóm tắt ngắn gọn
             summary = ' '.join(row['title'].split()[:22]) + "..."
+            # Thụ lề sát lề trái cho CSS/HTML để chống lỗi Markdown
             cards_html += f"""<a href="{row['link']}" target="_blank" class="scroll-card" style="text-decoration: none; color: inherit;">
+<div>
 <div style="color: #707A8A; font-size: 12px; margin-bottom: 12px; font-weight: 600; text-transform: uppercase;">{row['ctck']} • {row['date']}</div>
 <div style="color: #1E2329; font-size: 19px; font-weight: 700; line-height: 1.35; margin-bottom: 12px;">{row['title']}</div>
+</div>
 <div style="color: #474D57; font-size: 14px; line-height: 1.5;">{summary}</div>
 </a>"""
 
-        # 3. RÁP LẠI VÀ RENDER
+        # 3. HIỂN THỊ KHỐI CAROUSEL RA GIAO DIỆN
+        # Kết hợp CSS và các thẻ bài viết vào một khối div
         html_block = f"{css}<div class='scroll-container'>{cards_html}</div>"
         st.markdown(html_block, unsafe_allow_html=True)
 
