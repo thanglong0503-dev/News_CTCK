@@ -1,16 +1,41 @@
 import math
 import streamlit as st
 import pandas as pd
+import streamlit.components.v1 as components
 from backend.official_news import fetch_mainstream_news
-from backend.market_data import fetch_realtime_data # Nhúng hàm lấy giá vừa tạo
+from backend.market_data import fetch_realtime_data
 from datetime import datetime
+
+# --- KHỐI 0: ĐỒNG HỒ REAL-TIME (TOP BAR) ---
+def render_topbar_clock():
+    # Nhúng JS để đồng hồ tự chạy từng giây mà không cần F5 tải lại trang
+    clock_html = """
+    <style>
+        body { margin: 0; font-family: 'Source Sans Pro', sans-serif; background-color: #E65100; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; font-size: 14px; font-weight: 600; }
+    </style>
+    <div id="clock">Đang tải thời gian...</div>
+    <script>
+        function updateTime() {
+            var now = new Date();
+            var days = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+            var dayName = days[now.getDay()];
+            var dateString = now.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            var timeString = now.toLocaleTimeString('en-US', { hour12: true, hour: '2-digit', minute:'2-digit', second:'2-digit' });
+            document.getElementById('clock').innerHTML = timeString + " &nbsp;|&nbsp; " + dayName + ", " + dateString;
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+    </script>
+    """
+    # Chiều cao 32px vừa vặn làm một dải ruy băng mỏng ở trên cùng
+    components.html(clock_html, height=32)
 
 # --- KHỐI 1: HEADER ---
 def render_header():
-    st.markdown("<h1 style='font-size: 32px; color: #1E2329; font-weight: 700; margin-bottom: 8px;'>Vietnam Securities Research</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='font-size: 32px; color: #1E2329; font-weight: 700; margin-bottom: 8px; margin-top: 10px;'>Vietnam Securities Research</h1>", unsafe_allow_html=True)
     st.markdown("<p style='color: #474D57; font-size: 16px; margin-bottom: 32px;'>Cung cấp phân tích cấp tổ chức, thông tin chuyên sâu và biểu phí khách quan cho nhà đầu tư.</p>", unsafe_allow_html=True)
 
-# --- KHỐI 2: TỔNG QUAN THỊ TRƯỜNG (UI BINANCE) & TIN NÓNG ---
+# --- KHỐI 2: TỔNG QUAN THỊ TRƯỜNG & TIN NÓNG ---
 def render_hero_section():
     st.markdown("""
         <div style="display: flex; gap: 24px; margin-bottom: 20px; align-items: baseline;">
@@ -21,27 +46,25 @@ def render_hero_section():
     """, unsafe_allow_html=True)
 
     market_data, groups = fetch_realtime_data()
-
-    # Tạo 4 cột ngang nhau
     cols = st.columns(4)
     
-    # CSS CHUẨN UI BINANCE (Ép lề trái chống lỗi)
+    # Đã đổi màu Hover sang Cam (#FF6B00)
     css_binance = """<style>
-.b-card { background: #fff; border: 1px solid #EAECEF; border-radius: 12px; padding: 20px 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.01); transition: box-shadow 0.2s; min-height: 240px; }
-.b-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+.b-card { background: #fff; border: 1px solid #EAECEF; border-radius: 12px; padding: 20px 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.01); transition: all 0.2s ease; min-height: 240px; }
+.b-card:hover { box-shadow: 0 4px 12px rgba(230, 81, 0, 0.15); border-color: #FF6B00; }
 .b-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #F0F2F5; padding-bottom: 12px;}
 .b-title { font-weight: 700; font-size: 15px; color: #1E2329; }
-.b-more { font-size: 13px; color: #707A8A; text-decoration: none; font-weight: 500; }
+.b-more { font-size: 13px; color: #707A8A; text-decoration: none; font-weight: 500; transition: color 0.2s;}
+.b-more:hover { color: #FF6B00; }
 .b-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
 .b-row:last-child { margin-bottom: 0; }
 .b-name { font-weight: 600; font-size: 14px; color: #1E2329; width: 35%; }
 .b-price { font-size: 14px; color: #1E2329; text-align: right; width: 35%; font-family: 'SF Mono', Consolas, monospace; font-weight: 500;}
 .b-change { font-size: 14px; font-weight: 600; text-align: right; width: 30%; }
-.c-up { color: #0ECB81; } /* Xanh lá chuẩn Binance */
-.c-down { color: #F6465D; } /* Đỏ chuẩn Binance */
+.c-up { color: #0ECB81; } 
+.c-down { color: #F6465D; } 
 </style>"""
 
-    # Vòng lặp in 4 thẻ dữ liệu ra màn hình
     for col, (group_name, tickers) in zip(cols, groups.items()):
         with col:
             rows_html = ""
@@ -63,20 +86,20 @@ def render_hero_section():
 </div>"""
             st.markdown(f"{css_binance}{card_html}", unsafe_allow_html=True)
 
-    # Lắp lại cái Vòng quay Tin Nóng (Carousel) nằm ngang bên dưới 4 thẻ
-    st.markdown("<br><div class='category-tag' style='margin-bottom: 16px;'>🔥 Tin Nổi Bật Giao Dịch</div>", unsafe_allow_html=True)
+    st.markdown("<br><div class='category-tag' style='margin-bottom: 16px; color: #E65100; background-color: #FFF3E0;'>🔥 Tin Nổi Bật Giao Dịch</div>", unsafe_allow_html=True)
     df_news = fetch_mainstream_news()
     if not df_news.empty:
         hot_news_df = df_news[df_news['tag'].str.contains('🔥')].head(6)
         if hot_news_df.empty: hot_news_df = df_news.head(6)
         
+        # Đã đổi màu Hover thẻ tin tức sang Cam
         css_car = """<style>
 .scroll-container { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 16px; padding-bottom: 8px; scroll-behavior: smooth; }
 .scroll-container::-webkit-scrollbar { height: 4px; }
 .scroll-container::-webkit-scrollbar-track { background: transparent; border-radius: 4px; }
 .scroll-container::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 4px; }
 .scroll-card { scroll-snap-align: start; min-width: calc(33.333% - 11px); background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; height: 160px; transition: all 0.2s ease; }
-.scroll-card:hover { border-color: #F6465D; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
+.scroll-card:hover { border-color: #FF6B00; box-shadow: 0 4px 12px rgba(230, 81, 0, 0.1); }
 </style>"""
 
         cards_html = ""
@@ -84,7 +107,7 @@ def render_hero_section():
             summary = ' '.join(row['title'].split()[:18]) + "..."
             cards_html += f"""<a href="{row['link']}" target="_blank" class="scroll-card" style="text-decoration: none; color: inherit;">
 <div>
-<div style="color: #707A8A; font-size: 11px; margin-bottom: 8px; font-weight: 600; text-transform: uppercase;">{row['ctck']} • {row['date']}</div>
+<div style="color: #FF6B00; font-size: 11px; margin-bottom: 8px; font-weight: 700; text-transform: uppercase;">{row['ctck']} • {row['date']}</div>
 <div style="color: #1E2329; font-size: 15px; font-weight: 700; line-height: 1.4;">{summary}</div>
 </div>
 </a>"""
@@ -101,7 +124,7 @@ def render_news_section():
     st.markdown("<br><div class='section-title' style='margin-top: 0px;'>Tra cứu Thông tin Phân Tích</div>", unsafe_allow_html=True)
     
     with st.container():
-        st.markdown("<div style='background-color: #F0F2F5; padding: 20px; border-radius: 8px; margin-bottom: 24px; border: 1px solid #E5E7EB;'>", unsafe_allow_html=True)
+        st.markdown("<div style='background-color: #FFF8F3; padding: 20px; border-radius: 8px; margin-bottom: 24px; border: 1px solid #FFE0B2;'>", unsafe_allow_html=True)
         col_input, col_btn = st.columns([5, 1])
         with col_input: search_val = st.text_input("Tìm kiếm", value=st.session_state.search_query, placeholder="Gõ mã CK hoặc Tên công ty...", label_visibility="collapsed")
         with col_btn:
@@ -140,15 +163,22 @@ def render_news_section():
     if paged_df.empty:
         st.warning("Không tìm thấy kết quả nào phù hợp với từ khóa/bộ lọc của bạn.")
     else:
+        # Hover thẻ tin tức đổi sang viền Cam
+        css_grid = """<style>
+        .n-card { background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 16px; margin-bottom: 16px; transition: all 0.2s ease; }
+        .n-card:hover { border-color: #FF6B00; box-shadow: 0 4px 12px rgba(230, 81, 0, 0.08); }
+        </style>"""
+        st.markdown(css_grid, unsafe_allow_html=True)
+        
         col1, col2 = st.columns(2)
         for i, row in paged_df.reset_index().iterrows():
             target_col = col1 if i % 2 == 0 else col2
             with target_col:
                 card_html = f"""<a href="{row['link']}" target="_blank" style="text-decoration: none; color: inherit;">
-<div class='news-card'>
-<div class='card-tag'>{row['ctck']} • {row['tag']}</div>
-<div class='card-title'>{row['title']}</div>
-<div class='card-date'>{row['date']}</div>
+<div class='n-card'>
+<div style='color: #FF6B00; font-size: 11px; font-weight: 700; margin-bottom: 8px;'>{row['ctck']} • {row['tag']}</div>
+<div style='color: #1E2329; font-size: 16px; font-weight: 600; margin-bottom: 8px; line-height: 1.4;'>{row['title']}</div>
+<div style='color: #848E9C; font-size: 12px;'>{row['date']}</div>
 </div></a>"""
                 st.markdown(card_html, unsafe_allow_html=True)
 
@@ -164,3 +194,13 @@ def render_news_section():
             if st.button("Sau ▶", disabled=(st.session_state.current_page >= total_pages), use_container_width=True):
                 st.session_state.current_page += 1
                 st.rerun()
+
+# --- KHỐI 4: FOOTER BẢN QUYỀN ---
+def render_footer():
+    st.markdown("""
+        <hr style="margin-top: 60px; border-color: #EAECEF;">
+        <div style="text-align: center; color: #707A8A; font-size: 13px; padding: 20px 0 40px 0; line-height: 1.8;">
+            © 2017 - 2026 Vietnam Securities Research. Bảo lưu mọi quyền.<br>
+            Nhà phát triển: <b style="color: #E65100;">ThangLong</b>
+        </div>
+    """, unsafe_allow_html=True)
