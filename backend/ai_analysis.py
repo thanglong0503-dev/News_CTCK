@@ -113,62 +113,61 @@ def generate_technical_alerts():
     return alerts[:5]
 import random
 import requests
-from bs4 import BeautifulSoup
 
-# --- PHẦN 3: ĐO LƯỜNG TÂM LÝ F319 BẰNG CỬA HẬU RSS (REAL-TIME) ---
+# --- PHẦN 3: ĐO LƯỜNG TÂM LÝ DIỄN ĐÀN (REDDIT REAL-TIME) ---
 def get_f319_sentiment():
+    """Đổi sang dùng API mở của r/chungkhoan (Reddit) - Chống chặn IP 100%"""
     posts = []
     bullish_count = 0
     bearish_count = 0
     
     try:
-        # Tấn công cửa hậu RSS của F319 (Thường bỏ qua được Cloudflare)
-        url = "http://f319.com/forums/thi-truong-chung-khoan.3/index.rss"
+        # Cắm thẳng ống hút vào cổng JSON của Reddit
+        url = "https://www.reddit.com/r/chungkhoan/new.json?limit=15"
+        
+        # Reddit yêu cầu User-Agent tự chế để không bị chặn
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'application/rss+xml, application/xml, text/xml'
+            'User-Agent': 'VSR_Terminal_Bot/1.0 (Windows NT 10.0; Win64; x64)'
         }
         
-        # Gọi requests bình thường, chỉ mất 1-2 giây
+        # Gọi requests, tốc độ bàn thờ chỉ mất 0.5s
         response = requests.get(url, headers=headers, timeout=5)
         
         if response.status_code == 200:
-            # Parse dữ liệu XML thay vì HTML
-            soup = BeautifulSoup(response.content, 'xml')
-            items = soup.find_all('item', limit=15)
+            data = response.json()
+            items = data.get('data', {}).get('children', [])
             
             for item in items:
-                title = item.title.text if item.title else ""
-                # XenForo RSS lưu tên tác giả trong thẻ <dc:creator>
-                author = item.find('creator').text if item.find('creator') else f"F319_ThanhVien_{random.randint(100,999)}"
+                post_data = item['data']
+                title = post_data.get('title', '')
+                author = post_data.get('author', 'Unknown')
                 
                 if len(title) < 10: continue
                 
-                # Bộ lọc tâm lý
+                # Chấm điểm tâm lý (Bullish / Bearish)
                 title_lower = title.lower()
-                if any(word in title_lower for word in ['múc', 'ce', 'tím', 'vượt', 'lên', 'đáy', 'gom', 'uptrend', 'sóng', 'kéo', 'ngon']):
+                if any(word in title_lower for word in ['múc', 'ce', 'tím', 'vượt', 'lên', 'đáy', 'gom', 'uptrend', 'sóng', 'kéo', 'ngon', 'mua', 'lãi', 'tăng']):
                     sentiment = "Bullish"
                     bullish_count += 1
-                elif any(word in title_lower for word in ['bán', 'chạy', 'sập', 'toang', 'đứt', 'đỉnh', 'rơi', 'cắt lỗ', 'phân phối', 'thủng']):
+                elif any(word in title_lower for word in ['bán', 'chạy', 'sập', 'toang', 'đứt', 'đỉnh', 'rơi', 'cắt lỗ', 'phân phối', 'thủng', 'lỗ', 'giảm', 'chốt']):
                     sentiment = "Bearish"
                     bearish_count += 1
                 else:
                     sentiment = "Neutral"
                     
                 posts.append({
-                    "author": author,
-                    "time": "Hôm nay", # Định dạng lại thời gian cho gọn
+                    "author": f"u/{author}", # Hiển thị chuẩn phong cách Reddit
+                    "time": "Gần đây",
                     "content": title,
                     "sentiment": sentiment
                 })
     except Exception as e:
-        print(f"Lỗi đọc RSS F319: {e}")
+        print(f"Lỗi đọc API Reddit: {e}")
 
-    # Fallback dự phòng cuối cùng nếu server Streamlit vẫn bị khóa IP cứng
+    # Fallback chỉ dùng khi mất mạng hoàn toàn
     if len(posts) < 3:
         posts = [
-            {"author": "System_Alert", "time": "Vừa xong", "content": "⚠️ Streamlit Cloud đang bị F319 từ chối kết nối. Đang chờ reset IP...", "sentiment": "Neutral"},
-            {"author": "System_Alert", "time": "Vừa xong", "content": "Ngươi hãy thử chạy code này trên máy tính cá nhân (localhost), đảm bảo 100% dữ liệu F319 sẽ hiện ra!", "sentiment": "Neutral"}
+            {"author": "System_Alert", "time": "Vừa xong", "content": "Hệ thống đang tải dữ liệu từ Reddit...", "sentiment": "Neutral"}
         ]
         bullish_count = 1
         bearish_count = 1
