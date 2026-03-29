@@ -6,6 +6,7 @@ from backend.official_news import fetch_mainstream_news
 from backend.market_data import fetch_realtime_data
 from datetime import datetime
 from backend.ai_analysis import analyze_news_sentiment, generate_technical_alerts
+import base64
 
 # --- KHỐI 0: ĐỒNG HỒ REAL-TIME (TOP BAR) ---
 def render_topbar_clock():
@@ -32,9 +33,34 @@ def render_topbar_clock():
     components.html(clock_html, height=32)
 
 # --- KHỐI 1: HEADER ---
+# Hàm phụ trợ giải mã ảnh
+def get_base64_of_image(path):
+    try:
+        with open(path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode()
+    except Exception:
+        return ""
+
+# --- KHỐI 1: HEADER ---
 def render_header():
-    st.markdown("<h1 style='font-size: 32px; color: #1E2329; font-weight: 700; margin-bottom: 8px; margin-top: 10px;'>Vietnam Securities Research</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='color: #474D57; font-size: 16px; margin-bottom: 32px;'>Cung cấp phân tích cấp tổ chức, thông tin chuyên sâu và biểu phí khách quan cho nhà đầu tư.</p>", unsafe_allow_html=True)
+    # Gọi bức ảnh LINANCE thần thánh lên
+    logo_base64 = get_base64_of_image("assets/logo.png")
+    
+    if logo_base64:
+        # Ép Logo nằm ngang hàng với Tiêu đề LINANCE
+        st.markdown(f"""
+        <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 24px; margin-top: 10px;">
+            <img src="data:image/png;base64,{logo_base64}" style="width: 100px; object-fit: contain;">
+            <div>
+                <h1 style='font-size: 36px; color: #1E2329; font-weight: 800; margin: 0; padding: 0; letter-spacing: 1px;'>LINANCE</h1>
+                <p style='color: #474D57; font-size: 16px; margin-top: 4px; margin-bottom: 0;'>Vietnam Securities Research - Phân tích cấp tổ chức</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        # Dự phòng nếu quên tải ảnh
+        st.markdown("<h1 style='font-size: 32px; color: #1E2329; font-weight: 700; margin-bottom: 8px; margin-top: 10px;'>LINANCE</h1>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #474D57; font-size: 16px; margin-bottom: 32px;'>Vietnam Securities Research - Phân tích cấp tổ chức</p>", unsafe_allow_html=True)
 
 # --- KHỐI 2: TỔNG QUAN, BIỂU ĐỒ & PHÂN TÍCH AI (NÂNG CẤP TABS) ---
 def render_hero_section():
