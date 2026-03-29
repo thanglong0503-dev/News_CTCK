@@ -56,10 +56,13 @@ def render_hero_section():
     # Khởi tạo 3 Tab chính
     tab1, tab2, tab3 = st.tabs(["TỔNG QUAN THỊ TRƯỜNG", "DỮ LIỆU GIAO DỊCH", "PHÂN TÍCH AI"])
 
-    # --- TAB 1: TỔNG QUAN THỊ TRƯỜNG ---
+    # --- TAB 1: TỔNG QUAN THỊ TRƯỜNG (CẤU TRÚC 2 HÀNG x 3 CỘT) ---
     with tab1:
         st.markdown("<br>", unsafe_allow_html=True)
-        cols = st.columns(4)
+        
+        # Chuyển đổi groups dictionary thành list để dễ cắt đôi
+        groups_items = list(groups.items())
+        
         css_binance = """<style>
 .b-card { background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 20px 16px; min-height: 240px; transition: all 0.2s ease; }
 .b-card:hover { border-color: #E65100; box-shadow: 0 4px 12px rgba(230, 81, 0, 0.08); }
@@ -75,13 +78,33 @@ def render_hero_section():
 .c-up { color: #0ECB81; } 
 .c-down { color: #F6465D; } 
 </style>"""
-        for col, (group_name, tickers) in zip(cols, groups.items()):
+        
+        # HÀNG 1: 3 Nhóm đầu tiên (Tổng quan, Top Tăng, Top Giảm)
+        cols1 = st.columns(3)
+        for col, (group_name, tickers) in zip(cols1, groups_items[:3]):
             with col:
                 rows_html = ""
                 for t in tickers:
                     data = market_data.get(t, {"name": t, "price": "N/A", "change": 0})
                     color_class = "c-up" if data['change'] >= 0 else "c-down"
-                    rows_html += f"""<div class="b-row"><div class="b-name">{data['name']}</div><div class="b-price">{data['price']}</div><div class="b-change {color_class}">{data['change']:.2f}%</div></div>"""
+                    sign = "+" if data['change'] > 0 else ""
+                    rows_html += f"""<div class="b-row"><div class="b-name">{data['name']}</div><div class="b-price">{data['price']}</div><div class="b-change {color_class}">{sign}{data['change']:.2f}%</div></div>"""
+                card_html = f"""<div class="b-card"><div class="b-header"><div class="b-title">{group_name}</div><a href="#" class="b-more">Chi tiết ></a></div>{rows_html}</div>"""
+                st.markdown(f"{css_binance}{card_html}", unsafe_allow_html=True)
+
+        # Khoảng trắng tạo nhịp thở giữa 2 hàng
+        st.markdown("<div style='margin-top: 24px;'></div>", unsafe_allow_html=True)
+
+        # HÀNG 2: 3 Nhóm tiếp theo (Hút Tiền, Xả Hàng, Volume Khủng)
+        cols2 = st.columns(3)
+        for col, (group_name, tickers) in zip(cols2, groups_items[3:]):
+            with col:
+                rows_html = ""
+                for t in tickers:
+                    data = market_data.get(t, {"name": t, "price": "N/A", "change": 0})
+                    color_class = "c-up" if data['change'] >= 0 else "c-down"
+                    sign = "+" if data['change'] > 0 else ""
+                    rows_html += f"""<div class="b-row"><div class="b-name">{data['name']}</div><div class="b-price">{data['price']}</div><div class="b-change {color_class}">{sign}{data['change']:.2f}%</div></div>"""
                 card_html = f"""<div class="b-card"><div class="b-header"><div class="b-title">{group_name}</div><a href="#" class="b-more">Chi tiết ></a></div>{rows_html}</div>"""
                 st.markdown(f"{css_binance}{card_html}", unsafe_allow_html=True)
 
