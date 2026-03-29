@@ -86,27 +86,37 @@ def fetch_realtime_data():
         except:
             continue
 
-    # --- 4. THUẬT TOÁN XẾP HẠNG ĐỘNG (DYNAMIC SORTING TRÊN RỔ VN100) ---
+    # --- 4. THUẬT TOÁN XẾP HẠNG ĐỘNG (BỔ SUNG PHE GẤU) ---
     df_stats = pd.DataFrame(stats)
 
     if not df_stats.empty:
-        # Lọc ra 5 mã có Khối lượng (Volume) khủng nhất phiên hôm nay
+        # CÁC CHỈ SỐ TÍCH CỰC (BULLISH)
         top_vol = df_stats.sort_values(by="volume", ascending=False).head(5)["ticker"].tolist()
-        
-        # Lọc ra 5 mã Tăng mạnh nhất phiên hôm nay (Top Momentum)
         top_smg = df_stats.sort_values(by="change", ascending=False).head(5)["ticker"].tolist()
-        
-        # Lọc ra 5 mã Dẫn dắt thị trường (Hút Tiền nhiều nhất - Top Trade Value)
         top_cap = df_stats.sort_values(by="trade_value", ascending=False).head(5)["ticker"].tolist()
+        
+        # CÁC CHỈ SỐ TIÊU CỰC (BEARISH)
+        # 1. Giảm mạnh nhất (Sắp xếp % Change từ thấp đến cao)
+        top_losers = df_stats.sort_values(by="change", ascending=True).head(5)["ticker"].tolist()
+        
+        # 2. Xả hàng mạnh nhất (Lọc các mã Đỏ, sau đó chọn mã có Dòng tiền giao dịch lớn nhất)
+        df_red = df_stats[df_stats["change"] < 0]
+        if not df_red.empty:
+            top_dump = df_red.sort_values(by="trade_value", ascending=False).head(5)["ticker"].tolist()
+        else:
+            top_dump = [] # Trường hợp hiếm: Cả thị trường không có mã nào đỏ
+            
     else:
-        top_vol, top_smg, top_cap = [], [], []
+        top_vol, top_smg, top_cap, top_losers, top_dump = [], [], [], [], []
 
-    # 5. LẮP RÁP VÀO CÁC CỘT TRÊN GIAO DIỆN
+    # 5. LẮP RÁP VÀO CÁC CỘT TRÊN GIAO DIỆN (6 NHÓM)
     groups = {
-        "TỔNG QUAN THỊ TRƯỜNG": macro_tickers,     # Cố định
-        "HÚT TIỀN MẠNH NHẤT": top_cap,             # AI tự chọn từ VN100
-        "TOP SMG (MẠNH NHẤT)": top_smg,            # AI tự chọn từ VN100
-        "VOLUME KHỦNG NHẤT": top_vol               # AI tự chọn từ VN100
+        "TỔNG QUAN THỊ TRƯỜNG": macro_tickers,
+        "TOP TĂNG (MẠNH NHẤT)": top_smg,
+        "TOP GIẢM (YẾU NHẤT)": top_losers,
+        "HÚT TIỀN (GOM HÀNG)": top_cap,
+        "BÁN MẠNH (XẢ HÀNG)": top_dump,
+        "VOLUME KHỦNG NHẤT": top_vol
     }
 
     return market_data, groups
