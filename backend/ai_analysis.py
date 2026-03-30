@@ -210,59 +210,54 @@ from bs4 import BeautifulSoup
 import re
 import urllib.parse
 
-# --- PHẦN 4: HỆ THỐNG CÀO BÁO CÁO PHÂN TÍCH (VƯỢT TƯỜNG LỬA) ---
-def fetch_cafef_reports():
+# --- PHẦN 4: HỆ THỐNG CÀO BÁO CÁO PHÂN TÍCH (VIETSTOCK + VƯỢT TƯỜNG LỬA) ---
+def fetch_cafef_reports(): # Giữ nguyên tên hàm để không gây lỗi giao diện
     reports = []
     try:
-        # 1. Đường dẫn gốc của CafeF
-        target_url = "https://s.cafef.vn/bao-cao-phan-tich.chn"
+        # 1. Đường dẫn gốc của Vietstock
+        target_url = "https://finance.vietstock.vn/bao-cao-phan-tich"
         
         # 2. DÙNG TUYỆT CHIÊU PROXY: Nhờ AllOrigins đi lấy giùm để lách Cloudflare
         proxy_url = f"https://api.allorigins.win/get?url={urllib.parse.quote(target_url)}"
         
-        # Thời gian chờ lâu hơn chút vì phải đi vòng qua trung gian
+        # Cho phép chờ 10s vì đi vòng qua trung gian sẽ tốn thời gian hơn một chút
         res = requests.get(proxy_url, timeout=10)
         
         if res.status_code == 200:
-            # AllOrigins trả về JSON, mổ bụng nó ra để lấy mã HTML thật ở key 'contents'
+            # AllOrigins trả về JSON, ta mổ bụng nó ra để lấy mã HTML thật ở key 'contents'
             html_content = res.json().get('contents', '')
             soup = BeautifulSoup(html_content, 'html.parser')
             
-            # 3. Dùng BeautifulSoup cào các thẻ chứa link
+            # 3. Cào các thẻ <a> chứa link báo cáo
             links = soup.find_all('a', href=True)
             for a in links:
                 href = a['href']
                 title = a.text.strip()
                 
-                # Bắt các link có chứa chữ 'report' hoặc 'bao-cao' và tiêu đề không quá ngắn
                 href_lower = href.lower()
-                if ('report' in href_lower or 'bao-cao' in href_lower or '.pdf' in href_lower) and len(title) > 25:
+                # Cấu trúc nhận diện link báo cáo của Vietstock (vd: /bao-cao-phan-tich/123/vnd-khuyen-nghi.htm)
+                if '/bao-cao-phan-tich/' in href_lower and href_lower.endswith('.htm') and len(title) > 20:
                     
                     # Dùng Regex tóm ngay Mã Cổ Phiếu (3 chữ cái viết hoa liền nhau)
                     ticker_match = re.search(r'\b[A-Z]{3}\b', title)
-                    ticker = ticker_match.group(0) if ticker_match else "VĨ MÔ"
+                    ticker = ticker_match.group(0) if ticker_match else "VĨ MÔ / NGÀNH"
                     
-                    # Nối link tuyệt đối nếu CafeF xài link tương đối
-                    if href.startswith('/'):
-                        full_link = f"https://s.cafef.vn{href}"
-                    elif href.startswith('http'):
-                        full_link = href
-                    else:
-                        full_link = f"https://s.cafef.vn/{href}"
+                    # Nối link tuyệt đối vì Vietstock thường xài link rút gọn
+                    full_link = f"https://finance.vietstock.vn{href}" if href.startswith('/') else href
                         
-                    # Loại bỏ link trùng lặp hoặc link rác javascript
-                    if not any(r['title'] == title for r in reports) and "javascript" not in full_link:
+                    # Lọc trùng lặp bài viết
+                    if not any(r['title'] == title for r in reports):
                         reports.append({
                             "title": title,
                             "ticker": ticker,
                             "link": full_link,
-                            "source": "CafeF & CTCK",
-                            "date": "Cập nhật mới nhất"
+                            "source": "Vietstock / CTCK",
+                            "date": "Mới cập nhật"
                         })
                     
-                    if len(reports) >= 15: # Lấy đủ 15 bài là dừng
+                    if len(reports) >= 15: # Chỉ lấy 15 báo cáo nóng nhất phiên
                         break
     except Exception as e:
-        print(f"Lỗi Proxy CafeF: {e}")
+        print(f"Lỗi Proxy Vietstock: {e}")
         
     return reports
