@@ -355,7 +355,7 @@ def render_news_section():
     if 'current_page' not in st.session_state: st.session_state.current_page = 1
     if 'search_query' not in st.session_state: st.session_state.search_query = ""
 
-    st.markdown("<br><div class='section-title' style='margin-top: 0px;'>Tra cứu Thông tin Phân Tích</div>", unsafe_allow_html=True)
+    st.markdown("<br><div class='section-title' style='margin-top: 0px;'>Thông tin thị trường trong nước và nước ngoài</div>", unsafe_allow_html=True)
     
     with st.container():
         st.markdown("<div style='background-color: #FFF8F3; padding: 20px; border-radius: 8px; margin-bottom: 24px; border: 1px solid #FFE0B2;'>", unsafe_allow_html=True)
