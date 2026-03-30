@@ -215,7 +215,7 @@ def fetch_cafef_reports(): # Giữ nguyên tên hàm để không gây lỗi gia
     reports = []
     try:
         # 1. Đường dẫn gốc của Vietstock
-        target_url = "https://finance.vietstock.vn/bao-cao-phan-tich"
+        target_url = "https://cafef.vn/du-lieu/phan-tich-bao-cao.chn"
         
         # 2. DÙNG TUYỆT CHIÊU PROXY: Nhờ AllOrigins đi lấy giùm để lách Cloudflare
         proxy_url = f"https://api.allorigins.win/get?url={urllib.parse.quote(target_url)}"
