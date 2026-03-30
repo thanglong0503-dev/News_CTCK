@@ -397,6 +397,11 @@ import streamlit as st
 from datetime import datetime
 from backend.official_news import fetch_mainstream_news # Đảm bảo import hàm cào tin
 
+import math
+import streamlit as st
+from datetime import datetime
+from backend.official_news import fetch_mainstream_news
+
 # --- KHỐI 3: TÌM KIẾM & LƯỚI TIN TỨC ---
 @st.fragment
 def render_news_section():
@@ -418,9 +423,12 @@ def render_news_section():
                 st.session_state.search_query = search_val
                 st.session_state.current_page = 1
                 
-        col_radio, col_time = st.columns([4, 2])
+        # --- ĐÃ THÊM BỘ LỌC KHU VỰC VÀO ĐÂY ---
+        col_radio, col_region, col_time = st.columns([3, 2, 2])
         with col_radio: 
-            filter_type = st.radio("Phân loại:", ["Tất cả", "Công ty", "Tin tức", "Lãnh đạo", "Cổ phiếu quan tâm"], horizontal=True, label_visibility="collapsed")
+            filter_type = st.radio("Phân loại:", ["Tất cả", "Công ty", "Tin tức", "Lãnh đạo"], horizontal=True, label_visibility="collapsed")
+        with col_region:
+            region_filter = st.radio("Khu vực:", ["Tất cả", "🇻🇳 Trong nước", "🌎 Quốc tế"], horizontal=True, label_visibility="collapsed")
         with col_time: 
             time_filter = st.selectbox("Thời gian:", ["Mọi lúc", "Hôm nay", "Tuần này"], label_visibility="collapsed")
         st.markdown("</div>", unsafe_allow_html=True)
@@ -429,18 +437,27 @@ def render_news_section():
         st.info("Hệ thống đang cập nhật tin tức...")
         return
 
-    # --- ÁP DỤNG BỘ LỌC ---
+    # --- ÁP DỤNG BỘ LỌC TỔNG HỢP ---
     filtered_df = df_news.copy()
+    
+    # 1. Lọc theo Từ khóa tìm kiếm
     if st.session_state.search_query:
         query = st.session_state.search_query.lower()
-        # Ép kiểu string để tránh lỗi khi quét regex
         filtered_df = filtered_df[filtered_df['title'].astype(str).str.lower().str.contains(query) | filtered_df['tag'].astype(str).str.lower().str.contains(query)]
         
+    # 2. Lọc theo Phân loại
     if filter_type == "Tin tức": 
         filtered_df = filtered_df[filtered_df['tag'] == "Tin vĩ mô"]
     elif filter_type == "Cổ phiếu quan tâm": 
         filtered_df = filtered_df[filtered_df['tag'].astype(str).str.contains("🔥 Cổ phiếu quan tâm")]
 
+    # 3. Lọc theo Khu vực (MỚI)
+    if region_filter == "🇻🇳 Trong nước":
+        filtered_df = filtered_df[filtered_df['region'] == 'VN']
+    elif region_filter == "🌎 Quốc tế":
+        filtered_df = filtered_df[filtered_df['region'] == 'GLOBAL']
+
+    # 4. Lọc theo Thời gian
     if time_filter == "Hôm nay":
         today_str = datetime.now().strftime("%d/%m/%Y")
         filtered_df = filtered_df[filtered_df['date'].astype(str).str.contains(today_str)]
@@ -471,10 +488,13 @@ def render_news_section():
         for i, row in paged_df.reset_index().iterrows():
             target_col = col1 if i % 2 == 0 else col2
             with target_col:
+                # Đổi màu icon cờ theo khu vực
+                flag = "🌎" if row.get('region') == 'GLOBAL' else "🇻🇳"
+                
                 card_html = f"""<a href="{row['link']}" target="_blank" style="text-decoration: none; color: inherit; display: block; height: 100%;">
 <div class='n-card'>
 <div>
-<div style='color: #FF6B00; font-size: 11px; font-weight: 700; margin-bottom: 8px; text-transform: uppercase;'>{row['ctck']} • {row['tag']}</div>
+<div style='color: #FF6B00; font-size: 11px; font-weight: 700; margin-bottom: 8px; text-transform: uppercase;'>{flag} {row['ctck']} • {row['tag']}</div>
 <div style='color: #1E2329; font-size: 15px; font-weight: 700; margin-bottom: 12px; line-height: 1.4;'>{row['title']}</div>
 </div>
 <div style='color: #848E9C; font-size: 12px; font-weight: 600;'>🕒 {row['date']}</div>
@@ -489,7 +509,6 @@ def render_news_section():
         with pag_cols[1]:
             if st.button("◀ Trước", disabled=(st.session_state.current_page <= 1), use_container_width=True, key="prev_btn"):
                 st.session_state.current_page -= 1
-                # Ép load lại đúng khu vực fragment này
                 st.rerun(scope="fragment") 
                 
         with pag_cols[2]: 
