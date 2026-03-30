@@ -319,33 +319,77 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
 {posts_html}
 </div>""", unsafe_allow_html=True)
 
-    # --- CAROUSEL TIN TỨC NẰM DƯỚI CÙNG ---
-    st.markdown("<br><div style='font-size: 14px; font-weight: 700; color: #E65100; margin-bottom: 16px; text-transform: uppercase; border-top: 1px solid #EAECEF; padding-top: 24px;'>Tin Tức Giao Dịch Nổi Bật</div>", unsafe_allow_html=True)
+    import streamlit.components.v1 as components
+
+    # --- CAROUSEL TIN TỨC NẰM DƯỚI CÙNG (Đã đổi tên và nâng cấp tự động trượt) ---
+    st.markdown("<br><div style='font-size: 14px; font-weight: 700; color: #E65100; margin-bottom: 16px; text-transform: uppercase; border-top: 1px solid #EAECEF; padding-top: 24px;'>Thông tin thị trường trong nước và nước ngoài</div>", unsafe_allow_html=True)
     
     from backend.official_news import fetch_mainstream_news
     df_news = fetch_mainstream_news()
     if not df_news.empty:
+        # Giữ nguyên logic cũ: Lọc 6 tin có tag 🔥
         hot_news_df = df_news[df_news['tag'].str.contains('🔥')].head(6)
         if hot_news_df.empty: hot_news_df = df_news.head(6)
-        css_car = """<style>
-.scroll-container { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 16px; padding-bottom: 12px; scroll-behavior: smooth; }
-.scroll-container::-webkit-scrollbar { height: 4px; }
-.scroll-container::-webkit-scrollbar-track { background: transparent; border-radius: 4px; }
-.scroll-container::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 4px; }
-.scroll-card { scroll-snap-align: start; min-width: calc(33.333% - 11px); background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; height: 160px; transition: all 0.2s ease; }
-.scroll-card:hover { border-color: #E65100; box-shadow: 0 4px 12px rgba(230, 81, 0, 0.08); }
-</style>"""
-        cards_html = ""
+        
+        # 1. Tạo các thẻ bài viết (Slides)
+        slides_html = ""
         for i, row in hot_news_df.iterrows():
             summary = ' '.join(row['title'].split()[:18]) + "..."
-            # ÉP SÁT LỀ TRÁI
-            cards_html += f"""<a href="{row['link']}" target="_blank" class="scroll-card" style="text-decoration: none; color: inherit;">
-<div>
-<div style="color: #E65100; font-size: 11px; margin-bottom: 8px; font-weight: 700; text-transform: uppercase;">{row['ctck']} • {row['date']}</div>
-<div style="color: #1E2329; font-size: 15px; font-weight: 700; line-height: 1.4;">{summary}</div>
-</div>
-</a>"""
-        st.markdown(f"{css_car}<div class='scroll-container'>{cards_html}</div>", unsafe_allow_html=True)
+            slides_html += f"""
+            <div class="slide">
+                <a href="{row['link']}" target="_blank" class="scroll-card">
+                    <div class="tag-hot">🔥 TIN CHẤN ĐỘNG</div>
+                    <div class="meta">{row['ctck']} • {row['date']}</div>
+                    <div class="title">{summary}</div>
+                </a>
+            </div>
+            """
+
+        # 2. Đóng gói HTML, CSS và Javascript (Bộ đếm 5 giây)
+        carousel_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <style>
+            body {{ margin: 0; font-family: 'Segoe UI', Tahoma, sans-serif; overflow: hidden; }}
+            .slider-container {{ width: 100%; overflow: hidden; position: relative; padding: 10px 0; }}
+            .slider-track {{ display: flex; transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1); }}
+            .slide {{ min-width: 33.333%; padding: 0 8px; box-sizing: border-box; }}
+            .scroll-card {{ background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 20px; display: flex; flex-direction: column; height: 160px; text-decoration: none; transition: all 0.2s; box-sizing: border-box; }}
+            .scroll-card:hover {{ border-color: #E65100; box-shadow: 0 4px 12px rgba(230, 81, 0, 0.08); }}
+            .tag-hot {{ background: #FFF2E5; color: #E65100; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 800; margin-bottom: 8px; display: inline-block; width: max-content; }}
+            .meta {{ color: #848E9C; font-size: 11px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; }}
+            .title {{ color: #1E2329; font-size: 15px; font-weight: 700; line-height: 1.4; }}
+        </style>
+        </head>
+        <body>
+            <div class="slider-container">
+                <div class="slider-track" id="track">
+                    {slides_html}
+                </div>
+            </div>
+            <script>
+                const track = document.getElementById('track');
+                const totalSlides = {len(hot_news_df)};
+                let index = 0;
+
+                // Tự động lướt ngang mỗi 5 giây
+                setInterval(() => {{
+                    let maxIndex = totalSlides > 3 ? totalSlides - 3 : 0;
+                    if (index >= maxIndex) {{
+                        index = 0; // Trở lại đầu
+                    }} else {{
+                        index++;
+                    }}
+                    track.style.transform = `translateX(-${{index * 33.333}}%)`;
+                }}, 5000);
+            </script>
+        </body>
+        </html>
+        """
+
+        # 3. Kích hoạt giao diện
+        components.html(carousel_html, height=200)
 
 
 # --- KHỐI 3: TÌM KIẾM & LƯỚI TIN TỨC ---
