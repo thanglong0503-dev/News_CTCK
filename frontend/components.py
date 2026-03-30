@@ -173,8 +173,7 @@ def render_hero_section():
             cards_html = "".join([f"""<div class="a-card"><div class="a-ticker">{a['ticker']}</div><div class="a-type" style="background-color: {a['color']};">{a['type']}</div><div class="a-details">{a['details']}</div></div>""" for a in technical_alerts])
             st.markdown(f"{css_ai_alerts}<div class='a-card-grid'>{cards_html}</div>", unsafe_allow_html=True)
 
-    # Kéo hàm cào báo cáo vào đây cho gọn gàng
-   # Nhớ import cả 2 hàm cào báo cáo và AI phân tích nhé
+  
     from backend.ai_analysis import fetch_cafef_reports, generate_ai_report_scoring
 
     # --- TAB 4: TRUNG TÂM BÁO CÁO TỔ CHỨC (RESEARCH DASHBOARD) ---
