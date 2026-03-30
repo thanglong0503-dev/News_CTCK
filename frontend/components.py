@@ -174,6 +174,7 @@ def render_hero_section():
             st.markdown(f"{css_ai_alerts}<div class='a-card-grid'>{cards_html}</div>", unsafe_allow_html=True)
 
     # Kéo hàm cào báo cáo vào đây cho gọn gàng
+   # Nhớ import cả 2 hàm cào báo cáo và AI phân tích nhé
     from backend.ai_analysis import fetch_cafef_reports, generate_ai_report_scoring
 
     # --- TAB 4: TRUNG TÂM BÁO CÁO TỔ CHỨC (RESEARCH DASHBOARD) ---
@@ -206,7 +207,6 @@ def render_hero_section():
             
             with col_ai:
                 # 1. Gọi con AI ra phân tích đống báo cáo vừa cào được
-                from backend.ai_analysis import generate_ai_report_scoring
                 ai_data = generate_ai_report_scoring(reports_data)
                 
                 # 2. Giao diện Bảng Điều Khiển AI
