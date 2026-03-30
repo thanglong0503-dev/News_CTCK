@@ -208,46 +208,61 @@ def get_f319_sentiment():
 import requests
 from bs4 import BeautifulSoup
 import re
+import urllib.parse
 
-# --- PHẦN 4: HỆ THỐNG CÀO BÁO CÁO PHÂN TÍCH (RESEARCH REPORTS) ---
+# --- PHẦN 4: HỆ THỐNG CÀO BÁO CÁO PHÂN TÍCH (VƯỢT TƯỜNG LỬA) ---
 def fetch_cafef_reports():
     reports = []
     try:
-        url = "https://s.cafef.vn/bao-cao-phan-tich.chn"
-        # Cần User-Agent chuẩn để CafeF không chặn
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+        # 1. Đường dẫn gốc của CafeF
+        target_url = "https://s.cafef.vn/bao-cao-phan-tich.chn"
         
-        response = requests.get(url, headers=headers, timeout=5)
-        soup = BeautifulSoup(response.content, 'html.parser')
+        # 2. DÙNG TUYỆT CHIÊU PROXY: Nhờ AllOrigins đi lấy giùm để lách Cloudflare
+        proxy_url = f"https://api.allorigins.win/get?url={urllib.parse.quote(target_url)}"
         
-        # Bóc tách các thẻ chứa link báo cáo
-        links = soup.find_all('a', href=True)
-        for a in links:
-            href = a['href']
-            title = a.text.strip()
+        # Thời gian chờ lâu hơn chút vì phải đi vòng qua trung gian
+        res = requests.get(proxy_url, timeout=10)
+        
+        if res.status_code == 200:
+            # AllOrigins trả về JSON, mổ bụng nó ra để lấy mã HTML thật ở key 'contents'
+            html_content = res.json().get('contents', '')
+            soup = BeautifulSoup(html_content, 'html.parser')
             
-            # Lọc các link thực sự là báo cáo phân tích và có tiêu đề đủ dài
-            if 'bao-cao-phan-tich' in href and len(title) > 20:
-                # Dùng Regex để tự động bắt Mã cổ phiếu (3 chữ cái viết hoa) trong tiêu đề
-                ticker_match = re.search(r'\b[A-Z]{3}\b', title)
-                ticker = ticker_match.group(0) if ticker_match else "Vĩ Mô"
+            # 3. Dùng BeautifulSoup cào các thẻ chứa link
+            links = soup.find_all('a', href=True)
+            for a in links:
+                href = a['href']
+                title = a.text.strip()
                 
-                # Làm sạch link
-                full_link = f"https://s.cafef.vn{href}" if href.startswith('/') else href
-                
-                # Tránh trùng lặp bài viết
-                if not any(r['title'] == title for r in reports):
-                    reports.append({
-                        "title": title,
-                        "ticker": ticker,
-                        "link": full_link,
-                        "source": "CafeF / CTCK", # Tạm thời gộp chung nguồn
-                        "date": "Mới cập nhật"
-                    })
-                
-                if len(reports) >= 15: # Chỉ lấy 15 báo cáo nóng nhất
-                    break
+                # Bắt các link có chứa chữ 'report' hoặc 'bao-cao' và tiêu đề không quá ngắn
+                href_lower = href.lower()
+                if ('report' in href_lower or 'bao-cao' in href_lower or '.pdf' in href_lower) and len(title) > 25:
+                    
+                    # Dùng Regex tóm ngay Mã Cổ Phiếu (3 chữ cái viết hoa liền nhau)
+                    ticker_match = re.search(r'\b[A-Z]{3}\b', title)
+                    ticker = ticker_match.group(0) if ticker_match else "VĨ MÔ"
+                    
+                    # Nối link tuyệt đối nếu CafeF xài link tương đối
+                    if href.startswith('/'):
+                        full_link = f"https://s.cafef.vn{href}"
+                    elif href.startswith('http'):
+                        full_link = href
+                    else:
+                        full_link = f"https://s.cafef.vn/{href}"
+                        
+                    # Loại bỏ link trùng lặp hoặc link rác javascript
+                    if not any(r['title'] == title for r in reports) and "javascript" not in full_link:
+                        reports.append({
+                            "title": title,
+                            "ticker": ticker,
+                            "link": full_link,
+                            "source": "CafeF & CTCK",
+                            "date": "Cập nhật mới nhất"
+                        })
+                    
+                    if len(reports) >= 15: # Lấy đủ 15 bài là dừng
+                        break
     except Exception as e:
-        print(f"Lỗi cào báo cáo CafeF: {e}")
+        print(f"Lỗi Proxy CafeF: {e}")
         
     return reports
