@@ -81,7 +81,7 @@ def render_hero_section():
 
     
     # Đổi từ 3 Tab thành 4 Tab
-tab1, tab2, tab3, tab4 = st.tabs(["TỔNG QUAN THỊ TRƯỜNG", "DỮ LIỆU GIAO DỊCH", "PHÂN TÍCH AI", "BÁO CÁO TỔ CHỨC"])
+    tab1, tab2, tab3, tab4 = st.tabs(["TỔNG QUAN THỊ TRƯỜNG", "DỮ LIỆU GIAO DỊCH", "PHÂN TÍCH AI", "BÁO CÁO TỔ CHỨC"])
 
     # --- TAB 1: TỔNG QUAN THỊ TRƯỜNG (CẤU TRÚC 2 HÀNG x 3 CỘT) ---
     with tab1:
@@ -142,13 +142,13 @@ tab1, tab2, tab3, tab4 = st.tabs(["TỔNG QUAN THỊ TRƯỜNG", "DỮ LIỆU GI
     # --- TAB 3: PHÂN TÍCH AI ---
     with tab3:
         st.markdown("<br>", unsafe_allow_html=True)
-        # 1. KÉO CODE AI VÀO (Nhớ import thêm get_f319_sentiment trên cùng file nhé)
+        # 1. KÉO CODE AI VÀO
         from backend.ai_analysis import analyze_news_sentiment, generate_technical_alerts, get_f319_sentiment
         market_sentiment_score, top_bullish_news, top_bearish_news = analyze_news_sentiment()
         technical_alerts = generate_technical_alerts()
         f319_data = get_f319_sentiment() # Lấy data F319
 
-        # --- KHỐI BÁO ĐỘNG KỸ THUẬT & TÂM LÝ TIN TỨC (GIỮ NGUYÊN NHƯ CŨ) ---
+        # --- KHỐI BÁO ĐỘNG KỸ THUẬT & TÂM LÝ TIN TỨC ---
         st.markdown("<div style='font-size: 14px; font-weight: 700; color: #E65100; margin-bottom: 16px; text-transform: uppercase;'>Chỉ số Tâm lý Thị trường (Sentiment Index)</div>", unsafe_allow_html=True)
         col_gauge, col_top_news = st.columns([1, 2.2])
         with col_gauge:
@@ -172,7 +172,8 @@ tab1, tab2, tab3, tab4 = st.tabs(["TỔNG QUAN THỊ TRƯỜNG", "DỮ LIỆU GI
             css_ai_alerts = """<style>.a-card-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px;} .a-card { background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 16px; text-align: center; transition: all 0.2s ease;} .a-card:hover { border-color: #E65100; box-shadow: 0 4px 12px rgba(230, 81, 0, 0.08);} .a-ticker { font-size: 16px; font-weight: 700; color: #1E2329; margin-bottom: 12px;} .a-type { font-size: 11px; font-weight: 700; padding: 6px 8px; border-radius: 4px; color: #fff; text-transform: uppercase; display: inline-block; margin-bottom: 12px; width: 100%; box-sizing: border-box;} .a-details { font-size: 12px; color: #707A8A; line-height: 1.5; font-weight: 500;}</style>"""
             cards_html = "".join([f"""<div class="a-card"><div class="a-ticker">{a['ticker']}</div><div class="a-type" style="background-color: {a['color']};">{a['type']}</div><div class="a-details">{a['details']}</div></div>""" for a in technical_alerts])
             st.markdown(f"{css_ai_alerts}<div class='a-card-grid'>{cards_html}</div>", unsafe_allow_html=True)
-# Đừng quên import hàm hút báo cáo ở đầu file hoặc trên khối này nhé
+
+    # Kéo hàm cào báo cáo vào đây cho gọn gàng
     from backend.ai_analysis import fetch_cafef_reports
 
     # --- TAB 4: TRUNG TÂM BÁO CÁO TỔ CHỨC (RESEARCH DASHBOARD) ---
@@ -185,13 +186,11 @@ tab1, tab2, tab3, tab4 = st.tabs(["TỔNG QUAN THỊ TRƯỜNG", "DỮ LIỆU GI
         if not reports_data:
             st.info("Hệ thống hiện chưa lấy được báo cáo mới. Vui lòng thử lại sau.")
         else:
-            # Layout chia 2 cột: Cột trái chứa danh sách, cột phải chuẩn bị cho AI Dashboard
             col_list, col_ai = st.columns([1.5, 1])
             
             with col_list:
                 st.markdown("<div style='font-weight: 700; font-size: 18px; margin-bottom: 16px; color: #1E2329;'>Báo cáo Phát hành Gần đây</div>", unsafe_allow_html=True)
                 for r in reports_data:
-                    # Mã cổ phiếu được bôi cam nổi bật
                     ticker_badge = f"<span style='background-color: #FFF2E5; color: #E65100; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 700; margin-right: 8px;'>{r['ticker']}</span>"
                     st.markdown(f"""
                     <div style='background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 16px; margin-bottom: 12px; transition: all 0.2s ease;'>
@@ -206,7 +205,6 @@ tab1, tab2, tab3, tab4 = st.tabs(["TỔNG QUAN THỊ TRƯỜNG", "DỮ LIỆU GI
                     """, unsafe_allow_html=True)
             
             with col_ai:
-                # Bảng Dashboard chờ sẵn cho Phase 2 (Tích hợp AI & Lịch sử)
                 st.markdown("""
                 <div style='background: #FAFAFA; border: 1px dashed #D3D5D8; border-radius: 8px; padding: 24px; text-align: center; height: 100%;'>
                     <div style='font-size: 40px; margin-bottom: 16px;'>🤖</div>
