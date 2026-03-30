@@ -204,3 +204,50 @@ def get_f319_sentiment():
         "total_posts": total_posts,
         "posts": posts
     }
+
+import requests
+from bs4 import BeautifulSoup
+import re
+
+# --- PHẦN 4: HỆ THỐNG CÀO BÁO CÁO PHÂN TÍCH (RESEARCH REPORTS) ---
+def fetch_cafef_reports():
+    reports = []
+    try:
+        url = "https://s.cafef.vn/bao-cao-phan-tich.chn"
+        # Cần User-Agent chuẩn để CafeF không chặn
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+        
+        response = requests.get(url, headers=headers, timeout=5)
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # Bóc tách các thẻ chứa link báo cáo
+        links = soup.find_all('a', href=True)
+        for a in links:
+            href = a['href']
+            title = a.text.strip()
+            
+            # Lọc các link thực sự là báo cáo phân tích và có tiêu đề đủ dài
+            if 'bao-cao-phan-tich' in href and len(title) > 20:
+                # Dùng Regex để tự động bắt Mã cổ phiếu (3 chữ cái viết hoa) trong tiêu đề
+                ticker_match = re.search(r'\b[A-Z]{3}\b', title)
+                ticker = ticker_match.group(0) if ticker_match else "Vĩ Mô"
+                
+                # Làm sạch link
+                full_link = f"https://s.cafef.vn{href}" if href.startswith('/') else href
+                
+                # Tránh trùng lặp bài viết
+                if not any(r['title'] == title for r in reports):
+                    reports.append({
+                        "title": title,
+                        "ticker": ticker,
+                        "link": full_link,
+                        "source": "CafeF / CTCK", # Tạm thời gộp chung nguồn
+                        "date": "Mới cập nhật"
+                    })
+                
+                if len(reports) >= 15: # Chỉ lấy 15 báo cáo nóng nhất
+                    break
+    except Exception as e:
+        print(f"Lỗi cào báo cáo CafeF: {e}")
+        
+    return reports
