@@ -6,6 +6,41 @@ import streamlit as st
 import email.utils
 from datetime import datetime
 
+# ==========================================
+# 0. TRẠM KIỂM DUYỆT TIN CHẤN ĐỘNG (RULE-BASED NLP)
+# ==========================================
+def apply_hot_news_filter(df):
+    if df.empty or 'title' not in df.columns:
+        return df
+
+    # Cuốn "Từ điển tử thần" - Chứa các từ khóa tạo ra biến động giá mạnh nhất
+    hot_keywords = [
+        # Nhóm Pháp lý / Rủi ro
+        'khởi tố', 'bắt giam', 'thanh tra', 'thao túng', 'hủy niêm yết', 'đình chỉ', 'vi phạm', 'kỷ luật', 'cảnh báo',
+        # Nhóm Tài chính Đột biến
+        'kỷ lục', 'đột biến', 'báo lỗ', 'phá sản', 'sáp nhập', 'thoái vốn', 'giải thể', 'cổ tức khủng', 'thương vụ',
+        # Nhóm Vĩ mô / Dòng tiền
+        'lãi suất', 'hút tiền', 'bơm tiền', 'nhnn', 'ngân hàng nhà nước', 'tỷ giá', 'fed', 'khủng hoảng', 'lạm phát'
+    ]
+    
+    # Hàm con: Đọc tiêu đề và quyết định có dán nhãn 🔥 hay không
+    def check_hot(row):
+        title_lower = str(row['title']).lower()
+        if any(kw in title_lower for kw in hot_keywords):
+            return '🔥 TIN CHẤN ĐỘNG'
+        return row['tag'] # Nếu không có biến, giữ nguyên tag cũ của hệ thống
+
+    # Áp dụng bộ lọc tạo tag mới
+    df['tag'] = df.apply(check_hot, axis=1)
+    
+    # Phân loại độ ưu tiên: Các tin có chứa icon 🔥 sẽ được quyền ưu tiên mức 1
+    df['is_hot'] = df['tag'].str.contains('🔥').astype(int)
+    
+    # Sắp xếp: Tin nóng lên đầu (is_hot), nếu cùng độ nóng thì tin nào mới hơn (timestamp) xếp trước
+    df = df.sort_values(by=['is_hot', 'timestamp'], ascending=[False, False]).drop(columns=['is_hot'])
+    
+    return df
+
 @st.cache_data(ttl=1800, show_spinner=False)
 def fetch_mainstream_news():
     news_list = []
@@ -79,7 +114,6 @@ def fetch_mainstream_news():
         sb_res = requests.get(sb_url, headers=headers, timeout=10)
         if sb_res.status_code == 200:
             soup = BeautifulSoup(sb_res.text, 'html.parser')
-            # Lùng sục toàn bộ thẻ <a> có chứa link
             links = soup.find_all('a', href=True)
             count = 0
             
@@ -88,14 +122,12 @@ def fetch_mainstream_news():
                 title = link.text.strip()
                 href = link['href']
                 
-                # Bộ lọc chống rác: Tiêu đề phải dài hơn 30 ký tự (loại bỏ mấy nút bấm linh tinh)
                 if len(title) > 30 and not href.startswith('javascript'):
                     full_link = "https://stockbiz.vn" + href if href.startswith('/') else href
                     
                     tag = "Tin doanh nghiệp"
                     if "plx" in title.lower() or "mbb" in title.lower(): tag = "🔥 Cổ phiếu quan tâm"
                     
-                    # Vì quét HTML thô không có ngày giờ rõ ràng, ta gán giờ hiện tại để nó hiển thị lên đầu tiên
                     now = datetime.now()
                     news_list.append({
                         "ctck": "STOCKBIZ",
@@ -103,20 +135,25 @@ def fetch_mainstream_news():
                         "title": title,
                         "link": full_link,
                         "date": now.strftime("%d/%m/%Y %H:%M"),
-                        "timestamp": now.timestamp() - count # Trừ lùi để giữ đúng thứ tự bài trên web
+                        "timestamp": now.timestamp() - count # Trừ lùi để giữ đúng thứ tự
                     })
                     count += 1
     except Exception as e:
         print(f"Lỗi HTML Stockbiz: {e}")
 
     # ==========================================
-    # 3. TRỘN, DỌN DẸP & SẮP XẾP
+    # 3. TRỘN, DỌN DẸP & SẮP XẾP BẰNG AI
     # ==========================================
     df = pd.DataFrame(news_list)
     if not df.empty and 'timestamp' in df.columns:
-        # Cực kỳ quan trọng: Xóa các bài bị lặp (Do cào HTML thường dính 1 link ảnh và 1 link chữ giống hệt nhau)
+        # Xóa các bài bị lặp
         df = df.drop_duplicates(subset=['title'])
-        # Sắp xếp theo dòng thời gian
-        df = df.sort_values(by='timestamp', ascending=False).drop(columns=['timestamp'])
+        
+        # ĐƯA QUA TRẠM KIỂM DUYỆT AI ĐỂ LỌC TIN CHẤN ĐỘNG & SẮP XẾP LẠI
+        df = apply_hot_news_filter(df)
+        
+        # Dọn dẹp cột timestamp ẩn sau khi đã sắp xếp xong
+        if 'timestamp' in df.columns:
+            df = df.drop(columns=['timestamp'])
         
     return df
