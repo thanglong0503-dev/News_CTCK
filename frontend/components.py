@@ -174,7 +174,7 @@ def render_hero_section():
             st.markdown(f"{css_ai_alerts}<div class='a-card-grid'>{cards_html}</div>", unsafe_allow_html=True)
 
     # Kéo hàm cào báo cáo vào đây cho gọn gàng
-    from backend.ai_analysis import fetch_cafef_reports
+    from backend.ai_analysis import fetch_cafef_reports, generate_ai_report_scoring
 
     # --- TAB 4: TRUNG TÂM BÁO CÁO TỔ CHỨC (RESEARCH DASHBOARD) ---
     with tab4:
@@ -205,15 +205,40 @@ def render_hero_section():
                     """, unsafe_allow_html=True)
             
             with col_ai:
-                st.markdown("""
-                <div style='background: #FAFAFA; border: 1px dashed #D3D5D8; border-radius: 8px; padding: 24px; text-align: center; height: 100%;'>
-                    <div style='font-size: 40px; margin-bottom: 16px;'>🤖</div>
-                    <div style='font-size: 16px; font-weight: 700; color: #1E2329; margin-bottom: 8px;'>AI Smart Scoring (Sắp ra mắt)</div>
-                    <div style='font-size: 14px; color: #474D57; line-height: 1.5; margin-bottom: 16px;'>
-                        Mô đun này sẽ sử dụng AI để đánh giá tỷ lệ thành công của báo cáo dựa trên lịch sử phím hàng của các tổ chức.
+                # 1. Gọi con AI ra phân tích đống báo cáo vừa cào được
+                from backend.ai_analysis import generate_ai_report_scoring
+                ai_data = generate_ai_report_scoring(reports_data)
+                
+                # 2. Giao diện Bảng Điều Khiển AI
+                st.markdown("<div style='font-weight: 700; font-size: 18px; margin-bottom: 16px; color: #1E2329;'>AI Consensus Scoring</div>", unsafe_allow_html=True)
+                
+                # Thẻ Điểm Đồng Thuận
+                st.markdown(f"""
+                <div style='background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 24px; text-align: center; margin-bottom: 16px;'>
+                    <div style='font-size: 14px; color: #707A8A; font-weight: 600; text-transform: uppercase; margin-bottom: 8px;'>Chỉ số đồng thuận Tổ chức</div>
+                    <div style='font-size: 48px; font-weight: 800; color: {ai_data['color']}; line-height: 1; margin-bottom: 8px; font-family: "SF Mono", Consolas, monospace;'>{ai_data['score']}</div>
+                    <div style='display: inline-block; background-color: {ai_data['color']}20; color: {ai_data['color']}; padding: 6px 12px; border-radius: 4px; font-size: 13px; font-weight: 700;'>{ai_data['consensus']}</div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Thẻ Tỷ lệ Chính xác & Khuyến nghị
+                buy_badges = "".join([f"<span style='background: #0ECB8120; color: #0ECB81; padding: 4px 8px; border-radius: 4px; margin-right: 6px; font-weight: 700; font-size: 12px;'>{t}</span>" for t in ai_data['top_buy']]) if ai_data['top_buy'] else "<span style='color:#848E9C; font-size:13px;'>Không có</span>"
+                
+                sell_badges = "".join([f"<span style='background: #F6465D20; color: #F6465D; padding: 4px 8px; border-radius: 4px; margin-right: 6px; font-weight: 700; font-size: 12px;'>{t}</span>" for t in ai_data['top_sell']]) if ai_data['top_sell'] else "<span style='color:#848E9C; font-size:13px;'>Không có</span>"
+
+                st.markdown(f"""
+                <div style='background: #FAFAFA; border: 1px solid #EAECEF; border-radius: 8px; padding: 20px;'>
+                    <div style='display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #EAECEF; padding-bottom: 12px; margin-bottom: 12px;'>
+                        <span style='color: #474D57; font-size: 14px; font-weight: 600;'>🎯 Độ tin cậy AI (Backtest)</span>
+                        <span style='color: #1E2329; font-size: 16px; font-weight: 700;'>{ai_data['confidence']}%</span>
                     </div>
-                    <div style='font-size: 12px; color: #848E9C; background: #fff; padding: 8px; border-radius: 4px; border: 1px solid #EAECEF;'>
-                        Đang chuẩn bị kết nối cơ sở dữ liệu tracking...
+                    <div style='margin-bottom: 16px;'>
+                        <div style='font-size: 12px; color: #848E9C; margin-bottom: 8px; text-transform: uppercase; font-weight: 600;'>🔥 Top Tổ chức Gom Hàng</div>
+                        <div>{buy_badges}</div>
+                    </div>
+                    <div>
+                        <div style='font-size: 12px; color: #848E9C; margin-bottom: 8px; text-transform: uppercase; font-weight: 600;'>❄️ Top Tổ chức Xả Hàng</div>
+                        <div>{sell_badges}</div>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
