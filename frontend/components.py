@@ -79,8 +79,9 @@ def render_hero_section():
 [data-testid="stTabs"] [data-testid="stTab"] button:focus { border: none !important; box-shadow: none !important;}
 </style>""", unsafe_allow_html=True)
 
-    # Khởi tạo 3 Tab chính
-    tab1, tab2, tab3 = st.tabs(["TỔNG QUAN THỊ TRƯỜNG", "DỮ LIỆU GIAO DỊCH", "PHÂN TÍCH AI"])
+    
+    # Đổi từ 3 Tab thành 4 Tab
+tab1, tab2, tab3, tab4 = st.tabs(["TỔNG QUAN THỊ TRƯỜNG", "DỮ LIỆU GIAO DỊCH", "PHÂN TÍCH AI", "BÁO CÁO TỔ CHỨC"])
 
     # --- TAB 1: TỔNG QUAN THỊ TRƯỜNG (CẤU TRÚC 2 HÀNG x 3 CỘT) ---
     with tab1:
@@ -277,7 +278,53 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
 </div>
 </a>"""
         st.markdown(f"{css_car}<div class='scroll-container'>{cards_html}</div>", unsafe_allow_html=True)
+# Đừng quên import hàm hút báo cáo ở đầu file hoặc trên khối này nhé
+    from backend.ai_analysis import fetch_cafef_reports
 
+    # --- TAB 4: TRUNG TÂM BÁO CÁO TỔ CHỨC (RESEARCH DASHBOARD) ---
+    with tab4:
+        st.markdown("<br><div style='font-size: 14px; font-weight: 700; color: #E65100; margin-bottom: 16px; text-transform: uppercase;'>Trung tâm Lưu trữ & Phân tích Báo cáo</div>", unsafe_allow_html=True)
+        
+        with st.spinner("Đang truy xuất hệ thống báo cáo từ các Công ty Chứng khoán..."):
+            reports_data = fetch_cafef_reports()
+            
+        if not reports_data:
+            st.info("Hệ thống hiện chưa lấy được báo cáo mới. Vui lòng thử lại sau.")
+        else:
+            # Layout chia 2 cột: Cột trái chứa danh sách, cột phải chuẩn bị cho AI Dashboard
+            col_list, col_ai = st.columns([1.5, 1])
+            
+            with col_list:
+                st.markdown("<div style='font-weight: 700; font-size: 18px; margin-bottom: 16px; color: #1E2329;'>Báo cáo Phát hành Gần đây</div>", unsafe_allow_html=True)
+                for r in reports_data:
+                    # Mã cổ phiếu được bôi cam nổi bật
+                    ticker_badge = f"<span style='background-color: #FFF2E5; color: #E65100; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 700; margin-right: 8px;'>{r['ticker']}</span>"
+                    st.markdown(f"""
+                    <div style='background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 16px; margin-bottom: 12px; transition: all 0.2s ease;'>
+                        <div style='display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;'>
+                            <div style='font-size: 15px; font-weight: 600; color: #1E2329; line-height: 1.4;'>{ticker_badge} {r['title']}</div>
+                        </div>
+                        <div style='display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #848E9C;'>
+                            <span>🏢 Nguồn: {r['source']} | 🕒 {r['date']}</span>
+                            <a href='{r['link']}' target='_blank' style='color: #0052FF; font-weight: 600; text-decoration: none;'>Đọc báo cáo ↗</a>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            
+            with col_ai:
+                # Bảng Dashboard chờ sẵn cho Phase 2 (Tích hợp AI & Lịch sử)
+                st.markdown("""
+                <div style='background: #FAFAFA; border: 1px dashed #D3D5D8; border-radius: 8px; padding: 24px; text-align: center; height: 100%;'>
+                    <div style='font-size: 40px; margin-bottom: 16px;'>🤖</div>
+                    <div style='font-size: 16px; font-weight: 700; color: #1E2329; margin-bottom: 8px;'>AI Smart Scoring (Sắp ra mắt)</div>
+                    <div style='font-size: 14px; color: #474D57; line-height: 1.5; margin-bottom: 16px;'>
+                        Mô đun này sẽ sử dụng AI để đánh giá tỷ lệ thành công của báo cáo dựa trên lịch sử phím hàng của các tổ chức.
+                    </div>
+                    <div style='font-size: 12px; color: #848E9C; background: #fff; padding: 8px; border-radius: 4px; border: 1px solid #EAECEF;'>
+                        Đang chuẩn bị kết nối cơ sở dữ liệu tracking...
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
 
 # --- KHỐI 3: TÌM KIẾM & LƯỚI TIN TỨC ---
 def render_news_section():
