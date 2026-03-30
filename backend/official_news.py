@@ -5,6 +5,7 @@ import pandas as pd
 import streamlit as st
 import email.utils
 from datetime import datetime
+import re # ĐÃ THÊM: Thư viện Regex để xử lý chuỗi lọc trùng
 
 # ==========================================
 # 0. TRẠM KIỂM DUYỆT TIN CHẤN ĐỘNG (RULE-BASED NLP)
@@ -50,6 +51,7 @@ def fetch_mainstream_news():
         {"name": "CafeF", "url": "https://cafef.vn/thi-truong-chung-khoan.rss", "region": "VN"},
         {"name": "VnExpress", "url": "https://vnexpress.net/rss/kinh-doanh/chung-khoan.rss", "region": "VN"},
         {"name": "Báo Đầu Tư", "url": "https://baodautu.vn/chung-khoan.rss", "region": "VN"},
+        {"name": "Thanh Niên", "url": "https://thanhnien.vn/rss/kinh-te/chung-khoan.rss", "region": "VN"},
         # Nguồn Quốc Tế
         {"name": "CNBC", "url": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10000664", "region": "GLOBAL"},
         {"name": "Yahoo", "url": "https://finance.yahoo.com/news/rss", "region": "GLOBAL"}
@@ -100,7 +102,7 @@ def fetch_mainstream_news():
                         
                     news_list.append({
                         "ctck": source["name"].upper(), "tag": tag, "title": title,
-                        "link": link, "date": clean_date, "timestamp": timestamp, "region": source["region"] # Thêm cờ region
+                        "link": link, "date": clean_date, "timestamp": timestamp, "region": source["region"] 
                     })
         except Exception as e:
             print(f"Lỗi RSS {source['name']}: {e}")
@@ -130,19 +132,45 @@ def fetch_mainstream_news():
                     news_list.append({
                         "ctck": "STOCKBIZ", "tag": tag, "title": title,
                         "link": full_link, "date": now.strftime("%d/%m/%Y %H:%M"),
-                        "timestamp": now.timestamp() - count, "region": "VN" # Thêm cờ region VN
+                        "timestamp": now.timestamp() - count, "region": "VN" 
                     })
                     count += 1
     except Exception as e:
         print(f"Lỗi HTML Stockbiz: {e}")
 
     # ==========================================
-    # 3. TRỘN, DỌN DẸP & SẮP XẾP BẰNG AI
+    # 3. TRỘN, DỌN DẸP LỌC TRÙNG & SẮP XẾP BẰNG AI
     # ==========================================
     df = pd.DataFrame(news_list)
     if not df.empty and 'timestamp' in df.columns:
-        df = df.drop_duplicates(subset=['title'])
-        df = apply_hot_news_filter(df) # Đưa qua trạm kiểm duyệt AI
+        
+        # --- BỘ LỌC TRÙNG LẶP THÔNG MINH ---
+        def normalize_title(text):
+            # Xóa các tiền tố mã cổ phiếu (VD: "CMX: ", "VAF - ")
+            text = re.sub(r'^([A-Za-z0-9]{3,4}\s*[:\-]\s*)', '', str(text))
+            text = text.lower().strip()
+            # Xóa toàn bộ dấu câu để so khớp chữ
+            text = re.sub(r'[^\w\s]', '', text) 
+            return text
+
+        # Tạo cột tạm chứa tiêu đề đã làm sạch
+        df['clean_title'] = df['title'].apply(normalize_title)
+        
+        # Đánh trọng số: STOCKBIZ = 1 (VIP), các báo khác = 2 (Thường)
+        df['priority'] = df['ctck'].apply(lambda x: 1 if x == 'STOCKBIZ' else 2)
+        
+        # Sắp xếp: Ưu tiên VIP, sau đó ưu tiên tin mới nhất
+        df = df.sort_values(by=['priority', 'timestamp'], ascending=[True, False])
+        
+        # Càn quét trùng lặp dựa trên clean_title, giữ lại bản của VIP
+        df = df.drop_duplicates(subset=['clean_title'], keep='first')
+        
+        # Dọn rác
+        df = df.drop(columns=['clean_title', 'priority'])
+        
+        # Đưa qua trạm kiểm duyệt AI
+        df = apply_hot_news_filter(df) 
+        
         if 'timestamp' in df.columns:
             df = df.drop(columns=['timestamp'])
             
