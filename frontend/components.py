@@ -303,15 +303,8 @@ def render_tab2_heatmap():
         else:
             st.warning("Yahoo Finance đang cập nhật dữ liệu. Vui lòng thử lại sau!")
 # ==========================================
+KHỐI 1.6: BIỂU ĐỒ DIỄN BIẾN VN-INDEX (NÚI CAM BRANDING + STATS)
 # ==========================================
-# KHỐI 1.6: BIỂU ĐỒ DIỄN BIẾN VN-INDEX (NÚI CAM BRANDING + STATS)
-# ==========================================
-import requests
-import pandas as pd
-import yfinance as yf
-import plotly.graph_objects as go
-import streamlit as st
-
 @st.cache_data(ttl=60, show_spinner=False)
 def get_vnindex_intraday():
     try:
@@ -332,11 +325,11 @@ def get_vnindex_intraday():
             'Close': closes
         }).dropna() 
         
-        # --- BÓC TÁCH THÔNG SỐ (STATS) TRỰC TIẾP TỪ BIỂU ĐỒ REALTIME ---
+        # --- BÓC TÁCH THÔNG SỐ (STATS) ---
         stats = {
             'prev_close': prev_close,
             'open': df['Close'].iloc[0] if not df.empty else prev_close,
-            'volume': result['meta'].get('regularMarketVolume', 0), # Yahoo thường trả 0 cho VNINDEX
+            'volume': result['meta'].get('regularMarketVolume', 0), 
             'day_low': df['Close'].min() if not df.empty else 0,
             'day_high': df['Close'].max() if not df.empty else 0,
             'year_low': 0,
@@ -344,7 +337,6 @@ def get_vnindex_intraday():
             'avg_volume': 0
         }
         
-        # Kéo thêm dữ liệu tĩnh (52 tuần) từ Yahoo
         try:
             tkr = yf.Ticker("^VNINDEX.VN")
             fi = tkr.fast_info
@@ -374,10 +366,8 @@ def render_vnindex_chart():
             # --- TÁCH BIỆT MÀU SẮC: TEXT (XANH/ĐỎ) & NÚI (CAM BRANDING) ---
             text_color = "#0ECB81" if is_up else "#F6465D"
             sign = "+" if is_up else ""
-            
-            # Tone Cam LINANCE cho biểu đồ
             mountain_color = "#FF6B00" 
-            mountain_fill = "rgba(255, 107, 0, 0.12)" # Cam trong suốt nhẹ nhàng
+            mountain_fill = "rgba(255, 107, 0, 0.12)"
             
             st.markdown(f"""
             <div style="margin-bottom: 0px; margin-left: -5px; padding-left: 0px;">
@@ -391,7 +381,6 @@ def render_vnindex_chart():
 
             fig = go.Figure()
 
-            # Vẽ Ngọn núi màu Cam
             fig.add_trace(go.Scatter(
                 x=df['Datetime'], y=df['Close'],
                 mode='lines', line=dict(color=mountain_color, width=2.5),
@@ -423,7 +412,7 @@ def render_vnindex_chart():
             config = {'scrollZoom': True, 'displayModeBar': False}
             st.plotly_chart(fig, use_container_width=True, config=config)
 
-            # --- BẢNG THÔNG SỐ (HIỂN THỊ N/A NẾU YAHOO THIẾU DỮ LIỆU) ---
+            # --- BẢNG THÔNG SỐ ---
             year_range_str = f"{stats['year_low']:,.2f} - {stats['year_high']:,.2f}" if stats['year_high'] > 0 else "N/A"
             vol_str = f"{stats['volume']:,}" if stats['volume'] > 0 else "N/A"
             
