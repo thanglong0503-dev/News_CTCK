@@ -283,17 +283,17 @@ def render_tab2_heatmap():
             st.warning("Yahoo Finance đang cập nhật dữ liệu. Vui lòng thử lại sau!")
 # ==========================================
 # ==========================================
-# KHỐI 1.6: BIỂU ĐỒ DIỄN BIẾN VN-INDEX (FORMAT YAHOO 99% - TAB 2)
+# KHỐI 1.6: BIỂU ĐỒ DIỄN BIẾN VN-INDEX (FORMAT YAHOO + STATS BẢN FULL)
 # ==========================================
 import requests
 import pandas as pd
+import yfinance as yf
 import plotly.graph_objects as go
 import streamlit as st
 
 @st.cache_data(ttl=60, show_spinner=False)
 def get_vnindex_intraday():
     try:
-        # (Giữ nguyên logic Hack API Yahoo 1m ở đây)
         url = "https://query1.finance.yahoo.com/v8/finance/chart/^VNINDEX.VN?interval=1m&range=1d"
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
@@ -305,41 +305,58 @@ def get_vnindex_intraday():
         timestamps = result['timestamp']
         closes = result['indicators']['quote'][0]['close']
         prev_close = result['meta']['chartPreviousClose']
+        
         df = pd.DataFrame({
             'Datetime': pd.to_datetime(timestamps, unit='s', utc=True).tz_convert('Asia/Ho_Chi_Minh'),
             'Close': closes
         }).dropna() 
         
-        return df, float(prev_close)
+        # --- LẤY THÊM THÔNG SỐ (STATS) ---
+        stats = {
+            'prev_close': prev_close,
+            'open': closes[0] if len(closes) > 0 else prev_close,
+            'volume': result['meta'].get('regularMarketVolume', 0),
+            'day_low': df['Close'].min() if not df.empty else 0,
+            'day_high': df['Close'].max() if not df.empty else 0,
+            'year_low': 0,
+            'year_high': 0
+        }
+        
+        # Lấy đỉnh/đáy 52 tuần bằng yfinance (Chạy ngầm)
+        try:
+            tkr = yf.Ticker("^VNINDEX.VN")
+            fi = tkr.fast_info
+            stats['year_low'] = fi.year_low
+            stats['year_high'] = fi.year_high
+            stats['open'] = fi.open # Cập nhật giá open chuẩn hơn
+        except:
+            pass
+            
+        return df, float(prev_close), stats
     except Exception as e:
         print(f"Lỗi Hack API Yahoo: {e}")
-        return pd.DataFrame(), 0
+        return pd.DataFrame(), 0, {}
 
 def render_vnindex_chart():
-    # Thêm chút khoảng trống trên
     st.markdown("<br><div style='height:10px;'></div>", unsafe_allow_html=True)
     
-    with st.spinner("Đang trích xuất luồng dữ liệu 1 phút từ Yahoo..."):
-        df, prev_close = get_vnindex_intraday()
+    with st.spinner("Đang trích xuất luồng dữ liệu và thông số từ Yahoo..."):
+        df, prev_close, stats = get_vnindex_intraday()
         
         if not df.empty and prev_close > 0:
             current_price = df['Close'].iloc[-1]
             diff = current_price - prev_close
             pct_change = (diff / prev_close) * 100
             
-            # --- Tự động định vị màu sắc Xanh/Đỏ (BÃO HÒA CAO) ---
             is_up = current_price >= prev_close
             color = "#0ECB81" if is_up else "#F6465D"
             fill_color = "rgba(14, 203, 129, 0.1)" if is_up else "rgba(246, 70, 93, 0.1)"
             sign = "+" if is_up else ""
             
-            # --- LAYOUT TEXT HIỂN THỊ ĐIỂM SỐ (FORMAT YAHOO 99%) ---
+            # ĐÃ SỬA LỖI LỘ CODE HTML BẰNG CÁCH XÓA CÁC DÒNG COMMENT PYTHON
             st.markdown(f"""
             <div style="margin-bottom: 0px; margin-left: -5px; padding-left: 0px;">
-                # Header in đậm
-                <h2 style='font-size: 16px; font-weight: 700; color: #1E2329; margin: 0; padding: 0; family: "Inter", "Segoe UI", Arial, sans-serif;'>^VNINDEX.VN VN-INDEX</h2>
-                
-                # Cụm Giá Điểm và Tăng Giảm (LỚN, ĐẬM, TỐI ƯU KHOẢNG CÁCH)
+                <h2 style='font-size: 16px; font-weight: 700; color: #1E2329; margin: 0; padding: 0; font-family: "Inter", "Segoe UI", Arial, sans-serif;'>^VNINDEX.VN VN-INDEX</h2>
                 <div style="display: flex; align-items: baseline; gap: 8px; margin-top: 4px; padding: 0;">
                     <span style="font-size: 36px; font-weight: 800; color: #1E2329; font-family: 'SF Mono', Consolas, monospace; padding: 0;">{current_price:,.2f}</span>
                     <span style="font-size: 16px; font-weight: 700; color: {color}; margin-left: 2px;">{sign}{diff:,.2f} ({sign}{pct_change:.2f}%)</span>
@@ -347,10 +364,8 @@ def render_vnindex_chart():
             </div>
             """, unsafe_allow_html=True)
 
-            # --- VẼ NÚI VÔ CỰC (MOUNTAIN CHART - NO GRIDS) ---
             fig = go.Figure()
 
-            # Đường giá Realtime (Nét hơn, màu bão hòa hơn)
             fig.add_trace(go.Scatter(
                 x=df['Datetime'], y=df['Close'],
                 mode='lines', line=dict(color=color, width=2.5),
@@ -359,7 +374,6 @@ def render_vnindex_chart():
                 hovertemplate='%{x|%H:%M}<br><b>Điểm: %{y:.2f}</b><extra></extra>'
             ))
 
-            # 2 Đường kẻ ngang tham chiếu màu xám (Giá đóng cửa hôm qua) - CHUẨN YAHOO
             fig.add_trace(go.Scatter(
                 x=[df['Datetime'].iloc[0], df['Datetime'].iloc[-1]],
                 y=[prev_close, prev_close],
@@ -367,23 +381,52 @@ def render_vnindex_chart():
                 name='Tham chiếu', hoverinfo='skip'
             ))
 
-            # Canh góc nhìn sát đỉnh và đáy núi, ẩn cột giá
             min_y = min(df['Close'].min(), prev_close) * 0.998
             max_y = max(df['Close'].max(), prev_close) * 1.002
 
             fig.update_layout(
                 margin=dict(t=5, l=0, r=0, b=0),
-                height=220, # Thu gọn chiều cao cho nhỏ gọn
+                height=220, 
                 paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                
-                # Ẩn toàn bộ lưới và cột giá cho "vô cực"
+                dragmode='pan', # MỞ KHÓA TÍNH NĂNG KÉO THẢ (PAN)
                 xaxis=dict(showgrid=False, tickformat="%H:%M", showticklabels=True, ticks="", visible=True, type='date'),
-                yaxis=dict(showgrid=False, range=[min_y, max_y], showticklabels=False, visible=False),
+                yaxis=dict(showgrid=False, range=[min_y, max_y], showticklabels=False, visible=False, fixedrange=False),
                 showlegend=False, hovermode='x unified'
             )
 
-            st.plotly_chart(fig, use_container_width=True)
-            st.markdown("<hr style='margin: 5px 0px 25px 0px; border-color: #EAECEF;'>", unsafe_allow_html=True)
+            # Cấu hình Toolbar ẩn đi cho gọn, nhưng vẫn cho phép Scroll để Zoom
+            config = {'scrollZoom': True, 'displayModeBar': False}
+            st.plotly_chart(fig, use_container_width=True, config=config)
+
+            # --- VẼ BẢNG THÔNG SỐ DƯỚI ĐÁY (STATS TABLE) ---
+            year_range_str = f"{stats['year_low']:,.2f} - {stats['year_high']:,.2f}" if stats['year_high'] > 0 else "--"
+            
+            st.markdown(f"""
+            <style>
+            .stat-row {{ display: flex; justify-content: space-between; border-bottom: 1px dashed #EAECEF; padding: 12px 0; font-size: 14px; }}
+            .stat-label {{ color: #474D57; font-weight: 600; }}
+            .stat-val {{ color: #1E2329; font-weight: 700; font-family: 'SF Mono', Consolas, monospace; }}
+            .stat-col {{ flex: 1; padding: 0 24px; }}
+            .stat-col:first-child {{ padding-left: 0; }}
+            .stat-col:last-child {{ padding-right: 0; border-right: none; }}
+            </style>
+            <div style="display: flex; flex-direction: row; width: 100%; margin-top: 10px; margin-bottom: 10px;">
+                <div class="stat-col">
+                    <div class="stat-row"><span class="stat-label">Previous Close</span><span class="stat-val">{stats['prev_close']:,.2f}</span></div>
+                    <div class="stat-row"><span class="stat-label">Open</span><span class="stat-val">{stats['open']:,.2f}</span></div>
+                </div>
+                <div class="stat-col">
+                    <div class="stat-row"><span class="stat-label">Volume</span><span class="stat-val">{stats['volume']:,}</span></div>
+                    <div class="stat-row"><span class="stat-label">Day's Range</span><span class="stat-val">{stats['day_low']:,.2f} - {stats['day_high']:,.2f}</span></div>
+                </div>
+                <div class="stat-col">
+                    <div class="stat-row"><span class="stat-label">52 Week Range</span><span class="stat-val">{year_range_str}</span></div>
+                    <div class="stat-row"><span class="stat-label">Avg. Volume</span><span class="stat-val">--</span></div>
+                </div>
+            </div>
+            <hr style='margin: 15px 0px 25px 0px; border-color: #EAECEF;'>
+            """, unsafe_allow_html=True)
+            
         else:
             st.warning("⚠️ Yahoo Finance đang bảo trì API nội bộ. Vui lòng thử lại sau!")
 # ==========================================
