@@ -70,9 +70,12 @@ def render_header():
         st.markdown("<p style='color: #474D57; font-size: 16px; margin-bottom: 32px;'>Vietnam Securities Research - Phân tích cấp tổ chức</p>", unsafe_allow_html=True)
 
 # ==========================================
-# KHỐI 1.5: HÀM KÉO DỮ LIỆU BẢN ĐỒ NHIỆT (TAB 2)
 # ==========================================
-@st.cache_data(ttl=60, show_spinner=False)
+# KHỐI 1.5: HÀM KÉO DỮ LIỆU BẢN ĐỒ NHIỆT (DÙNG YAHOO FINANCE)
+# ==========================================
+import yfinance as yf
+
+@st.cache_data(ttl=300, show_spinner=False) # Làm mới mỗi 5 phút
 def get_market_heatmap_data():
     sectors = {
         'Ngân hàng': ['VCB', 'BID', 'CTG', 'MBB', 'TCB', 'VPB', 'ACB', 'STB', 'SHB', 'HDB'],
@@ -82,43 +85,66 @@ def get_market_heatmap_data():
         'Bán lẻ & Tiêu dùng': ['MWG', 'PNJ', 'FRT', 'VNM', 'MSN', 'SAB', 'DGW'],
         'Công nghệ & Năng lượng': ['FPT', 'GAS', 'PLX', 'POW', 'BSR', 'DGC']
     }
-    tickers = [stock for stocks in sectors.values() for stock in stocks]
-    ticker_to_sector = {stock: sector for sector, stocks in sectors.items() for stock in stocks}
-    ticker_str = ",".join(tickers)
+    
+    # Gắn thêm đuôi .VN cho các mã cổ phiếu để Yahoo nhận diện được CK Việt Nam
+    vn_tickers = []
+    ticker_to_sector = {}
+    ticker_to_raw = {}
+    for sector, stocks in sectors.items():
+        for stock in stocks:
+            yf_ticker = f"{stock}.VN"
+            vn_tickers.append(yf_ticker)
+            ticker_to_sector[yf_ticker] = sector
+            ticker_to_raw[yf_ticker] = stock
 
     try:
-        url = f"https://apipubaws.tcbs.com.vn/stock-insight/v1/stock/second-tc-price?tickers={ticker_str}"
+        # Tải dữ liệu 2 ngày gần nhất để lấy giá tham chiếu (hôm qua) và giá hiện tại
+        data = yf.download(vn_tickers, period="2d", progress=False)
         
-        # --- BỘ ÁO TÀNG HÌNH (TRÁNH BỊ CHẶN API) ---
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "application/json"
-        }
-        
-        # Gắn headers vào lệnh lấy dữ liệu
-        res = requests.get(url, headers=headers, timeout=10)
-        
-        if res.status_code == 200:
-            data = res.json().get('data', [])
-            if not data: return pd.DataFrame() # Nếu data rỗng thì trả về DataFrame trống
-            
-            df = pd.DataFrame(data)
-            df['Ngành'] = df['t'].map(ticker_to_sector)
-            
-            # Xử lý toán học an toàn (Tránh lỗi chia cho 0 nếu giá tham chiếu = 0)
-            df['Biến động (%)'] = df.apply(lambda row: ((row['cp'] - row['ref']) / row['ref']) * 100 if row['ref'] > 0 else 0, axis=1)
-            df['Khối lượng'] = df['vo'].replace(0, 1) 
-            df['Mã CK'] = df['t']
-            df['Giá (VNĐ)'] = df['cp'] * 1000 
-            return df[['Ngành', 'Mã CK', 'Biến động (%)', 'Khối lượng', 'Giá (VNĐ)']].dropna()
-        else:
-            print(f"Bị chặn API, Mã lỗi: {res.status_code}")
+        if data.empty:
             return pd.DataFrame()
-            
-    except Exception as e:
-        print(f"Lỗi sập mạng: {e}")
-        return pd.DataFrame()
 
+        # Lấy dòng dữ liệu của phiên hôm qua (áp chót) và phiên hôm nay (cuối cùng)
+        if len(data) >= 2:
+            current_data = data.iloc[-1]
+            prev_data = data.iloc[-2]
+        else:
+            current_data = data.iloc[-1]
+            prev_data = current_data
+
+        heat_data = []
+        for yf_ticker in vn_tickers:
+            raw_ticker = ticker_to_raw[yf_ticker]
+            sector = ticker_to_sector[yf_ticker]
+
+            try:
+                # Trích xuất Giá đóng cửa và Khối lượng từ MultiIndex DataFrame của Yahoo
+                current_price = float(current_data['Close'][yf_ticker])
+                prev_close = float(prev_data['Close'][yf_ticker])
+                volume = float(current_data['Volume'][yf_ticker])
+
+                # Bỏ qua nếu Yahoo bị thiếu dữ liệu mã này
+                if pd.isna(current_price) or pd.isna(prev_close):
+                    continue
+
+                volume = max(volume, 1) # Ép volume nhỏ nhất = 1 để Plotly không lỗi vẽ ô vuông
+                pct_change = ((current_price - prev_close) / prev_close) * 100 if prev_close > 0 else 0
+
+                heat_data.append({
+                    'Ngành': sector,
+                    'Mã CK': raw_ticker,
+                    'Biến động (%)': pct_change,
+                    'Khối lượng': volume,
+                    'Giá (VNĐ)': current_price # Yahoo trả thẳng VND, không cần nhân 1000
+                })
+            except Exception:
+                continue
+
+        return pd.DataFrame(heat_data)
+    except Exception as e:
+        print(f"Lỗi kết nối Yahoo Finance: {e}")
+        return pd.DataFrame()
+              
 def render_tab2_heatmap():
     st.markdown("<br><div style='font-size: 18px; font-weight: 800; color: #E65100; margin-bottom: 8px; text-transform: uppercase;'>🗺️ Bản đồ Nhiệt Dòng tiền (Market Heatmap)</div>", unsafe_allow_html=True)
     st.markdown("<div style='color: #474D57; font-size: 14px; margin-bottom: 24px;'>Kích thước ô vuông thể hiện Khối lượng giao dịch. Màu sắc thể hiện mức độ Tăng (Xanh) / Giảm (Đỏ).</div>", unsafe_allow_html=True)
