@@ -283,48 +283,51 @@ def render_tab2_heatmap():
             st.warning("Yahoo Finance đang cập nhật dữ liệu. Vui lòng thử lại sau!")
 # ==========================================
 # ==========================================
-# KHỐI 1.6: BIỂU ĐỒ DIỄN BIẾN VN-INDEX (INTRA-DAY YAHOO FINANCE)
+# KHỐI 1.6: BIỂU ĐỒ VN-INDEX (HACK TRỰC TIẾP API WEB YAHOO)
 # ==========================================
-import plotly.graph_objects as go
-import yfinance as yf
+import requests
 import pandas as pd
+import plotly.graph_objects as go
 import streamlit as st
 
 @st.cache_data(ttl=60, show_spinner=False)
 def get_vnindex_intraday():
     try:
-        vnindex = yf.Ticker("^VNINDEX.VN")
+        # 1. Đâm thẳng vào lõi API nội bộ của trang web Yahoo (Bỏ qua yfinance)
+        url = "https://query1.finance.yahoo.com/v8/finance/chart/^VNINDEX.VN?interval=1m&range=1d"
         
-        # 1. Lấy giá Đóng cửa hôm qua làm Tham chiếu (Lấy 5 ngày cho chắc)
-        daily = vnindex.history(period="5d", interval="1d")
-        if len(daily) < 2:
-            return pd.DataFrame(), 0
-        prev_close = float(daily['Close'].iloc[-2])
+        # 2. Áo tàng hình đóng giả làm người dùng Google Chrome thật
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            "Accept": "application/json"
+        }
         
-        # 2. Lấy dữ liệu từng phút. 
-        # BÍ QUYẾT: Lấy luôn 5 ngày (5d) rồi tự cắt lấy ngày cuối cùng để chống lỗi múi giờ máy chủ Mỹ
-        intraday = vnindex.history(period="5d", interval="1m")
-        if intraday.empty:
-            intraday = vnindex.history(period="5d", interval="5m") # Dự phòng lấy 5 phút nếu Yahoo dở chứng
-            
-        if intraday.empty:
-            return pd.DataFrame(), prev_close
-            
-        # Đặt lại index để lấy cột Datetime
-        intraday = intraday.reset_index()
+        # Gọi API với thời gian chờ 10s
+        response = requests.get(url, headers=headers, timeout=10)
+        data = response.json()
         
-        # 3. Lọc lấy đúng diễn biến của ngày giao dịch gần nhất
-        last_date = intraday['Datetime'].dt.date.iloc[-1]
-        df_today = intraday[intraday['Datetime'].dt.date == last_date]
+        # 3. Bóc tách dữ liệu JSON rườm rà của Yahoo
+        result = data['chart']['result'][0]
+        timestamps = result['timestamp']
+        closes = result['indicators']['quote'][0]['close']
         
-        return df_today, prev_close
+        # Lấy thẳng giá tham chiếu (hôm qua) từ hệ thống Yahoo
+        prev_close = result['meta']['chartPreviousClose']
+        
+        # 4. Gắn vào DataFrame và chuẩn hóa sang giờ Việt Nam
+        df = pd.DataFrame({
+            'Datetime': pd.to_datetime(timestamps, unit='s', utc=True).tz_convert('Asia/Ho_Chi_Minh'),
+            'Close': closes
+        }).dropna() # Vứt bỏ các phút bị lỗi mất dữ liệu
+        
+        return df, float(prev_close)
     except Exception as e:
-        print(f"Lỗi vẽ VNINDEX từ Yahoo: {e}")
+        print(f"Lỗi Hack API Yahoo: {e}")
         return pd.DataFrame(), 0
 
 def render_vnindex_chart():
     st.markdown("<br>", unsafe_allow_html=True)
-    with st.spinner("Đang tải biểu đồ VN-INDEX realtime..."):
+    with st.spinner("Đang trích xuất luồng dữ liệu 1 phút từ Yahoo..."):
         df, prev_close = get_vnindex_intraday()
         
         if not df.empty and prev_close > 0:
@@ -332,13 +335,13 @@ def render_vnindex_chart():
             diff = current_price - prev_close
             pct_change = (diff / prev_close) * 100
             
-            # --- Tự động chọn màu ---
+            # --- Tự động định vị màu sắc Xanh/Đỏ ---
             is_up = current_price >= prev_close
             color = "#0ECB81" if is_up else "#F6465D"
             fill_color = "rgba(14, 203, 129, 0.1)" if is_up else "rgba(246, 70, 93, 0.1)"
             sign = "+" if is_up else ""
             
-            # --- Hiển thị thông số VNINDEX to, rõ, chuẩn Yahoo ---
+            # --- Layout Text hiển thị điểm số ---
             st.markdown(f"""
             <div style="margin-bottom: 0px;">
                 <h2 style="font-size: 20px; font-weight: 800; color: #1E2329; margin: 0; text-transform: uppercase;">VNINDEX (^VNINDEX.VN)</h2>
@@ -349,10 +352,10 @@ def render_vnindex_chart():
             </div>
             """, unsafe_allow_html=True)
 
-            # --- VẼ BIỂU ĐỒ NÚI ĐỔ BÓNG ---
+            # --- VẼ NÚI (MOUNTAIN CHART) ---
             fig = go.Figure()
 
-            # Vẽ đường giá
+            # Đường giá Realtime
             fig.add_trace(go.Scatter(
                 x=df['Datetime'], y=df['Close'],
                 mode='lines', line=dict(color=color, width=2),
@@ -361,7 +364,7 @@ def render_vnindex_chart():
                 hovertemplate='%{x|%H:%M}<br><b>Điểm: %{y:.2f}</b><extra></extra>'
             ))
 
-            # Vẽ đường tham chiếu (hôm qua)
+            # Đường kẻ ngang tham chiếu (Giá đóng cửa hôm qua)
             fig.add_trace(go.Scatter(
                 x=[df['Datetime'].iloc[0], df['Datetime'].iloc[-1]],
                 y=[prev_close, prev_close],
@@ -369,7 +372,7 @@ def render_vnindex_chart():
                 name='Tham chiếu', hoverinfo='skip'
             ))
 
-            # Ép khung hình sát lề
+            # Canh góc nhìn sát đỉnh và đáy núi
             min_y = min(df['Close'].min(), prev_close) * 0.998
             max_y = max(df['Close'].max(), prev_close) * 1.002
 
@@ -385,7 +388,7 @@ def render_vnindex_chart():
             st.plotly_chart(fig, use_container_width=True)
             st.markdown("<hr style='margin: 10px 0px 30px 0px; border-color: #EAECEF;'>", unsafe_allow_html=True)
         else:
-            st.warning("⚠️ Yahoo Finance hiện đang trễ dữ liệu Intraday. Vui lòng ấn Clear Cache và thử lại!")
+            st.warning("⚠️ Yahoo Finance đang bảo trì API nội bộ. Vui lòng thử lại sau!")
 # ==========================================
 # KHỐI 2: TỔNG QUAN, BIỂU ĐỒ & PHÂN TÍCH AI
 # ==========================================
