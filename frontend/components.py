@@ -142,37 +142,47 @@ def get_market_heatmap_data():
         print(f"Lỗi kết nối Yahoo Finance: {e}")
         return pd.DataFrame()
 
-# ĐÃ ĐƯỢC BỌC VÀO HÀM ĐỂ KHÔNG BỊ LỖI IMPORT
+# ==========================================
+# KHU VỰC HIỂN THỊ CỦA TAB 2 (BẢN ĐỒ NHIỆT)
+# ==========================================
 def render_tab2_heatmap():
     st.markdown("<br><div style='font-size: 20px; font-weight: 800; color: #1E2329; margin-bottom: 8px; text-transform: uppercase;'>🗺️ Bản đồ Nhiệt Dòng tiền (Market Heatmap)</div>", unsafe_allow_html=True)
     st.markdown("<div style='color: #474D57; font-size: 14px; margin-bottom: 24px;'>Kích thước ô vuông thể hiện Khối lượng giao dịch. Màu sắc thể hiện mức độ Tăng (Xanh) / Giảm (Đỏ).</div>", unsafe_allow_html=True)
 
-    with st.spinner("Đang quét tín hiệu dòng tiền từ Yahoo Finance..."):
+    with st.spinner("Đang quét tín hiệu dòng tiền..."):
         df_heat = get_market_heatmap_data()
 
         if not df_heat.empty:
-            df_heat['Nhãn hiển thị'] = df_heat['Mã CK'] + "<br><span style='font-size:16px; font-weight:800;'>" + df_heat['Biến động (%)'].round(2).astype(str) + "%</span>"
+            # 1. Định dạng chữ: In đậm mã CK, nối với %
+            df_heat['Nhãn hiển thị'] = "<b>" + df_heat['Mã CK'] + "</b><br>" + df_heat['Biến động (%)'].round(2).astype(str) + "%"
 
+            # 2. Vẽ Treemap
             fig = px.treemap(
                 df_heat,
                 path=[px.Constant("Thị Trường VN"), 'Ngành', 'Nhãn hiển thị'],
                 values='Khối lượng',
                 color='Biến động (%)',
-                color_continuous_scale=['#F6465D', '#F9F9FA', '#0ECB81'], 
+                
+                # --- DẢI MÀU CHUẨN TCBS ---
+                # Đỏ đậm (Giảm) -> Cam/Vàng (Tham chiếu 0%) -> Xanh lục (Tăng)
+                color_continuous_scale=['#F6465D', '#F39C12', '#0ECB81'], 
                 color_continuous_midpoint=0,
+                
                 hover_data={'Khối lượng': ':.2s', 'Giá (VNĐ)': ':,.0f'}
             )
             
+            # 3. Ép khung Layout cho sát lề
             fig.update_layout(
-                margin=dict(t=20, l=0, r=0, b=0),
+                margin=dict(t=30, l=0, r=0, b=0),
                 paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-                font=dict(family="Segoe UI", size=15, color="#1E2329")
+                plot_bgcolor='rgba(0,0,0,0)'
             )
             
+            # 4. BÙA TẠO VIỀN BẢN ĐỒ VÀ CHỮ TRẮNG
             fig.update_traces(
                 textinfo="label",
-                textfont_color="black",
+                textfont=dict(color="white", size=15), # Chữ màu trắng để nổi bần bật trên nền màu đậm
+                marker=dict(line=dict(color='#FFFFFF', width=1.5)), # Tạo viền trắng dày 1.5px chia cắt các ô vuông!
                 hovertemplate="<b>%{label}</b><br>Khối lượng: %{value}<br>Biến động: %{color:.2f}%<extra></extra>"
             )
 
