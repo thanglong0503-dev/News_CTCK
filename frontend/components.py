@@ -71,7 +71,8 @@ def render_header():
 
 # ==========================================
 # ==========================================
-# KHỐI 1.5: HÀM KÉO DỮ LIỆU BẢN ĐỒ NHIỆT (TAB 2)
+# ==========================================
+# KHỐI 1.5: HÀM KÉO DỮ LIỆU BẢN ĐỒ NHIỆT (VN100 - TAB 2)
 # ==========================================
 import yfinance as yf
 import plotly.express as px
@@ -80,13 +81,15 @@ import streamlit as st
 
 @st.cache_data(ttl=300, show_spinner=False)
 def get_market_heatmap_data():
+    # NÂNG CẤP LÊN RỔ VN100 (Bao phủ >85% thanh khoản thị trường)
     sectors = {
-        'Ngân hàng': ['VCB', 'BID', 'CTG', 'MBB', 'TCB', 'VPB', 'ACB', 'STB', 'SHB', 'HDB', 'TPB', 'MSB', 'LPB'],
-        'Bất động sản': ['VHM', 'VIC', 'VRE', 'NVL', 'DIG', 'DXG', 'KDH', 'NLG', 'PDR', 'CEO'],
-        'Chứng khoán': ['SSI', 'VND', 'VCI', 'HCM', 'SHS', 'MBS', 'FTS'],
-        'Thép & Xây dựng': ['HPG', 'HSG', 'NKG', 'VCG', 'PC1', 'CTD'],
-        'Bán lẻ & Tiêu dùng': ['MWG', 'PNJ', 'FRT', 'VNM', 'MSN', 'SAB', 'DGW'],
-        'Công nghệ & Năng lượng': ['FPT', 'GAS', 'PLX', 'POW', 'BSR', 'DGC']
+        'Ngân hàng': ['VCB', 'BID', 'CTG', 'MBB', 'TCB', 'VPB', 'ACB', 'STB', 'SHB', 'HDB', 'TPB', 'MSB', 'LPB', 'VIB', 'EIB', 'OCB', 'SSB'],
+        'Bất động sản & KCN': ['VHM', 'VIC', 'VRE', 'NVL', 'DIG', 'DXG', 'KDH', 'NLG', 'PDR', 'KBC', 'IDC', 'SZC', 'HDG', 'TCH', 'CEO'],
+        'Chứng khoán': ['SSI', 'VND', 'VCI', 'HCM', 'SHS', 'MBS', 'FTS', 'VIX', 'BSI', 'CTS', 'AGR'],
+        'Tài nguyên & Vật liệu': ['HPG', 'HSG', 'NKG', 'DGC', 'DCM', 'DPM', 'GVR', 'PHR', 'CSV'],
+        'Xây dựng & Hạ tầng': ['VCG', 'PC1', 'CTD', 'CII', 'HHV', 'LCG', 'FCN', 'HUT', 'HBC'],
+        'Bán lẻ & Tiêu dùng': ['MWG', 'PNJ', 'FRT', 'VNM', 'MSN', 'SAB', 'DGW', 'SBT', 'KDC', 'PET', 'HAH', 'GMD', 'VJC', 'HVN'],
+        'Công nghệ & Năng lượng': ['FPT', 'GAS', 'PLX', 'POW', 'BSR', 'REE', 'NT2', 'GEG', 'VGI', 'FOX']
     }
     
     vn_tickers = []
@@ -147,13 +150,13 @@ def get_market_heatmap_data():
 # ==========================================
 def render_tab2_heatmap():
     st.markdown("<br><div style='font-size: 20px; font-weight: 800; color: #1E2329; margin-bottom: 8px; text-transform: uppercase;'>🗺️ Bản đồ Nhiệt Dòng tiền (Market Heatmap)</div>", unsafe_allow_html=True)
-    st.markdown("<div style='color: #474D57; font-size: 14px; margin-bottom: 24px;'>The square size represents the trading volume. The color represents the level of increase (green) / decrease (red).</div>", unsafe_allow_html=True)
+    st.markdown("<div style='color: #474D57; font-size: 14px; margin-bottom: 24px;'>Kích thước ô vuông thể hiện Khối lượng giao dịch. Màu sắc thể hiện mức độ Tăng (Xanh) / Giảm (Đỏ).</div>", unsafe_allow_html=True)
 
-    with st.spinner("Đang quét tín hiệu dòng tiền..."):
+    with st.spinner("Đang quét tín hiệu dòng tiền VN100..."):
         df_heat = get_market_heatmap_data()
 
         if not df_heat.empty:
-            # 1. Định dạng chữ: In đậm mã CK, nối với %
+            # 1. Định dạng chữ: In đậm mã CK
             df_heat['Nhãn hiển thị'] = "<b>" + df_heat['Mã CK'] + "</b><br>" + df_heat['Biến động (%)'].round(2).astype(str) + "%"
 
             # 2. Vẽ Treemap
@@ -163,8 +166,7 @@ def render_tab2_heatmap():
                 values='Khối lượng',
                 color='Biến động (%)',
                 
-                # --- DẢI MÀU CHUẨN TCBS ---
-                # Đỏ đậm (Giảm) -> Cam/Vàng (Tham chiếu 0%) -> Xanh lục (Tăng)
+                # Dải màu TCBS
                 color_continuous_scale=['#F6465D', '#F39C12', '#0ECB81'], 
                 color_continuous_midpoint=0,
                 
@@ -178,15 +180,17 @@ def render_tab2_heatmap():
                 plot_bgcolor='rgba(0,0,0,0)'
             )
             
-            # 4. BÙA TẠO VIỀN BẢN ĐỒ VÀ CHỮ TRẮNG
+            # 4. CHỈNH SỬA FONT CHỮ VÀ MÀU CHỮ Ở ĐÂY
             fig.update_traces(
                 textinfo="label",
-                textfont=dict(color="white", size=15), # Chữ màu trắng để nổi bần bật trên nền màu đậm
-                marker=dict(line=dict(color='#FFFFFF', width=1.5)), # Tạo viền trắng dày 1.5px chia cắt các ô vuông!
+                # Sử dụng màu Xám than (gần Đen) và font chữ chuyên nghiệp (Inter/Segoe UI)
+                textfont=dict(color="#1E2329", size=14, family="Inter, 'Segoe UI', Arial, sans-serif"), 
+                marker=dict(line=dict(color='#FFFFFF', width=1.5)), # Viền trắng 
                 hovertemplate="<b>%{label}</b><br>Khối lượng: %{value}<br>Biến động: %{color:.2f}%<extra></extra>"
             )
 
-            st.plotly_chart(fig, use_container_width=True)
+            # Tăng chiều cao biểu đồ lên 600px để chứa đủ 100 mã cổ phiếu không bị chen lấn
+            st.plotly_chart(fig, use_container_width=True, height=600)
         else:
             st.warning("Yahoo Finance đang cập nhật dữ liệu. Vui lòng thử lại sau!")
 
