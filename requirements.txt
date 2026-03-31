@@ -5,3 +5,9 @@ beautifulsoup4
 yfinance
 cloudscraper
 plotly
+streamlit
+pandas
+beautifulsoup4
+requests
+plotly
+yfinance
