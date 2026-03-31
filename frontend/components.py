@@ -282,24 +282,32 @@ def render_tab2_heatmap():
         else:
             st.warning("Yahoo Finance đang cập nhật dữ liệu. Vui lòng thử lại sau!")
 # ==========================================
+# ==========================================
 # KHỐI 1.6: BIỂU ĐỒ DIỄN BIẾN VN-INDEX (INTRA-DAY)
 # ==========================================
-@st.cache_data(ttl=60, show_spinner=False) # Làm mới mỗi phút
+import plotly.graph_objects as go # Nhớ chắc chắn dòng này phải có ở đầu file nhé!
+
+@st.cache_data(ttl=60, show_spinner=False)
 def get_vnindex_intraday():
     try:
-        # 1. Lấy dữ liệu 5 ngày để tìm chính xác giá Đóng cửa hôm qua (Tham chiếu)
+        # 1. Lấy dữ liệu 5 ngày để chốt giá Đóng cửa hôm qua làm Tham chiếu
         daily = yf.Ticker("^VNINDEX.VN").history(period="5d", interval="1d")
-        prev_close = daily['Close'].iloc[-2] if len(daily) >= 2 else 0
+        if len(daily) < 2:
+            return pd.DataFrame(), 0
+        prev_close = daily['Close'].iloc[-2]
         
-        # 2. Lấy dữ liệu từng phút (1m) của ngày hôm nay
+        # 2. Lấy dữ liệu từng phút (1m). Nếu rỗng thì dự phòng lấy 5 phút (5m)
         intraday = yf.Ticker("^VNINDEX.VN").history(period="1d", interval="1m")
-        
+        if intraday.empty:
+            intraday = yf.Ticker("^VNINDEX.VN").history(period="1d", interval="5m")
+            
         return intraday.reset_index(), prev_close
     except Exception as e:
         print(f"Lỗi vẽ VNINDEX: {e}")
         return pd.DataFrame(), 0
 
 def render_vnindex_chart():
+    st.markdown("<br>", unsafe_allow_html=True)
     with st.spinner("Đang tải biểu đồ VN-INDEX realtime..."):
         df, prev_close = get_vnindex_intraday()
         
@@ -308,64 +316,61 @@ def render_vnindex_chart():
             diff = current_price - prev_close
             pct_change = (diff / prev_close) * 100
             
-            # --- Tự động chọn màu (Xanh nếu tăng, Đỏ nếu giảm) ---
+            # --- Tự động chọn màu ---
             is_up = current_price >= prev_close
             color = "#0ECB81" if is_up else "#F6465D"
             fill_color = "rgba(14, 203, 129, 0.1)" if is_up else "rgba(246, 70, 93, 0.1)"
             sign = "+" if is_up else ""
             
-            # --- Vẽ thông số giá to chà bá giống Yahoo ---
+            # --- Hiển thị thông số VNINDEX to, rõ, chuẩn Yahoo ---
             st.markdown(f"""
-            <div style="margin-bottom: -10px;">
-                <h2 style="font-size: 24px; font-weight: 800; color: #1E2329; margin: 0; text-transform: uppercase;">VNINDEX (^VNINDEX.VN)</h2>
+            <div style="margin-bottom: 0px;">
+                <h2 style="font-size: 20px; font-weight: 800; color: #1E2329; margin: 0; text-transform: uppercase;">VNINDEX (^VNINDEX.VN)</h2>
                 <div style="display: flex; align-items: baseline; gap: 12px; margin-top: 4px;">
-                    <span style="font-size: 36px; font-weight: 800; color: #1E2329; font-family: 'SF Mono', Consolas, monospace;">{current_price:,.2f}</span>
-                    <span style="font-size: 20px; font-weight: 700; color: {color};">{sign}{diff:,.2f} ({sign}{pct_change:.2f}%)</span>
+                    <span style="font-size: 32px; font-weight: 800; color: #1E2329; font-family: 'SF Mono', Consolas, monospace;">{current_price:,.2f}</span>
+                    <span style="font-size: 18px; font-weight: 700; color: {color};">{sign}{diff:,.2f} ({sign}{pct_change:.2f}%)</span>
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
-            # --- VẼ BIỂU ĐỒ NÚI (MOUNTAIN CHART) ---
+            # --- VẼ BIỂU ĐỒ NÚI ĐỔ BÓNG ---
             fig = go.Figure()
 
-            # 1. Vẽ vùng núi (Đường giá hiện tại)
+            # Vẽ đường giá
             fig.add_trace(go.Scatter(
                 x=df['Datetime'], y=df['Close'],
-                mode='lines',
-                line=dict(color=color, width=2),
-                fill='tozeroy', # Đổ bóng xuống tận cùng
-                fillcolor=fill_color, # Màu bóng trong suốt
+                mode='lines', line=dict(color=color, width=2),
+                fill='tozeroy', fillcolor=fill_color,
                 name='VN-INDEX',
                 hovertemplate='%{x|%H:%M}<br><b>Điểm: %{y:.2f}</b><extra></extra>'
             ))
 
-            # 2. Vẽ đường Tham chiếu màu xám (Giá hôm qua)
+            # Vẽ đường tham chiếu (hôm qua)
             fig.add_trace(go.Scatter(
                 x=[df['Datetime'].iloc[0], df['Datetime'].iloc[-1]],
                 y=[prev_close, prev_close],
-                mode='lines',
-                line=dict(color='#848E9C', width=1.5, dash='dash'),
-                name='Tham chiếu',
-                hoverinfo='skip'
+                mode='lines', line=dict(color='#848E9C', width=1.5, dash='dash'),
+                name='Tham chiếu', hoverinfo='skip'
             ))
 
-            # 3. Tinh chỉnh khung hình ép sát lề
+            # Ép khung hình sát lề
             min_y = min(df['Close'].min(), prev_close) * 0.998
             max_y = max(df['Close'].max(), prev_close) * 1.002
 
             fig.update_layout(
                 margin=dict(t=10, l=0, r=0, b=0),
-                height=280, # Chiều cao vừa phải để nhường chỗ cho Heatmap
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-                xaxis=dict(showgrid=False, tickformat="%H:%M", visible=True),
-                yaxis=dict(showgrid=True, gridcolor='#F0F2F5', range=[min_y, max_y], side='right'), # Cột giá nằm bên phải giống Yahoo
-                showlegend=False,
-                hovermode='x unified'
+                height=260,
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                xaxis=dict(showgrid=False, tickformat="%H:%M"),
+                yaxis=dict(showgrid=True, gridcolor='#F0F2F5', range=[min_y, max_y], side='right'),
+                showlegend=False, hovermode='x unified'
             )
 
             st.plotly_chart(fig, use_container_width=True)
             st.markdown("<hr style='margin: 10px 0px 30px 0px; border-color: #EAECEF;'>", unsafe_allow_html=True)
+        else:
+            # Bẫy lỗi: Nếu rỗng thì phải báo cho người dùng biết!
+            st.warning("⚠️ Yahoo Finance hiện chưa cập nhật dữ liệu diễn biến trong ngày (Intraday) của VN-INDEX. Vui lòng thử lại sau!")
 # ==========================================
 # KHỐI 2: TỔNG QUAN, BIỂU ĐỒ & PHÂN TÍCH AI
 # ==========================================
@@ -433,12 +438,11 @@ def render_hero_section():
                 card_html = f"""<div class="b-card"><div class="b-header"><div class="b-title">{group_name}</div><a href="#" class="b-more">Chi tiết ></a></div>{rows_html}</div>"""
                 st.markdown(f"{css_binance}{card_html}", unsafe_allow_html=True)
 
-    # --- TAB 2: DỮ LIỆU GIAO DỊCH ---
+
+# --- TAB 2: DỮ LIỆU GIAO DỊCH ---
     with tab2:
-        st.markdown("<br>", unsafe_allow_html=True)
-        # 1. Vẽ biểu đồ núi VNINDEX ở trên cùng
+        # Lưu ý: Các dòng dưới đây phải được thụt lề bằng phím Tab (lùi vào 1 ô so với chữ with)
         render_vnindex_chart() 
-        # 2. Vẽ Bản đồ nhiệt ở ngay bên dưới
         render_tab2_heatmap()
 
     # --- TAB 3: PHÂN TÍCH AI ---
