@@ -147,7 +147,7 @@ def get_market_heatmap_data():
 # ==========================================
 def render_tab2_heatmap():
     st.markdown("<br><div style='font-size: 20px; font-weight: 800; color: #1E2329; margin-bottom: 8px; text-transform: uppercase;'>🗺️ Bản đồ Nhiệt Dòng tiền (Market Heatmap)</div>", unsafe_allow_html=True)
-    st.markdown("<div style='color: #474D57; font-size: 14px; margin-bottom: 24px;'>Kích thước ô vuông thể hiện Khối lượng giao dịch. Màu sắc thể hiện mức độ Tăng (Xanh) / Giảm (Đỏ).</div>", unsafe_allow_html=True)
+    st.markdown("<div style='color: #474D57; font-size: 14px; margin-bottom: 24px;'>The square size represents the trading volume. The color represents the level of increase (green) / decrease (red).</div>", unsafe_allow_html=True)
 
     with st.spinner("Đang quét tín hiệu dòng tiền..."):
         df_heat = get_market_heatmap_data()
