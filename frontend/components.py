@@ -178,49 +178,9 @@ def get_market_heatmap_data():
         return pd.DataFrame()
 
 # ==========================================
-# KHU VỰC HIỂN THỊ CỦA TAB 2
-# ==========================================
-st.markdown("<br><div style='font-size: 18px; font-weight: 800; color: #E65100; margin-bottom: 8px; text-transform: uppercase;'>🗺️ Bản đồ Nhiệt Dòng tiền (Market Heatmap)</div>", unsafe_allow_html=True)
-st.markdown("<div style='color: #474D57; font-size: 14px; margin-bottom: 24px;'>Kích thước ô vuông thể hiện Khối lượng giao dịch. Màu sắc thể hiện mức độ Tăng (Xanh) / Giảm (Đỏ).</div>", unsafe_allow_html=True)
-
-with st.spinner("Đang quét tín hiệu dòng tiền toàn thị trường..."):
-    df_heat = get_market_heatmap_data()
-
-    if not df_heat.empty:
-        # Gộp Nhãn để hiển thị Mã CK và % Tăng giảm ngay trên ô vuông
-        df_heat['Nhãn hiển thị'] = df_heat['Mã CK'] + "<br>" + df_heat['Biến động (%)'].round(2).astype(str) + "%"
-
-        # Vẽ Treemap với Plotly Express
-        fig = px.treemap(
-            df_heat,
-            path=[px.Constant("Thị Trường VN"), 'Ngành', 'Nhãn hiển thị'],
-            values='Khối lượng',
-            color='Biến động (%)',
-            # Dải màu chuẩn Trading: Đỏ đậm -> Trắng (Tham chiếu) -> Xanh lục
-            color_continuous_scale=['#F6465D', '#F9F9FA', '#0ECB81'], 
-            color_continuous_midpoint=0,
-            hover_data={'Khối lượng': ':.2s', 'Giá (VNĐ)': ':,.0f'}
-        )
-        
-        # Làm đẹp giao diện biểu đồ
-        fig.update_layout(
-            margin=dict(t=20, l=0, r=0, b=0),
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            font=dict(family="Segoe UI", size=14, color="#1E2329")
-        )
-        fig.update_traces(
-            textinfo="label",
-            textfont_color="black",
-            hovertemplate="<b>%{label}</b><br>Khối lượng: %{value}<br>Biến động: %{color:.2f}%<extra></extra>"
-        )
-
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.warning("Hệ thống đang bảo trì luồng dữ liệu giá. Vui lòng thử lại sau!")
-
-st.markdown("---")
-# Dành đất ở dưới để sau này ta nhét thêm Biểu đồ Nến Nhật vào nếu ngươi muốn
+with tab2:
+        # Nhớ thụt lề 1 cái (bấm 1 lần phím Tab) ở dòng dưới này nhé!
+        render_tab2_heatmap()
 
     # --- TAB 3: PHÂN TÍCH AI ---
     with tab3:
@@ -601,7 +561,61 @@ def render_news_section():
             if st.button("Sau ▶", disabled=(st.session_state.current_page >= total_pages), use_container_width=True, key="next_btn"):
                 st.session_state.current_page += 1
                 st.rerun(scope="fragment")
+import plotly.express as px
+import requests
+import pandas as pd
+import streamlit as st
 
+@st.cache_data(ttl=60, show_spinner=False)
+def get_market_heatmap_data():
+    sectors = {
+        'Ngân hàng': ['VCB', 'BID', 'CTG', 'MBB', 'TCB', 'VPB', 'ACB', 'STB', 'SHB', 'HDB'],
+        'Bất động sản': ['VHM', 'VIC', 'VRE', 'NVL', 'DIG', 'DXG', 'KDH', 'NLG', 'PDR'],
+        'Chứng khoán': ['SSI', 'VND', 'VCI', 'HCM', 'SHS', 'MBS', 'FTS'],
+        'Thép & Xây dựng': ['HPG', 'HSG', 'NKG', 'VCG', 'PC1'],
+        'Bán lẻ & Tiêu dùng': ['MWG', 'PNJ', 'FRT', 'VNM', 'MSN', 'SAB', 'DGW'],
+        'Công nghệ & Năng lượng': ['FPT', 'GAS', 'PLX', 'POW', 'BSR', 'DGC']
+    }
+    tickers = [stock for stocks in sectors.values() for stock in stocks]
+    ticker_to_sector = {stock: sector for sector, stocks in sectors.items() for stock in stocks}
+    ticker_str = ",".join(tickers)
+
+    try:
+        url = f"https://apipubaws.tcbs.com.vn/stock-insight/v1/stock/second-tc-price?tickers={ticker_str}"
+        res = requests.get(url, timeout=5).json()
+        df = pd.DataFrame(res['data'])
+        df['Ngành'] = df['t'].map(ticker_to_sector)
+        df['Biến động (%)'] = ((df['cp'] - df['ref']) / df['ref']) * 100
+        df['Khối lượng'] = df['vo'].replace(0, 1) 
+        df['Mã CK'] = df['t']
+        df['Giá (VNĐ)'] = df['cp'] * 1000 
+        return df[['Ngành', 'Mã CK', 'Biến động (%)', 'Khối lượng', 'Giá (VNĐ)']].dropna()
+    except Exception as e:
+        return pd.DataFrame()
+
+# ==========================================
+# Đóng gói toàn bộ giao diện Tab 2 vào một hàm
+def render_tab2_heatmap():
+    st.markdown("<br><div style='font-size: 18px; font-weight: 800; color: #E65100; margin-bottom: 8px; text-transform: uppercase;'>🗺️ Bản đồ Nhiệt Dòng tiền (Market Heatmap)</div>", unsafe_allow_html=True)
+    st.markdown("<div style='color: #474D57; font-size: 14px; margin-bottom: 24px;'>Kích thước ô vuông thể hiện Khối lượng giao dịch. Màu sắc thể hiện mức độ Tăng (Xanh) / Giảm (Đỏ).</div>", unsafe_allow_html=True)
+
+    with st.spinner("Đang quét tín hiệu dòng tiền toàn thị trường..."):
+        df_heat = get_market_heatmap_data()
+
+        if not df_heat.empty:
+            df_heat['Nhãn hiển thị'] = df_heat['Mã CK'] + "<br>" + df_heat['Biến động (%)'].round(2).astype(str) + "%"
+            fig = px.treemap(
+                df_heat, path=[px.Constant("Thị Trường VN"), 'Ngành', 'Nhãn hiển thị'],
+                values='Khối lượng', color='Biến động (%)',
+                color_continuous_scale=['#F6465D', '#F9F9FA', '#0ECB81'], 
+                color_continuous_midpoint=0,
+                hover_data={'Khối lượng': ':.2s', 'Giá (VNĐ)': ':,.0f'}
+            )
+            fig.update_layout(margin=dict(t=20, l=0, r=0, b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+            fig.update_traces(textinfo="label", textfont_color="black")
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.warning("Hệ thống đang bảo trì luồng dữ liệu giá. Vui lòng thử lại sau!")
 # --- KHỐI 4: FOOTER BẢN QUYỀN ---
 def render_footer():
     st.markdown("""
