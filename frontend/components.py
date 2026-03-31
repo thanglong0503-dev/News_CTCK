@@ -520,6 +520,7 @@ def render_news_section():
                 st.rerun(scope="fragment")
 
 # ==========================================
+# ==========================================
 # KHỐI 4: FOOTER BẢN QUYỀN
 # ==========================================
 def render_footer():
@@ -528,9 +529,10 @@ def render_footer():
         <div style="color: #707A8A; font-size: 12px; padding: 20px 0 40px 0; line-height: 1.6;">
             <p style="font-weight: 600; margin-bottom: 8px; color: #474D57;">Từ chối trách nhiệm:</p>
             <ul style="padding-left: 20px; margin-bottom: 16px;">
-                <li>Nội dung trên trang web này được soạn riêng cho mục đích cung cấp thông tin và không phải là cơ sở để đưa ra quyết định đầu tư.</li>
-                <li>Trang web này do <b>Vietnam Securities Research</b> phát hành và không liên quan đến các dịch vụ tư vấn đầu tư.</li>
-                <li>Thông tin trên trang web này dựa trên các nguồn được xem là đáng tin cậy, nhưng chúng tôi không đảm bảo tính chính xác tuyệt đối.</li>
+                <li>Nội dung trên trang web này được soạn riêng cho mục đích cung cấp thông tin và không phải là cơ sở để đưa ra quyết định đầu tư, hay được hiểu là đề xuất tham gia vào các giao dịch chứng khoán hoặc sử dụng làm chiến lược đầu tư đối với bất kỳ mã cổ phiếu nào.</li>
+                <li>Trang web này do <b>Vietnam Securities Research</b> phát hành và không liên quan đến các dịch vụ tư vấn đầu tư, thuế, pháp lý, tài chính, kế toán. Đây không phải là khuyến nghị mua, bán hoặc nắm giữ bất kỳ tài sản nào.</li>
+                <li>Thông tin trên trang web này dựa trên các nguồn được xem là đáng tin cậy (Dữ liệu giao dịch từ Yahoo Finance, tin tức từ các báo chính thống), nhưng chúng tôi không đảm bảo tính chính xác hoặc đầy đủ tuyệt đối.</li>
+                <li>Bất kỳ quan điểm hoặc ước tính nào được trình bày tại đây phản ánh sự đánh giá của hệ thống vào thời điểm này và có thể thay đổi mà không cần thông báo trước.</li>
             </ul>
             <div style="text-align: center; margin-top: 24px; font-size: 13px;">
                 © 2017 - 2026 Vietnam Securities Research. Bảo lưu mọi quyền.<br>
