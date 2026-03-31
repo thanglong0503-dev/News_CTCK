@@ -178,7 +178,7 @@ def get_market_heatmap_data():
         return pd.DataFrame()
 
 # ==========================================
-with tab2:
+    with tab2:
         # Nhớ thụt lề 1 cái (bấm 1 lần phím Tab) ở dòng dưới này nhé!
         render_tab2_heatmap()
 
