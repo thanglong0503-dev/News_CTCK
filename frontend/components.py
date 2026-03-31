@@ -45,9 +45,11 @@ def render_topbar_clock():
 
 # ==========================================
 # ==========================================
-# KHỐI 1: HEADER & BĂNG CHUYỀN VĨ MÔ
+# KHỐI 1: HEADER & BĂNG CHUYỀN VĨ MÔ (TONE CAM TRẮNG)
 # ==========================================
 import yfinance as yf
+import base64
+import streamlit as st
 
 def get_base64_of_image(path):
     try:
@@ -58,7 +60,6 @@ def get_base64_of_image(path):
 
 @st.cache_data(ttl=60, show_spinner=False)
 def get_macro_data():
-    # Bộ từ điển các mã Vĩ mô trên Yahoo Finance
     tickers = {
         "VNINDEX": "^VNINDEX.VN",
         "BITCOIN": "BTC-USD",
@@ -71,26 +72,25 @@ def get_macro_data():
     
     for name, symbol in tickers.items():
         try:
-            # Lấy dữ liệu 5 ngày gần nhất để chắc chắn có giá trị (phòng cuối tuần)
             data = yf.Ticker(symbol).history(period="5d")
             if len(data) >= 2:
                 prev_close = data['Close'].iloc[-2]
                 current_price = data['Close'].iloc[-1]
                 pct_change = ((current_price - prev_close) / prev_close) * 100
                 
-                # Định dạng số tiền (Có chữ $ cho quốc tế, không có cho VN)
                 if name in ["VNINDEX", "USD/VND"]:
                     price_str = f"{current_price:,.2f}"
                 else:
                     price_str = f"${current_price:,.2f}"
                     
-                # Xử lý màu sắc và dấu cộng trừ
                 sign = "+" if pct_change > 0 else ""
                 color = "#0ECB81" if pct_change > 0 else "#F6465D" if pct_change < 0 else "#848E9C"
                 
-                # Ghép thẻ HTML cho từng chỉ số
-                item_html = f"""<span style="color: #848E9C; margin-right: 6px;">{name}</span> 
-                                <span style="font-weight: 700; color: #FFFFFF; margin-right: 6px;">{price_str}</span> 
+                # --- TONE CAM TRẮNG CHO TỪNG ITEM ---
+                # Nhãn tên (VNINDEX, VÀNG...) -> Màu Cam (#E65100)
+                # Giá tiền -> Màu Đen đậm (#1E2329) để nổi trên nền trắng
+                item_html = f"""<span style="color: #E65100; font-weight: 700; margin-right: 6px; text-transform: uppercase;">{name}</span> 
+                                <span style="font-weight: 800; color: #1E2329; margin-right: 6px;">{price_str}</span> 
                                 <span style="color: {color}; font-weight: 700;">{sign}{pct_change:.2f}%</span>"""
                 results.append(item_html)
         except:
@@ -99,7 +99,6 @@ def get_macro_data():
     return results
 
 def render_header():
-    # 1. GỌI LOGO VÀ TIÊU ĐỀ
     logo_base64 = get_base64_of_image("assets/logo.png")
     
     if logo_base64:
@@ -116,41 +115,39 @@ def render_header():
         st.markdown("<h1 style='font-size: 32px; color: #1E2329; font-weight: 700; margin-bottom: 8px; margin-top: 10px;'>LINANCE</h1>", unsafe_allow_html=True)
         st.markdown("<p style='color: #474D57; font-size: 16px; margin-bottom: 16px;'>Vietnam Securities Research - Phân tích cấp tổ chức</p>", unsafe_allow_html=True)
 
-    # 2. VẼ BĂNG CHUYỀN VĨ MÔ CHẠY NGANG (TICKER TAPE)
     macro_items = get_macro_data()
     
     if macro_items:
-        # Nối các chỉ số lại, phân cách bằng dấu chấm tròn
-        ticker_content = "<span style='margin: 0 40px; color: #474D57;'>•</span>".join(macro_items)
+        # Dấu chấm phân cách được đổi sang màu Cam nhạt cho hợp tone
+        ticker_content = "<span style='margin: 0 40px; color: #FFB74D;'>•</span>".join(macro_items)
+        ticker_content = f"{ticker_content} <span style='margin: 0 40px; color: #FFB74D;'>•</span> {ticker_content}"
         
-        # Nhân đôi nội dung để khi băng chuyền chạy hết vòng không bị đứt quãng
-        ticker_content = f"{ticker_content} <span style='margin: 0 40px; color: #474D57;'>•</span> {ticker_content}"
-        
-        # CSS tạo hiệu ứng trượt ngang vô tận
+        # CSS Băng chuyền: Nền trắng (#FFFFFF), viền cam nhạt (#FFE0B2), bóng đổ cam nhẹ
         ticker_html = f"""
         <style>
         .ticker-wrap {{
             width: 100%;
-            background-color: #1E2329; /* Nền xám đen chuyên nghiệp */
+            background-color: #FFFFFF; 
+            border: 1px solid #FFE0B2;
             padding: 12px 0;
             border-radius: 6px;
             overflow: hidden;
             white-space: nowrap;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            box-shadow: 0 4px 12px rgba(230, 81, 0, 0.05); 
             margin-bottom: 24px;
         }}
         .ticker {{
             display: inline-block;
             white-space: nowrap;
-            animation: marquee 25s linear infinite; /* Chạy đều 25 giây/vòng */
+            animation: marquee 25s linear infinite;
         }}
         .ticker:hover {{
-            animation-play-state: paused; /* Đưa chuột vào thì dừng lại để xem */
+            animation-play-state: paused;
             cursor: pointer;
         }}
         @keyframes marquee {{
             0% {{ transform: translateX(0); }}
-            100% {{ transform: translateX(-50%); }} /* Chỉ chạy 50% vì đã nhân đôi nội dung */
+            100% {{ transform: translateX(-50%); }}
         }}
         </style>
         
@@ -161,7 +158,6 @@ def render_header():
         </div>
         """
         st.markdown(ticker_html, unsafe_allow_html=True)
-# ==========================================
 # ==========================================
 # KHỐI 1.5: HÀM KÉO DỮ LIỆU BẢN ĐỒ NHIỆT (VN100 - TAB 2)
 # ==========================================
