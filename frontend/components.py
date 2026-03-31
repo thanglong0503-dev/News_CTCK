@@ -283,7 +283,7 @@ def render_tab2_heatmap():
             st.warning("Yahoo Finance đang cập nhật dữ liệu. Vui lòng thử lại sau!")
 # ==========================================
 # ==========================================
-# KHỐI 1.6: BIỂU ĐỒ DIỄN BIẾN VN-INDEX (FORMAT YAHOO + STATS BẢN FULL)
+# KHỐI 1.6: BIỂU ĐỒ DIỄN BIẾN VN-INDEX (NÚI CAM BRANDING + STATS)
 # ==========================================
 import requests
 import pandas as pd
@@ -311,24 +311,24 @@ def get_vnindex_intraday():
             'Close': closes
         }).dropna() 
         
-        # --- LẤY THÊM THÔNG SỐ (STATS) ---
+        # --- BÓC TÁCH THÔNG SỐ (STATS) TRỰC TIẾP TỪ BIỂU ĐỒ REALTIME ---
         stats = {
             'prev_close': prev_close,
-            'open': closes[0] if len(closes) > 0 else prev_close,
-            'volume': result['meta'].get('regularMarketVolume', 0),
+            'open': df['Close'].iloc[0] if not df.empty else prev_close,
+            'volume': result['meta'].get('regularMarketVolume', 0), # Yahoo thường trả 0 cho VNINDEX
             'day_low': df['Close'].min() if not df.empty else 0,
             'day_high': df['Close'].max() if not df.empty else 0,
             'year_low': 0,
-            'year_high': 0
+            'year_high': 0,
+            'avg_volume': 0
         }
         
-        # Lấy đỉnh/đáy 52 tuần bằng yfinance (Chạy ngầm)
+        # Kéo thêm dữ liệu tĩnh (52 tuần) từ Yahoo
         try:
             tkr = yf.Ticker("^VNINDEX.VN")
             fi = tkr.fast_info
             stats['year_low'] = fi.year_low
             stats['year_high'] = fi.year_high
-            stats['open'] = fi.open # Cập nhật giá open chuẩn hơn
         except:
             pass
             
@@ -349,27 +349,32 @@ def render_vnindex_chart():
             pct_change = (diff / prev_close) * 100
             
             is_up = current_price >= prev_close
-            color = "#0ECB81" if is_up else "#F6465D"
-            fill_color = "rgba(14, 203, 129, 0.1)" if is_up else "rgba(246, 70, 93, 0.1)"
+            
+            # --- TÁCH BIỆT MÀU SẮC: TEXT (XANH/ĐỎ) & NÚI (CAM BRANDING) ---
+            text_color = "#0ECB81" if is_up else "#F6465D"
             sign = "+" if is_up else ""
             
-            # ĐÃ SỬA LỖI LỘ CODE HTML BẰNG CÁCH XÓA CÁC DÒNG COMMENT PYTHON
+            # Tone Cam LINANCE cho biểu đồ
+            mountain_color = "#FF6B00" 
+            mountain_fill = "rgba(255, 107, 0, 0.12)" # Cam trong suốt nhẹ nhàng
+            
             st.markdown(f"""
             <div style="margin-bottom: 0px; margin-left: -5px; padding-left: 0px;">
                 <h2 style='font-size: 16px; font-weight: 700; color: #1E2329; margin: 0; padding: 0; font-family: "Inter", "Segoe UI", Arial, sans-serif;'>^VNINDEX.VN VN-INDEX</h2>
                 <div style="display: flex; align-items: baseline; gap: 8px; margin-top: 4px; padding: 0;">
                     <span style="font-size: 36px; font-weight: 800; color: #1E2329; font-family: 'SF Mono', Consolas, monospace; padding: 0;">{current_price:,.2f}</span>
-                    <span style="font-size: 16px; font-weight: 700; color: {color}; margin-left: 2px;">{sign}{diff:,.2f} ({sign}{pct_change:.2f}%)</span>
+                    <span style="font-size: 16px; font-weight: 700; color: {text_color}; margin-left: 2px;">{sign}{diff:,.2f} ({sign}{pct_change:.2f}%)</span>
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
             fig = go.Figure()
 
+            # Vẽ Ngọn núi màu Cam
             fig.add_trace(go.Scatter(
                 x=df['Datetime'], y=df['Close'],
-                mode='lines', line=dict(color=color, width=2.5),
-                fill='tozeroy', fillcolor=fill_color,
+                mode='lines', line=dict(color=mountain_color, width=2.5),
+                fill='tozeroy', fillcolor=mountain_fill,
                 name='VN-INDEX',
                 hovertemplate='%{x|%H:%M}<br><b>Điểm: %{y:.2f}</b><extra></extra>'
             ))
@@ -388,18 +393,18 @@ def render_vnindex_chart():
                 margin=dict(t=5, l=0, r=0, b=0),
                 height=220, 
                 paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                dragmode='pan', # MỞ KHÓA TÍNH NĂNG KÉO THẢ (PAN)
+                dragmode='pan', 
                 xaxis=dict(showgrid=False, tickformat="%H:%M", showticklabels=True, ticks="", visible=True, type='date'),
                 yaxis=dict(showgrid=False, range=[min_y, max_y], showticklabels=False, visible=False, fixedrange=False),
                 showlegend=False, hovermode='x unified'
             )
 
-            # Cấu hình Toolbar ẩn đi cho gọn, nhưng vẫn cho phép Scroll để Zoom
             config = {'scrollZoom': True, 'displayModeBar': False}
             st.plotly_chart(fig, use_container_width=True, config=config)
 
-            # --- VẼ BẢNG THÔNG SỐ DƯỚI ĐÁY (STATS TABLE) ---
-            year_range_str = f"{stats['year_low']:,.2f} - {stats['year_high']:,.2f}" if stats['year_high'] > 0 else "--"
+            # --- BẢNG THÔNG SỐ (HIỂN THỊ N/A NẾU YAHOO THIẾU DỮ LIỆU) ---
+            year_range_str = f"{stats['year_low']:,.2f} - {stats['year_high']:,.2f}" if stats['year_high'] > 0 else "N/A"
+            vol_str = f"{stats['volume']:,}" if stats['volume'] > 0 else "N/A"
             
             st.markdown(f"""
             <style>
@@ -416,12 +421,12 @@ def render_vnindex_chart():
                     <div class="stat-row"><span class="stat-label">Open</span><span class="stat-val">{stats['open']:,.2f}</span></div>
                 </div>
                 <div class="stat-col">
-                    <div class="stat-row"><span class="stat-label">Volume</span><span class="stat-val">{stats['volume']:,}</span></div>
+                    <div class="stat-row"><span class="stat-label">Volume</span><span class="stat-val">{vol_str}</span></div>
                     <div class="stat-row"><span class="stat-label">Day's Range</span><span class="stat-val">{stats['day_low']:,.2f} - {stats['day_high']:,.2f}</span></div>
                 </div>
                 <div class="stat-col">
                     <div class="stat-row"><span class="stat-label">52 Week Range</span><span class="stat-val">{year_range_str}</span></div>
-                    <div class="stat-row"><span class="stat-label">Avg. Volume</span><span class="stat-val">--</span></div>
+                    <div class="stat-row"><span class="stat-label">Avg. Volume</span><span class="stat-val">N/A</span></div>
                 </div>
             </div>
             <hr style='margin: 15px 0px 25px 0px; border-color: #EAECEF;'>
