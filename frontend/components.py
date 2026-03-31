@@ -88,15 +88,35 @@ def get_market_heatmap_data():
 
     try:
         url = f"https://apipubaws.tcbs.com.vn/stock-insight/v1/stock/second-tc-price?tickers={ticker_str}"
-        res = requests.get(url, timeout=5).json()
-        df = pd.DataFrame(res['data'])
-        df['Ngành'] = df['t'].map(ticker_to_sector)
-        df['Biến động (%)'] = ((df['cp'] - df['ref']) / df['ref']) * 100
-        df['Khối lượng'] = df['vo'].replace(0, 1) 
-        df['Mã CK'] = df['t']
-        df['Giá (VNĐ)'] = df['cp'] * 1000 
-        return df[['Ngành', 'Mã CK', 'Biến động (%)', 'Khối lượng', 'Giá (VNĐ)']].dropna()
+        
+        # --- BỘ ÁO TÀNG HÌNH (TRÁNH BỊ CHẶN API) ---
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "application/json"
+        }
+        
+        # Gắn headers vào lệnh lấy dữ liệu
+        res = requests.get(url, headers=headers, timeout=10)
+        
+        if res.status_code == 200:
+            data = res.json().get('data', [])
+            if not data: return pd.DataFrame() # Nếu data rỗng thì trả về DataFrame trống
+            
+            df = pd.DataFrame(data)
+            df['Ngành'] = df['t'].map(ticker_to_sector)
+            
+            # Xử lý toán học an toàn (Tránh lỗi chia cho 0 nếu giá tham chiếu = 0)
+            df['Biến động (%)'] = df.apply(lambda row: ((row['cp'] - row['ref']) / row['ref']) * 100 if row['ref'] > 0 else 0, axis=1)
+            df['Khối lượng'] = df['vo'].replace(0, 1) 
+            df['Mã CK'] = df['t']
+            df['Giá (VNĐ)'] = df['cp'] * 1000 
+            return df[['Ngành', 'Mã CK', 'Biến động (%)', 'Khối lượng', 'Giá (VNĐ)']].dropna()
+        else:
+            print(f"Bị chặn API, Mã lỗi: {res.status_code}")
+            return pd.DataFrame()
+            
     except Exception as e:
+        print(f"Lỗi sập mạng: {e}")
         return pd.DataFrame()
 
 def render_tab2_heatmap():
