@@ -234,11 +234,11 @@ def get_market_heatmap_data():
         return pd.DataFrame()
 
 # ==========================================
-# KHU VỰC HIỂN THỊ CỦA TAB 2 (BẢN ĐỒ NHIỆT)
+# KHU VỰC HIỂN THỊ CỦA TAB 2 (BẢN ĐỒ NHIỆT - MÀU CHUẨN SSI)
 # ==========================================
 def render_tab2_heatmap():
     st.markdown("<br><div style='font-size: 20px; font-weight: 800; color: #1E2329; margin-bottom: 8px; text-transform: uppercase;'>🗺️ Bản đồ Nhiệt Dòng tiền (Market Heatmap)</div>", unsafe_allow_html=True)
-    st.markdown("<div style='color: #474D57; font-size: 14px; margin-bottom: 24px;'>Kích thước ô vuông thể hiện Khối lượng giao dịch. Màu sắc thể hiện mức độ Tăng (Xanh) / Giảm (Đỏ).</div>", unsafe_allow_html=True)
+    st.markdown("<div style='color: #474D57; font-size: 14px; margin-bottom: 24px;'>Kích thước ô vuông thể hiện Khối lượng giao dịch. Màu sắc phản ánh mức độ Tăng/Giảm chuẩn thị trường Việt Nam.</div>", unsafe_allow_html=True)
 
     with st.spinner("Đang quét tín hiệu dòng tiền VN100..."):
         df_heat = get_market_heatmap_data()
@@ -247,38 +247,59 @@ def render_tab2_heatmap():
             # 1. Định dạng chữ: In đậm mã CK
             df_heat['Nhãn hiển thị'] = "<b>" + df_heat['Mã CK'] + "</b><br>" + df_heat['Biến động (%)'].round(2).astype(str) + "%"
 
-            # 2. Vẽ Treemap
+            # 2. VẼ TREEMAP VỚI BẢNG MÀU RỜI RẠC (DISCRETE SOLID COLORS)
             fig = px.treemap(
                 df_heat,
                 path=[px.Constant("Thị Trường VN"), 'Ngành', 'Nhãn hiển thị'],
                 values='Khối lượng',
                 color='Biến động (%)',
                 
-                # Dải màu TCBS
-                color_continuous_scale=['#F6465D', '#F39C12', '#0ECB81'], 
-                color_continuous_midpoint=0,
+                # Khóa cứng biên độ sàn/trần của HOSE (-7% đến +7%)
+                range_color=[-7, 7], 
+                
+                # --- BẢNG MÀU CHỨNG KHOÁN VIỆT NAM (KHÔNG PHA TRỘN) ---
+                # 0.0 -> -7% | 0.5 -> 0% | 1.0 -> +7%
+                color_continuous_scale=[
+                    [0.0, "#00DFD8"], [0.035, "#00DFD8"],  # Xanh lơ (Giảm sàn từ -7% đến -6.5%)
+                    [0.035, "#F6465D"], [0.495, "#F6465D"], # Đỏ (Giảm từ -6.5% đến -0.05%)
+                    [0.495, "#FFB300"], [0.505, "#FFB300"], # Vàng (Đứng giá quanh 0%)
+                    [0.505, "#0ECB81"], [0.965, "#0ECB81"], # Xanh lá (Tăng từ 0.05% đến 6.5%)
+                    [0.965, "#9C27B0"], [1.0, "#9C27B0"]    # Tím (Tăng trần từ 6.5% đến 7%)
+                ],
                 
                 hover_data={'Khối lượng': ':.2s', 'Giá (VNĐ)': ':,.0f'}
             )
             
-            # 3. Ép khung Layout cho sát lề
+            # 3. Ép khung Layout cho sát lề và Ẩn thanh thang màu (Color Bar)
             fig.update_layout(
                 margin=dict(t=30, l=0, r=0, b=0),
                 paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)'
+                plot_bgcolor='rgba(0,0,0,0)',
+                coloraxis_showscale=False # Tắt thanh thang màu bên phải cho giống SSI
             )
             
-            # 4. CHỈNH SỬA FONT CHỮ VÀ MÀU CHỮ Ở ĐÂY
+            # 4. CHỈNH SỬA FONT CHỮ VÀ VIỀN TRẮNG
             fig.update_traces(
                 textinfo="label",
-                # Sử dụng màu Xám than (gần Đen) và font chữ chuyên nghiệp (Inter/Segoe UI)
-                textfont=dict(color="#1E2329", size=14, family="Inter, 'Segoe UI', Arial, sans-serif"), 
-                marker=dict(line=dict(color='#FFFFFF', width=1.5)), # Viền trắng 
+                textfont=dict(color="#FFFFFF", size=15, family="Inter, 'Segoe UI', Arial, sans-serif"), # Chữ Trắng để nổi trên các nền màu đậm
+                marker=dict(line=dict(color='#1E2329', width=1)), # Viền màu tối mảnh chia cắt các ô
                 hovertemplate="<b>%{label}</b><br>Khối lượng: %{value}<br>Biến động: %{color:.2f}%<extra></extra>"
             )
 
-            # Tăng chiều cao biểu đồ lên 600px để chứa đủ 100 mã cổ phiếu không bị chen lấn
+            # Tăng chiều cao biểu đồ lên 600px để chứa đủ 100 mã
             st.plotly_chart(fig, use_container_width=True, height=600)
+            
+            # --- VẼ CHÚ THÍCH MÀU SẮC BÊN DƯỚI (LEGEND) ---
+            st.markdown("""
+            <div style="display: flex; justify-content: center; gap: 20px; margin-top: 10px; font-size: 13px; font-weight: 600; color: #474D57;">
+                <div style="display: flex; align-items: center; gap: 6px;"><span style="width: 14px; height: 14px; background-color: #9C27B0; border-radius: 3px;"></span> Tăng trần</div>
+                <div style="display: flex; align-items: center; gap: 6px;"><span style="width: 14px; height: 14px; background-color: #0ECB81; border-radius: 3px;"></span> Tăng</div>
+                <div style="display: flex; align-items: center; gap: 6px;"><span style="width: 14px; height: 14px; background-color: #FFB300; border-radius: 3px;"></span> Tham chiếu</div>
+                <div style="display: flex; align-items: center; gap: 6px;"><span style="width: 14px; height: 14px; background-color: #F6465D; border-radius: 3px;"></span> Giảm</div>
+                <div style="display: flex; align-items: center; gap: 6px;"><span style="width: 14px; height: 14px; background-color: #00DFD8; border-radius: 3px;"></span> Giảm sàn</div>
+            </div>
+            """, unsafe_allow_html=True)
+            
         else:
             st.warning("Yahoo Finance đang cập nhật dữ liệu. Vui lòng thử lại sau!")
 # ==========================================
