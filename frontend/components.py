@@ -71,22 +71,24 @@ def render_header():
 
 # ==========================================
 # ==========================================
-# KHỐI 1.5: HÀM KÉO DỮ LIỆU BẢN ĐỒ NHIỆT (DÙNG YAHOO FINANCE)
-# ==========================================
+import streamlit as st
+import pandas as pd
 import yfinance as yf
+import plotly.express as px
 
-@st.cache_data(ttl=300, show_spinner=False) # Làm mới mỗi 5 phút
+# --- HÀM KÉO DỮ LIỆU THỊ TRƯỜNG TỪ YAHOO FINANCE (ĐÃ RÁP SẴN) ---
+@st.cache_data(ttl=300, show_spinner=False)
 def get_market_heatmap_data():
     sectors = {
-        'Ngân hàng': ['VCB', 'BID', 'CTG', 'MBB', 'TCB', 'VPB', 'ACB', 'STB', 'SHB', 'HDB'],
-        'Bất động sản': ['VHM', 'VIC', 'VRE', 'NVL', 'DIG', 'DXG', 'KDH', 'NLG', 'PDR'],
+        'Ngân hàng': ['VCB', 'BID', 'CTG', 'MBB', 'TCB', 'VPB', 'ACB', 'STB', 'SHB', 'HDB', 'TPB', 'MSB', 'LPB'],
+        'Bất động sản': ['VHM', 'VIC', 'VRE', 'NVL', 'DIG', 'DXG', 'KDH', 'NLG', 'PDR', 'CEO'],
         'Chứng khoán': ['SSI', 'VND', 'VCI', 'HCM', 'SHS', 'MBS', 'FTS'],
-        'Thép & Xây dựng': ['HPG', 'HSG', 'NKG', 'VCG', 'PC1'],
+        'Thép & Xây dựng': ['HPG', 'HSG', 'NKG', 'VCG', 'PC1', 'CTD'],
         'Bán lẻ & Tiêu dùng': ['MWG', 'PNJ', 'FRT', 'VNM', 'MSN', 'SAB', 'DGW'],
         'Công nghệ & Năng lượng': ['FPT', 'GAS', 'PLX', 'POW', 'BSR', 'DGC']
     }
     
-    # Gắn thêm đuôi .VN cho các mã cổ phiếu để Yahoo nhận diện được CK Việt Nam
+    # Gắn thêm đuôi .VN cho các mã cổ phiếu
     vn_tickers = []
     ticker_to_sector = {}
     ticker_to_raw = {}
@@ -98,9 +100,8 @@ def get_market_heatmap_data():
             ticker_to_raw[yf_ticker] = stock
 
     try:
-        # Tải dữ liệu 2 ngày gần nhất để lấy giá tham chiếu (hôm qua) và giá hiện tại
+        # Tải dữ liệu 2 ngày gần nhất
         data = yf.download(vn_tickers, period="2d", progress=False)
-        
         if data.empty:
             return pd.DataFrame()
 
@@ -123,11 +124,10 @@ def get_market_heatmap_data():
                 prev_close = float(prev_data['Close'][yf_ticker])
                 volume = float(current_data['Volume'][yf_ticker])
 
-                # Bỏ qua nếu Yahoo bị thiếu dữ liệu mã này
                 if pd.isna(current_price) or pd.isna(prev_close):
                     continue
 
-                volume = max(volume, 1) # Ép volume nhỏ nhất = 1 để Plotly không lỗi vẽ ô vuông
+                volume = max(volume, 1) # Ép volume nhỏ nhất = 1 để Plotly không lỗi
                 pct_change = ((current_price - prev_close) / prev_close) * 100 if prev_close > 0 else 0
 
                 heat_data.append({
@@ -135,7 +135,7 @@ def get_market_heatmap_data():
                     'Mã CK': raw_ticker,
                     'Biến động (%)': pct_change,
                     'Khối lượng': volume,
-                    'Giá (VNĐ)': current_price # Yahoo trả thẳng VND, không cần nhân 1000
+                    'Giá (VNĐ)': current_price
                 })
             except Exception:
                 continue
@@ -144,28 +144,64 @@ def get_market_heatmap_data():
     except Exception as e:
         print(f"Lỗi kết nối Yahoo Finance: {e}")
         return pd.DataFrame()
-              
-def render_tab2_heatmap():
-    st.markdown("<br><div style='font-size: 18px; font-weight: 800; color: #E65100; margin-bottom: 8px; text-transform: uppercase;'>🗺️ Bản đồ Nhiệt Dòng tiền (Market Heatmap)</div>", unsafe_allow_html=True)
-    st.markdown("<div style='color: #474D57; font-size: 14px; margin-bottom: 24px;'>Kích thước ô vuông thể hiện Khối lượng giao dịch. Màu sắc thể hiện mức độ Tăng (Xanh) / Giảm (Đỏ).</div>", unsafe_allow_html=True)
 
-    with st.spinner("Đang quét tín hiệu dòng tiền toàn thị trường..."):
-        df_heat = get_market_heatmap_data()
+# ==========================================
+# KHU VỰC HIỂN THỊ CỦA TAB 2
+# ==========================================
+st.markdown("<br><div style='font-size: 20px; font-weight: 800; color: #1E2329; margin-bottom: 8px; text-transform: uppercase;'>🗺️ Bản đồ Nhiệt Dòng tiền (Market Heatmap)</div>", unsafe_allow_html=True)
+st.markdown("<div style='color: #474D57; font-size: 14px; margin-bottom: 24px;'>Kích thước ô vuông thể hiện Khối lượng giao dịch. Màu sắc thể hiện mức độ Tăng (Xanh) / Giảm (Đỏ).</div>", unsafe_allow_html=True)
 
-        if not df_heat.empty:
-            df_heat['Nhãn hiển thị'] = df_heat['Mã CK'] + "<br>" + df_heat['Biến động (%)'].round(2).astype(str) + "%"
-            fig = px.treemap(
-                df_heat, path=[px.Constant("Thị Trường VN"), 'Ngành', 'Nhãn hiển thị'],
-                values='Khối lượng', color='Biến động (%)',
-                color_continuous_scale=['#F6465D', '#F9F9FA', '#0ECB81'], 
-                color_continuous_midpoint=0,
-                hover_data={'Khối lượng': ':.2s', 'Giá (VNĐ)': ':,.0f'}
-            )
-            fig.update_layout(margin=dict(t=20, l=0, r=0, b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-            fig.update_traces(textinfo="label", textfont_color="black")
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.warning("Hệ thống đang bảo trì luồng dữ liệu giá. Vui lòng thử lại sau!")
+with st.spinner("Đang quét tín hiệu dòng tiền từ Yahoo Finance..."):
+    df_heat = get_market_heatmap_data()
+
+    if not df_heat.empty:
+        # 1. Tạo Nhãn Hiển Thị: Mã CK và %Biến động rõ ràng, đậm đà
+        # Ta dùng <br> để xuống dòng, làm font chữ lớn hơn và đậm hơn bằng CSS
+        df_heat['Nhãn hiển thị'] = df_heat['Mã CK'] + "<br><span style='font-size:16px; font-weight:800;'>" + df_heat['Biến động (%)'].round(2).astype(str) + "%</span>"
+
+        # 2. Vẽ Treemap với Phân cấp Ngành rõ ràng
+        fig = px.treemap(
+            df_heat,
+            # Phân cấp: Thị trường VN -> Nhóm Ngành -> Từng Mã CK
+            path=[px.Constant("Thị Trường VN"), 'Ngành', 'Nhãn hiển thị'],
+            values='Khối lượng',
+            color='Biến động (%)',
+            
+            # --- CẬP NHẬT DẢI MÀU BÃO HÒA (TRADING-STYLE) ---
+            # Dải màu đậm: Đỏ bão hòa -> Vàng đậm (Tham chiếu) -> Xanh lục bão hòa
+            color_continuous_scale=['#F44336', '#FFD54F', '#43A047'], 
+            color_continuous_midpoint=0,
+            
+            # Hover data chi tiết
+            hover_data={'Khối lượng': ':.2s', 'Giá (VNĐ)': ':,.0f', 'Mã CK': True}
+        )
+        
+        # 3. Làm đẹp Giao diện và Font chữ
+        fig.update_layout(
+            margin=dict(t=20, l=0, r=0, b=0),
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            # Tăng cỡ font tổng thể cho dễ đọc
+            font=dict(family="Segoe UI", size=15, color="#1E2329")
+        )
+        
+        fig.update_traces(
+            # Hiển thị nhãn chính (label)
+            textinfo="label",
+            # Font đen để nổi bật trên nền vàng/trắng
+            textfont_color="black",
+            # Tăng cỡ font và độ đậm của nhãn chính
+            textfont_size=18,
+            textfont_family="Segoe UI, Tahoma, sans-serif",
+            # Tùy chỉnh hover
+            hovertemplate="<b>%{label}</b><br>Khối lượng: %{value}<br>Biến động: %{color:.2f}%<extra></extra>"
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.warning("Yahoo Finance bị thiếu dữ liệu. Vui lòng ấn Clear Cache và thử lại!")
+
+st.markdown("---")
 
 # ==========================================
 # KHỐI 2: TỔNG QUAN, BIỂU ĐỒ & PHÂN TÍCH AI
