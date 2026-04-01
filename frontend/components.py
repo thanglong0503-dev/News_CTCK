@@ -303,7 +303,7 @@ def render_tab2_heatmap():
         else:
             st.warning("Yahoo Finance đang cập nhật dữ liệu. Vui lòng thử lại sau!")
 # ==========================================
-KHỐI 1.6: BIỂU ĐỒ DIỄN BIẾN VN-INDEX (NÚI CAM BRANDING + STATS)
+# KHỐI 1.6: BIỂU ĐỒ DIỄN BIẾN VN-INDEX (NÚI CAM BRANDING + STATS)
 # ==========================================
 @st.cache_data(ttl=60, show_spinner=False)
 def get_vnindex_intraday():
