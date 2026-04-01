@@ -53,3 +53,15 @@ def fetch_reports_db():
             print(f"Lỗi đọc Sheet REPORTS_DB: {e}") 
             return []
     return []    
+# --- HÀM LẤY DANH MỤC CHIẾN LƯỢC TỪ SHEET (PORTFOLIO_DB) ---
+def fetch_portfolio_db():
+    db = get_db_connection()
+    if db:
+        try:
+            sheet = db.worksheet("PORTFOLIO_DB")
+            data = sheet.get_all_records()
+            return data
+        except Exception as e:
+            print(f"Lỗi đọc Sheet PORTFOLIO_DB: {e}") 
+            return []
+    return []
