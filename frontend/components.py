@@ -643,77 +643,131 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                 st.info("💡 Chưa có dữ liệu báo cáo. Ngươi hãy mở Google Sheets 'LINANCE_DB' -> tab 'REPORTS_DB' và nhập thử vài khuyến nghị nhé!")
             else:
                 import pandas as pd
+                import math
+                from datetime import datetime
                 df_rep = pd.DataFrame(reports_data)
                 
-                # Chia layout: Bên trái là Lịch sử Báo cáo, Bên phải là Bảng Xếp hạng
+                # Khởi tạo Session State cho phân trang Tab 4
+                if 'report_page' not in st.session_state: st.session_state.report_page = 1
+                
                 col_list, col_leaderboard = st.columns([1.7, 1])
                 
                 # ==========================================
-                # CỘT TRÁI: DANH SÁCH BÁO CÁO MỚI NHẤT
+                # CỘT TRÁI: DANH SÁCH BÁO CÁO + BỘ LỌC
                 # ==========================================
                 with col_list:
+                    # --- GIAO DIỆN BỘ LỌC ---
+                    st.markdown("<div style='background-color: #FAFAFA; padding: 16px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #EAECEF;'>", unsafe_allow_html=True)
+                    f_col1, f_col2 = st.columns(2)
+                    
+                    all_rep_brokers = ["Tất cả"] + df_rep['Broker'].dropna().unique().tolist()
+                    with f_col1:
+                        rep_broker_filter = st.selectbox("Lọc theo Công ty:", all_rep_brokers, key="rep_brk_flt")
+                    with f_col2:
+                        rep_time_filter = st.selectbox("Thời gian:", ["Tất cả", "Tháng này", "Hôm nay"], key="rep_time_flt")
+                    st.markdown("</div>", unsafe_allow_html=True)
+
+                    # --- XỬ LÝ LỌC DATA ---
+                    filtered_rep = df_rep.copy()
+                    if rep_broker_filter != "Tất cả":
+                        filtered_rep = filtered_rep[filtered_rep['Broker'] == rep_broker_filter]
+                    
+                    if rep_time_filter == "Hôm nay":
+                        today_str = datetime.now().strftime("%d/%m/%Y")
+                        filtered_rep = filtered_rep[filtered_rep['Date'].astype(str).str.contains(today_str)]
+                    elif rep_time_filter == "Tháng này":
+                        month_str = datetime.now().strftime("/%m/%Y")
+                        filtered_rep = filtered_rep[filtered_rep['Date'].astype(str).str.contains(month_str)]
+
+                    # --- XỬ LÝ PHÂN TRANG ---
+                    ITEMS_PER_PAGE = 5
+                    total_items = len(filtered_rep)
+                    total_pages = math.ceil(total_items / ITEMS_PER_PAGE) if total_items > 0 else 1
+                    
+                    if st.session_state.report_page > total_pages: st.session_state.report_page = total_pages
+                    if st.session_state.report_page < 1: st.session_state.report_page = 1
+                        
+                    start_idx = (st.session_state.report_page - 1) * ITEMS_PER_PAGE
+                    end_idx = start_idx + ITEMS_PER_PAGE
+                    paged_rep = filtered_rep.iloc[start_idx:end_idx]
+
+                    # --- HIỂN THỊ DANH SÁCH ---
                     st.markdown("<div style='font-weight: 700; font-size: 16px; margin-bottom: 16px; color: #1E2329;'>📋 Dòng thời gian Khuyến nghị</div>", unsafe_allow_html=True)
                     
-                    css_rep = """
-                    <style>
-                    .rep-card { background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 16px; margin-bottom: 16px; transition: all 0.2s ease; border-left: 4px solid #1E2329; }
-                    .rep-card:hover { border-color: #FF6B00; border-left: 4px solid #FF6B00; box-shadow: 0 4px 12px rgba(230, 81, 0, 0.08); transform: translateX(4px); }
-                    .rep-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-                    .rep-tkr { font-size: 20px; font-weight: 800; color: #1E2329; font-family: 'SF Mono', Consolas, monospace;}
-                    .rep-brk { font-size: 12px; color: #707A8A; font-weight: 700; background: #F8FAFC; padding: 4px 8px; border-radius: 4px; border: 1px solid #EAECEF;}
-                    .rep-mid { display: flex; gap: 32px; margin-bottom: 12px; }
-                    .rep-lbl { font-size: 11px; color: #848E9C; text-transform: uppercase; font-weight: 700; margin-bottom: 4px; }
-                    .rep-val { font-size: 15px; font-weight: 700; color: #1E2329; }
-                    .act-mua { color: #0ECB81; background: #E6FFF3; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 800;}
-                    .act-ban { color: #F6465D; background: #FFF1F0; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 800;}
-                    .act-giu { color: #F39C12; background: #FEF5E7; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 800;}
-                    </style>
-                    """
-                    
-                    reports_html = ""
-                    for _, r in df_rep.head(10).iterrows(): # Lấy 10 báo cáo mới nhất
-                        # Phân loại màu sắc Khuyến nghị
-                        action = str(r.get('Action', '')).upper()
-                        if 'MUA' in action: act_class = 'act-mua'
-                        elif 'BÁN' in action: act_class = 'act-ban'
-                        else: act_class = 'act-giu'
-                        
-                        # Format số tiền (ví dụ 150000 -> 150,000)
-                        try:
-                            target_price = f"{float(r.get('Target_Price', 0)):,.0f}"
-                            current_price = f"{float(r.get('Current_Price_At_Date', 0)):,.0f}"
-                        except:
-                            target_price = r.get('Target_Price', 'N/A')
-                            current_price = r.get('Current_Price_At_Date', 'N/A')
-
-                        reports_html += f"""
-                        <div class="rep-card">
-                            <div class="rep-top">
-                                <div style="display: flex; align-items: center; gap: 12px;">
-                                    <span class="rep-tkr">{r.get('Ticker', 'N/A')}</span>
-                                    <span class="{act_class}">{action}</span>
-                                </div>
-                                <span class="rep-brk">🏢 {r.get('Broker', 'N/A')}</span>
-                            </div>
-                            <div class="rep-mid">
-                                <div><div class="rep-lbl">Giá Mục Tiêu</div><div class="rep-val" style="color: #FF6B00;">{target_price}</div></div>
-                                <div><div class="rep-lbl">Giá Lên Báo Cáo</div><div class="rep-val">{current_price}</div></div>
-                                <div><div class="rep-lbl">Ngày Phát Hành</div><div class="rep-val" style="color: #707A8A; font-weight: 600;">{r.get('Date', 'N/A')}</div></div>
-                            </div>
-                            <div style="font-size: 12px; text-align: right;">
-                                <a href="{r.get('Link', '#')}" target="_blank" style="color: #0052FF; font-weight: 600; text-decoration: none;">Xem chi tiết báo cáo ↗</a>
-                            </div>
-                        </div>
+                    if paged_rep.empty:
+                        st.warning("Không tìm thấy báo cáo nào khớp với bộ lọc!")
+                    else:
+                        css_rep = """
+                        <style>
+                        .rep-card { background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 16px; margin-bottom: 16px; transition: all 0.2s ease; border-left: 4px solid #1E2329; }
+                        .rep-card:hover { border-color: #FF6B00; border-left: 4px solid #FF6B00; box-shadow: 0 4px 12px rgba(230, 81, 0, 0.08); transform: translateX(4px); }
+                        .rep-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+                        .rep-tkr { font-size: 20px; font-weight: 800; color: #1E2329; font-family: 'SF Mono', Consolas, monospace;}
+                        .rep-brk { font-size: 12px; color: #707A8A; font-weight: 700; background: #F8FAFC; padding: 4px 8px; border-radius: 4px; border: 1px solid #EAECEF;}
+                        .rep-mid { display: flex; gap: 32px; margin-bottom: 12px; }
+                        .rep-lbl { font-size: 11px; color: #848E9C; text-transform: uppercase; font-weight: 700; margin-bottom: 4px; }
+                        .rep-val { font-size: 15px; font-weight: 700; color: #1E2329; }
+                        .act-mua { color: #0ECB81; background: #E6FFF3; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 800;}
+                        .act-ban { color: #F6465D; background: #FFF1F0; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 800;}
+                        .act-giu { color: #F39C12; background: #FEF5E7; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 800;}
+                        .sts-dat { color: #0ECB81; border: 1px solid #0ECB81; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+                        .sts-cat { color: #F6465D; border: 1px solid #F6465D; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+                        .sts-cho { color: #848E9C; border: 1px solid #848E9C; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+                        </style>
                         """
-                    st.markdown(f"{css_rep}<div>{reports_html}</div>", unsafe_allow_html=True)
+                        
+                        reports_html = ""
+                        for _, r in paged_rep.iterrows():
+                            # Xử lý Label Khuyến nghị
+                            action = str(r.get('Action', '')).upper()
+                            if 'MUA' in action: act_class = 'act-mua'
+                            elif 'BÁN' in action: act_class = 'act-ban'
+                            else: act_class = 'act-giu'
+                            
+                            # Xử lý Label Trạng thái (Đạt/Trượt)
+                            status_raw = str(r.get('Status', 'Đang theo dõi')).strip()
+                            if 'Đạt' in status_raw or 'Target' in status_raw:
+                                sts_class = 'sts-dat'
+                                sts_text = '✔️ ĐẠT TARGET'
+                            elif 'Cắt' in status_raw or 'Lỗ' in status_raw:
+                                sts_class = 'sts-cat'
+                                sts_text = '❌ CẮT LỖ'
+                            else:
+                                sts_class = 'sts-cho'
+                                sts_text = '⏳ ĐANG THEO DÕI'
+
+                            # Format số tiền
+                            try:
+                                target_price = f"{float(r.get('Target_Price', 0)):,.0f}"
+                                current_price = f"{float(r.get('Current_Price_At_Date', 0)):,.0f}"
+                            except:
+                                target_price = r.get('Target_Price', 'N/A')
+                                current_price = r.get('Current_Price_At_Date', 'N/A')
+
+                            # Ép HTML vào 1 dòng chống lỗi Markdown Streamlit
+                            reports_html += f"""<div class="rep-card"><div class="rep-top"><div style="display: flex; align-items: center; gap: 12px;"><span class="rep-tkr">{r.get('Ticker', 'N/A')}</span><span class="{act_class}">{action}</span><span class="{sts_class}">{sts_text}</span></div><span class="rep-brk">🏢 {r.get('Broker', 'N/A')}</span></div><div class="rep-mid"><div><div class="rep-lbl">Giá Mục Tiêu</div><div class="rep-val" style="color: #FF6B00;">{target_price}</div></div><div><div class="rep-lbl">Giá Lên Báo Cáo</div><div class="rep-val">{current_price}</div></div><div><div class="rep-lbl">Ngày Phát Hành</div><div class="rep-val" style="color: #707A8A; font-weight: 600;">{r.get('Date', 'N/A')}</div></div></div><div style="font-size: 12px; text-align: right;"><a href="{r.get('Link', '#')}" target="_blank" style="color: #0052FF; font-weight: 600; text-decoration: none;">Xem chi tiết báo cáo ↗</a></div></div>"""
+                        st.markdown(f"{css_rep}<div>{reports_html}</div>", unsafe_allow_html=True)
+
+                    # --- RENDER NÚT BẤM CHUYỂN TRANG ---
+                    if total_pages > 1:
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        pag_cols = st.columns([2, 1, 2, 1, 2]) 
+                        with pag_cols[1]:
+                            if st.button("◀ Trước", disabled=(st.session_state.report_page <= 1), use_container_width=True, key="rep_prev"):
+                                st.session_state.report_page -= 1
+                                st.rerun() 
+                        with pag_cols[2]: 
+                            st.markdown(f"<div style='text-align: center; padding-top: 8px; font-weight: 600; color: #474D57;'>Trang {st.session_state.report_page} / {total_pages}</div>", unsafe_allow_html=True)
+                        with pag_cols[3]:
+                            if st.button("Sau ▶", disabled=(st.session_state.report_page >= total_pages), use_container_width=True, key="rep_next"):
+                                st.session_state.report_page += 1
+                                st.rerun()
 
                 # ==========================================
                 # CỘT PHẢI: BẢNG XẾP HẠNG CTCK (AI SCORING)
                 # ==========================================
                 with col_leaderboard:
                     st.markdown("<div style='font-weight: 700; font-size: 16px; margin-bottom: 16px; color: #1E2329;'>🏆 Độ Tin Cậy CTCK (Win Rate)</div>", unsafe_allow_html=True)
-                    
-                    # Dán đoạn code ép sát lề trái này vào đây
                     st.markdown(f"""<div style='background: #FAFAFA; border: 1px solid #EAECEF; border-radius: 8px; padding: 20px; position: relative; margin-top: 10px;'>
 <div style="font-size: 12px; color: #707A8A; margin-bottom: 20px; line-height: 1.5;">Hệ thống đang thu thập thêm dữ liệu giá lịch sử để đánh giá tỷ lệ dự phóng chính xác của các Tổ chức.</div>
 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #EAECEF; padding-bottom: 12px; margin-bottom: 12px;"><div style="display: flex; align-items: center; gap: 10px;"><span style="font-size: 20px;">🥇</span><span style="font-weight: 700; color: #1E2329; font-size: 14px;">SSI Research</span></div><span style="font-weight: 800; color: #0ECB81; font-size: 16px;">78.5%</span></div>
