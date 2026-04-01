@@ -471,30 +471,27 @@ def render_hero_section():
         "SO SÁNH DỊCH VỤ" # Tab mới đây!
     ])
 
-   # --- TAB 1: TỔNG QUAN THỊ TRƯỜNG ---
+  # --- TAB 1: TỔNG QUAN THỊ TRƯỜNG ---
     with tab1:
         st.markdown("<br>", unsafe_allow_html=True)
         groups_items = list(groups.items())
         
-        # CSS MỚI: FULL WIDTH, GAP NHỎ, THẺ TO TRÀN VIỀN
-        css_binance = """<style>
-        /* Ép lưới ôm trọn 100% chiều rộng màn hình, 3 cột đều nhau, khoảng cách cực nhỏ (16px) */
-        .market-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; width: 100%; }
+        # CSS MỚI: ĐỔI TÊN CLASS THÀNH 'm-' ĐỂ CÁCH LY HOÀN TOÀN VỚI TAB 5
+        css_market = """<style>
+        .m-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; width: 100%; }
         
-        /* Thẻ card giãn 100% theo cột */
-        .b-card { background: #fff; border: 1px solid #EAECEF; border-radius: 12px; padding: 20px; transition: all 0.2s ease; width: 100%; box-sizing: border-box; box-shadow: 0 2px 8px rgba(0,0,0,0.02);}
-        .b-card:hover { border-color: #E65100; box-shadow: 0 8px 24px rgba(230, 81, 0, 0.08); transform: translateY(-4px); }
-        .b-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid #F0F2F5; padding-bottom: 12px;}
-        .b-title { font-weight: 800; font-size: 14px; color: #1E2329; text-transform: uppercase; }
-        .b-more { font-size: 12px; color: #707A8A; text-decoration: none; font-weight: 600;}
-        .b-more:hover { color: #E65100; }
-        .b-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding: 4px 0;}
-        .b-row:last-child { margin-bottom: 0; }
+        .m-card { background: #fff; border: 1px solid #EAECEF; border-radius: 12px; padding: 20px; transition: all 0.2s ease; width: 100%; box-sizing: border-box; box-shadow: 0 2px 8px rgba(0,0,0,0.02);}
+        .m-card:hover { border-color: #E65100; box-shadow: 0 8px 24px rgba(230, 81, 0, 0.08); transform: translateY(-4px); }
+        .m-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid #F0F2F5; padding-bottom: 12px;}
+        .m-title { font-weight: 800; font-size: 14px; color: #1E2329; text-transform: uppercase; }
+        .m-more { font-size: 12px; color: #707A8A; text-decoration: none; font-weight: 600;}
+        .m-more:hover { color: #E65100; }
+        .m-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding: 4px 0;}
+        .m-row:last-child { margin-bottom: 0; }
         
-        /* Chỉnh lại tỷ lệ flex để khi thẻ to ra, chữ vẫn rải đều, tên chiếm chỗ nhiều nhất */
-        .b-name { font-weight: 700; font-size: 14px; color: #1E2329; flex: 2; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 10px;}
-        .b-price { font-size: 14px; color: #1E2329; flex: 1.5; text-align: right; font-family: 'SF Mono', Consolas, monospace; font-weight: 600;}
-        .b-change { font-size: 14px; font-weight: 700; flex: 1; text-align: right; }
+        .m-name { font-weight: 700; font-size: 14px; color: #1E2329; flex: 2; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 10px;}
+        .m-price { font-size: 14px; color: #1E2329; flex: 1.5; text-align: right; font-family: 'SF Mono', Consolas, monospace; font-weight: 600;}
+        .m-change { font-size: 14px; font-weight: 700; flex: 1; text-align: right; }
         
         .c-up { color: #0ECB81; } 
         .c-down { color: #F6465D; } 
@@ -508,10 +505,12 @@ def render_hero_section():
                 data = market_data.get(t, {"name": t, "price": "N/A", "change": 0})
                 color_class = "c-up" if data['change'] >= 0 else "c-down"
                 sign = "+" if data['change'] > 0 else ""
-                rows_html += f"""<div class="b-row"><div class="b-name">{data['name']}</div><div class="b-price">{data['price']}</div><div class="b-change {color_class}">{sign}{data['change']:.2f}%</div></div>"""
-            cards_html += f"""<div class="b-card"><div class="b-header"><div class="b-title">{group_name}</div><a href="#" class="b-more">Chi tiết ></a></div>{rows_html}</div>"""
+                # Đổi luôn HTML sang dùng class m-
+                rows_html += f"""<div class="m-row"><div class="m-name">{data['name']}</div><div class="m-price">{data['price']}</div><div class="m-change {color_class}">{sign}{data['change']:.2f}%</div></div>"""
+            # Đổi luôn HTML sang dùng class m-
+            cards_html += f"""<div class="m-card"><div class="m-header"><div class="m-title">{group_name}</div><a href="#" class="m-more">Chi tiết ></a></div>{rows_html}</div>"""
             
-        st.markdown(f"{css_binance}<div class='market-grid'>{cards_html}</div>", unsafe_allow_html=True)
+        st.markdown(f"{css_market}<div class='m-grid'>{cards_html}</div>", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
 
 
