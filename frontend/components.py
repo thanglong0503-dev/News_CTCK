@@ -795,14 +795,81 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                     # ==========================================
                     with col_leaderboard:
                         st.markdown("<div style='font-weight: 700; font-size: 16px; margin-bottom: 16px; color: #1E2329;'>🏆 Độ Tin Cậy CTCK (Win Rate)</div>", unsafe_allow_html=True)
-                        st.markdown(f"""<div style='background: #FAFAFA; border: 1px solid #EAECEF; border-radius: 8px; padding: 20px; position: relative; margin-top: 10px;'>
-<div style="font-size: 12px; color: #707A8A; margin-bottom: 20px; line-height: 1.5;">Hệ thống đang thu thập thêm dữ liệu giá lịch sử để đánh giá tỷ lệ dự phóng chính xác của các Tổ chức.</div>
-<div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #EAECEF; padding-bottom: 12px; margin-bottom: 12px;"><div style="display: flex; align-items: center; gap: 10px;"><span style="font-size: 20px;">🥇</span><span style="font-weight: 700; color: #1E2329; font-size: 14px;">SSI Research</span></div><span style="font-weight: 800; color: #0ECB81; font-size: 16px;">78.5%</span></div>
-<div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #EAECEF; padding-bottom: 12px; margin-bottom: 12px;"><div style="display: flex; align-items: center; gap: 10px;"><span style="font-size: 20px;">🥈</span><span style="font-weight: 700; color: #1E2329; font-size: 14px;">VNDirect</span></div><span style="font-weight: 800; color: #0ECB81; font-size: 16px;">72.1%</span></div>
-<div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #EAECEF; padding-bottom: 12px; margin-bottom: 12px;"><div style="display: flex; align-items: center; gap: 10px;"><span style="font-size: 20px;">🥉</span><span style="font-weight: 700; color: #1E2329; font-size: 14px;">HSC</span></div><span style="font-weight: 800; color: #0ECB81; font-size: 16px;">69.4%</span></div>
-<div style="display: flex; justify-content: space-between; align-items: center; padding-top: 4px;"><div style="display: flex; align-items: center; gap: 10px;"><span style="font-size: 16px; width: 20px; text-align: center; color: #848E9C; font-weight: 700;">4</span><span style="font-weight: 700; color: #474D57; font-size: 14px;">VCBS</span></div><span style="font-weight: 800; color: #F39C12; font-size: 16px;">55.0%</span></div>
-<div style="margin-top: 24px; padding: 12px; background: #E6FFF3; border-radius: 6px; border: 1px dashed #0ECB81;"><div style="font-size: 11px; color: #0ECB81; font-weight: 800; text-transform: uppercase; margin-bottom: 4px;">🤖 AI Consensus</div><div style="font-size: 13px; color: #1E2329; font-weight: 600;">Phần lớn tổ chức đang đồng thuận MUA ở nhóm ngành: <b style="color: #FF6B00;">Công nghệ (FPT, CMG)</b></div></div>
-</div>""", unsafe_allow_html=True)
+                        
+                        # --- 1. XỬ LÝ TÍNH TOÁN REAL-TIME WIN RATE ---
+                        def get_win_loss(status):
+                            s = str(status).strip().lower()
+                            if 'đạt' in s or 'target' in s: return 'Win'
+                            if 'cắt' in s or 'lỗ' in s: return 'Loss'
+                            return 'Pending'
+                            
+                        # Thêm cột kết quả vào dataframe
+                        df_rep['Result'] = df_rep['Status'].apply(get_win_loss)
+                        
+                        # Lọc ra những báo cáo đã "chốt sổ" (Win hoặc Loss)
+                        closed_df = df_rep[df_rep['Result'].isin(['Win', 'Loss'])]
+                        
+                        leaderboard_html = ""
+                        if closed_df.empty:
+                            leaderboard_html = "<div style='font-size: 13px; color: #707A8A; text-align: center; padding: 20px; border-bottom: 1px dashed #EAECEF; margin-bottom: 12px;'>Chưa có báo cáo nào chạm Target hoặc Cắt lỗ để tính toán tỷ lệ.</div>"
+                        else:
+                            # Group theo CTCK và tính % Win
+                            win_stats = closed_df.groupby('Broker')['Result'].apply(
+                                lambda x: (x == 'Win').sum() / len(x) * 100
+                            ).reset_index(name='Win_Rate')
+                            
+                            # Đếm tổng số báo cáo đã chốt của CTCK đó
+                            win_stats['Total'] = closed_df.groupby('Broker')['Result'].count().values
+                            
+                            # Sắp xếp: Ưu tiên Win Rate cao nhất, nếu bằng nhau thì ưu tiên ông có nhiều báo cáo hơn
+                            win_stats = win_stats.sort_values(by=['Win_Rate', 'Total'], ascending=[False, False]).reset_index(drop=True)
+                            
+                            # Vẽ các dòng HTML cho Leaderboard
+                            medals = ["🥇", "🥈", "🥉"]
+                            for idx, row in win_stats.iterrows():
+                                broker_name = row['Broker']
+                                win_rate = row['Win_Rate']
+                                
+                                # Trao huy chương cho Top 3, từ Top 4 trở đi ghi số thứ tự
+                                rank_icon = f"<span style='font-size: 20px;'>{medals[idx]}</span>" if idx < 3 else f"<span style='font-size: 16px; width: 20px; text-align: center; color: #848E9C; font-weight: 700;'>{idx+1}</span>"
+                                
+                                # Set màu sắc theo tỷ lệ: >60% Xanh, >40% Cam, dưới 40% Đỏ còi báo động
+                                rate_color = "#0ECB81" if win_rate >= 60 else "#F39C12" if win_rate >= 40 else "#F6465D"
+                                
+                                leaderboard_html += f"""
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #EAECEF; padding-bottom: 12px; margin-bottom: 12px;">
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        {rank_icon}
+                                        <span style="font-weight: 700; color: #1E2329; font-size: 14px;">{broker_name}</span>
+                                    </div>
+                                    <span style="font-weight: 800; color: {rate_color}; font-size: 16px;">{win_rate:.1f}%</span>
+                                </div>
+                                """
+                                
+                        # --- 2. XỬ LÝ AI CONSENSUS (Tìm mã được MUA nhiều nhất) ---
+                        # Lọc các báo cáo có lệnh MUA
+                        buy_df = df_rep[df_rep['Action'].astype(str).str.upper().str.contains('MUA')]
+                        consensus_html = "Hệ thống đang thu thập thêm dữ liệu để đánh giá."
+                        
+                        if not buy_df.empty:
+                            # Đếm xem mã nào xuất hiện chữ MUA nhiều nhất, lấy Top 3
+                            top_tickers = buy_df['Ticker'].value_counts().head(3).index.tolist()
+                            top_tickers_str = ", ".join(top_tickers)
+                            consensus_html = f"Phần lớn Tổ chức đang đồng thuận <b style='color: #0ECB81;'>MUA</b> ở các mã: <b style='color: #FF6B00;'>{top_tickers_str}</b>"
+
+                        # --- 3. IN TOÀN BỘ GIAO DIỆN RA MÀN HÌNH ---
+                        st.markdown(f"""
+                        <div style='background: #FAFAFA; border: 1px solid #EAECEF; border-radius: 8px; padding: 20px; position: relative; margin-top: 10px;'>
+                            <div style="font-size: 12px; color: #707A8A; margin-bottom: 20px; line-height: 1.5;">Tỷ lệ Win Rate được AI tự động tính toán dựa trên số báo cáo đã chạm Target hoặc Cắt lỗ.</div>
+                            
+                            {leaderboard_html}
+                            
+                            <div style="margin-top: 24px; padding: 12px; background: #E6FFF3; border-radius: 6px; border: 1px dashed #0ECB81;">
+                                <div style="font-size: 11px; color: #0ECB81; font-weight: 800; text-transform: uppercase; margin-bottom: 4px;">🤖 AI Consensus</div>
+                                <div style="font-size: 13px; color: #1E2329; font-weight: 600;">{consensus_html}</div>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
 # --- TAB 5: SO SÁNH DỊCH VỤ VÀ GÓI ƯU ĐÃI ---
     with tab5:
         st.markdown("<br><div style='font-size: 20px; font-weight: 800; color: #1E2329; margin-bottom: 8px; text-transform: uppercase;'>TÌM KIẾM GÓI MARGIN & PHÍ TỐI ƯU</div>", unsafe_allow_html=True)
