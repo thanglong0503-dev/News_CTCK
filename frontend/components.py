@@ -10,6 +10,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # --- IMPORT CÁC HÀM TỪ BACKEND ---
+from backend.database import fetch_broker_services
 from backend.official_news import fetch_mainstream_news
 from backend.market_data import fetch_realtime_data
 from backend.ai_analysis import (
@@ -461,7 +462,14 @@ def render_hero_section():
 [data-testid="stTabs"] [data-testid="stTab"] button:focus { border: none !important; box-shadow: none !important;}
 </style>""", unsafe_allow_html=True)
 
-    tab1, tab2, tab3, tab4 = st.tabs(["TỔNG QUAN THỊ TRƯỜNG", "DỮ LIỆU GIAO DỊCH", "PHÂN TÍCH AI", "BÁO CÁO TỔ CHỨC"])
+    # Sửa dòng này thành 5 Tab
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "TỔNG QUAN THỊ TRƯỜNG", 
+        "DỮ LIỆU GIAO DỊCH", 
+        "PHÂN TÍCH AI", 
+        "BÁO CÁO TỔ CHỨC",
+        "SO SÁNH DỊCH VỤ" # Tab mới đây!
+    ])
 
     # --- TAB 1: TỔNG QUAN THỊ TRƯỜNG ---
     with tab1:
@@ -680,7 +688,64 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
+# --- TAB 5: SO SÁNH DỊCH VỤ ---
+    with tab5:
+        st.markdown("<br><div style='font-size: 20px; font-weight: 800; color: #1E2329; margin-bottom: 8px; text-transform: uppercase;'>📊 SO SÁNH PHÍ & MARGIN CÁC CTCK</div>", unsafe_allow_html=True)
+        st.markdown("<div style='color: #474D57; font-size: 14px; margin-bottom: 24px;'>Dữ liệu được cập nhật trực tiếp từ hệ thống quản trị LINANCE (Google Sheets).</div>", unsafe_allow_html=True)
 
+        with st.spinner("Đang trích xuất dữ liệu so sánh..."):
+            # Gọi hàm lấy dữ liệu từ Google Sheets (nhớ đảm bảo đã import fetch_broker_services ở đầu file)
+            broker_data = fetch_broker_services()
+            
+            if not broker_data:
+                st.info("💡 Chưa có dữ liệu so sánh. Ngươi hãy nhập liệu vào file Google Sheets 'LINANCE_DB' -> tab 'BROKER_SERVICES' nhé!")
+            else:
+                # CSS cho các thẻ Card so sánh
+                css_broker = """
+                <style>
+                .broker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; margin-top: 10px; }
+                .broker-card { background: #fff; border: 1px solid #EAECEF; border-radius: 12px; padding: 24px; transition: all 0.3s ease; position: relative; overflow: hidden; }
+                .broker-card:hover { border-color: #FF6B00; box-shadow: 0 8px 24px rgba(230, 81, 0, 0.1); transform: translateY(-4px); }
+                .broker-name { font-size: 20px; font-weight: 800; color: #1E2329; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+                .broker-badge { background: #FFF2E5; color: #FF6B00; font-size: 11px; padding: 4px 8px; border-radius: 4px; font-weight: 700; }
+                .stat-line { display: flex; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px dashed #F0F2F5; padding-bottom: 8px; }
+                .stat-lbl { color: #707A8A; font-size: 13px; font-weight: 600; }
+                .stat-val { color: #1E2329; font-size: 14px; font-weight: 700; }
+                .pros-box { background: #F8FAFC; border-radius: 6px; padding: 12px; margin-top: 16px; font-size: 12px; color: #474D57; font-style: italic; border-left: 3px solid #FF6B00; }
+                </style>
+                """
+                
+                cards_html = ""
+                for b in broker_data:
+                    # Xử lý màu sắc cho tình trạng Margin
+                    pool_color = "#0ECB81" if "Dồi dào" in str(b.get('Margin_Pool', '')) else "#F6465D" if "Căng" in str(b.get('Margin_Pool', '')) else "#F39C12"
+                    
+                    cards_html += f"""
+                    <div class="broker-card">
+                        <div class="broker-name">
+                            {b.get('Broker_Name', 'N/A')}
+                            <span class="broker-badge">ƯU ĐÃI</span>
+                        </div>
+                        <div class="stat-line">
+                            <span class="stat-lbl">Phí giao dịch</span>
+                            <span class="stat-val" style="color: #FF6B00;">{b.get('Trading_Fee', 'N/A')}</span>
+                        </div>
+                        <div class="stat-line">
+                            <span class="stat-lbl">Lãi suất Margin</span>
+                            <span class="stat-val">{b.get('Margin_Rate', 'N/A')}</span>
+                        </div>
+                        <div class="stat-line">
+                            <span class="stat-lbl">Nguồn Margin</span>
+                            <span class="stat-val" style="color: {pool_color};">{b.get('Margin_Pool', 'N/A')}</span>
+                        </div>
+                        <div class="pros-box">
+                            🎯 {b.get('Pros', 'Liên hệ để biết thêm chi tiết')}
+                        </div>
+                        <div style="font-size: 10px; color: #848E9C; margin-top: 15px; text-align: right;">Cập nhật: {b.get('Last_Updated', 'N/A')}</div>
+                    </div>
+                    """
+                
+                st.markdown(f"{css_broker}<div class='broker-grid'>{cards_html}</div>", unsafe_allow_html=True)
 # ==========================================
 # KHỐI 3: TIN TỨC & CAROUSEL
 # ==========================================
