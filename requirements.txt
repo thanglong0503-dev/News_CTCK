@@ -5,3 +5,5 @@ beautifulsoup4
 yfinance
 cloudscraper
 plotly
+gspread
+google-auth
