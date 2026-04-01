@@ -476,24 +476,27 @@ def render_hero_section():
         st.markdown("<br>", unsafe_allow_html=True)
         groups_items = list(groups.items())
         
-        # CSS đã được Emo độ lại: Khóa form thẻ card và ép các thông số sát lại nhau
+        # CSS MỚI: BÓP EO THẺ XUỐNG 280PX, CHIA CỘT THẲNG TẮP
         css_binance = """<style>
-        .b-card { background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 20px 16px; min-height: 240px; transition: all 0.2s ease; max-width: 380px; margin: 0 auto; }
-        .b-card:hover { border-color: #E65100; box-shadow: 0 4px 12px rgba(230, 81, 0, 0.08); }
-        .b-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #F0F2F5; padding-bottom: 12px;}
-        .b-title { font-weight: 700; font-size: 14px; color: #1E2329; text-transform: uppercase; }
-        .b-more { font-size: 12px; color: #707A8A; text-decoration: none; font-weight: 600; transition: color 0.2s;}
+        .b-card { background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 16px; min-height: 220px; transition: all 0.2s ease; max-width: 280px; margin: 0 auto; }
+        .b-card:hover { border-color: #E65100; box-shadow: 0 4px 12px rgba(230, 81, 0, 0.08); transform: translateY(-2px); }
+        .b-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid #F0F2F5; padding-bottom: 10px;}
+        .b-title { font-weight: 700; font-size: 13px; color: #1E2329; text-transform: uppercase; }
+        .b-more { font-size: 11px; color: #707A8A; text-decoration: none; font-weight: 600;}
         .b-more:hover { color: #E65100; }
-        .b-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .b-row { display: flex; align-items: center; margin-bottom: 12px; }
         .b-row:last-child { margin-bottom: 0; }
-        .b-name { font-weight: 600; font-size: 14px; color: #1E2329; flex: 1.2; text-align: left; }
-        .b-price { font-size: 14px; color: #1E2329; flex: 1; text-align: right; font-family: 'SF Mono', Consolas, monospace; font-weight: 600;}
-        .b-change { font-size: 14px; font-weight: 600; flex: 0.8; text-align: right; }
+        
+        /* CHIA CỘT TỶ LỆ VÀNG ĐỂ CHỮ ÔM SÁT VÀO NHAU */
+        .b-name { font-weight: 700; font-size: 13px; color: #1E2329; width: 45%; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+        .b-price { font-size: 13px; color: #1E2329; width: 30%; text-align: right; font-family: 'SF Mono', Consolas, monospace; font-weight: 600;}
+        .b-change { font-size: 13px; font-weight: 700; width: 25%; text-align: right; }
+        
         .c-up { color: #0ECB81; } 
         .c-down { color: #F6465D; } 
         </style>"""
         
-        # Hàng 1
+        # --- VẼ HÀNG 1 ---
         cols1 = st.columns(3)
         for col, (group_name, tickers) in zip(cols1, groups_items[:3]):
             with col:
@@ -507,9 +510,10 @@ def render_hero_section():
                 st.markdown(f"{css_binance}{card_html}", unsafe_allow_html=True)
 
         st.markdown("<div style='margin-top: 24px;'></div>", unsafe_allow_html=True)
-        # Hàng 2
+
+        # --- VẼ HÀNG 2 ---
         cols2 = st.columns(3)
-        for col, (group_name, tickers) in zip(cols2, groups_items[3:]):
+        for col, (group_name, tickers) in zip(cols2, groups_items[3:6]):
             with col:
                 rows_html = ""
                 for t in tickers:
