@@ -713,49 +713,15 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                 with col_leaderboard:
                     st.markdown("<div style='font-weight: 700; font-size: 16px; margin-bottom: 16px; color: #1E2329;'>🏆 Độ Tin Cậy CTCK (Win Rate)</div>", unsafe_allow_html=True)
                     
-                    # Tạm thời tạo giao diện Leaderboard tĩnh. Chặng sau ta sẽ dùng yfinance để móc giá hiện tại về tự động trừ đi giá Target để ra Win Rate thật.
-                    st.markdown("""
-                    <div style='background: #FAFAFA; border: 1px solid #EAECEF; border-radius: 8px; padding: 20px; position: relative;'>
-                        <div style="font-size: 12px; color: #707A8A; margin-bottom: 20px; line-height: 1.5;">Hệ thống đang thu thập thêm dữ liệu giá lịch sử để đánh giá tỷ lệ dự phóng chính xác của các Tổ chức.</div>
-                        
-                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #EAECEF; padding-bottom: 12px; margin-bottom: 12px;">
-                            <div style="display: flex; align-items: center; gap: 10px;">
-                                <span style="font-size: 20px;">🥇</span>
-                                <span style="font-weight: 700; color: #1E2329; font-size: 14px;">SSI Research</span>
-                            </div>
-                            <span style="font-weight: 800; color: #0ECB81; font-size: 16px;">78.5%</span>
-                        </div>
-                        
-                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #EAECEF; padding-bottom: 12px; margin-bottom: 12px;">
-                            <div style="display: flex; align-items: center; gap: 10px;">
-                                <span style="font-size: 20px;">🥈</span>
-                                <span style="font-weight: 700; color: #1E2329; font-size: 14px;">VNDirect</span>
-                            </div>
-                            <span style="font-weight: 800; color: #0ECB81; font-size: 16px;">72.1%</span>
-                        </div>
-                        
-                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #EAECEF; padding-bottom: 12px; margin-bottom: 12px;">
-                            <div style="display: flex; align-items: center; gap: 10px;">
-                                <span style="font-size: 20px;">🥉</span>
-                                <span style="font-weight: 700; color: #1E2329; font-size: 14px;">HSC</span>
-                            </div>
-                            <span style="font-weight: 800; color: #0ECB81; font-size: 16px;">69.4%</span>
-                        </div>
-
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 4px;">
-                            <div style="display: flex; align-items: center; gap: 10px;">
-                                <span style="font-size: 16px; width: 20px; text-align: center; color: #848E9C; font-weight: 700;">4</span>
-                                <span style="font-weight: 700; color: #474D57; font-size: 14px;">VCBS</span>
-                            </div>
-                            <span style="font-weight: 800; color: #F39C12; font-size: 16px;">55.0%</span>
-                        </div>
-                        
-                        <div style="margin-top: 24px; padding: 12px; background: #E6FFF3; border-radius: 6px; border: 1px dashed #0ECB81;">
-                            <div style="font-size: 11px; color: #0ECB81; font-weight: 800; text-transform: uppercase; margin-bottom: 4px;">🤖 AI Consensus</div>
-                            <div style="font-size: 13px; color: #1E2329; font-weight: 600;">Phần lớn tổ chức đang đồng thuận MUA ở nhóm ngành: <b style="color: #FF6B00;">Công nghệ (FPT, CMG)</b></div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    # Dán đoạn code ép sát lề trái này vào đây
+                    st.markdown(f"""<div style='background: #FAFAFA; border: 1px solid #EAECEF; border-radius: 8px; padding: 20px; position: relative; margin-top: 10px;'>
+<div style="font-size: 12px; color: #707A8A; margin-bottom: 20px; line-height: 1.5;">Hệ thống đang thu thập thêm dữ liệu giá lịch sử để đánh giá tỷ lệ dự phóng chính xác của các Tổ chức.</div>
+<div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #EAECEF; padding-bottom: 12px; margin-bottom: 12px;"><div style="display: flex; align-items: center; gap: 10px;"><span style="font-size: 20px;">🥇</span><span style="font-weight: 700; color: #1E2329; font-size: 14px;">SSI Research</span></div><span style="font-weight: 800; color: #0ECB81; font-size: 16px;">78.5%</span></div>
+<div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #EAECEF; padding-bottom: 12px; margin-bottom: 12px;"><div style="display: flex; align-items: center; gap: 10px;"><span style="font-size: 20px;">🥈</span><span style="font-weight: 700; color: #1E2329; font-size: 14px;">VNDirect</span></div><span style="font-weight: 800; color: #0ECB81; font-size: 16px;">72.1%</span></div>
+<div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #EAECEF; padding-bottom: 12px; margin-bottom: 12px;"><div style="display: flex; align-items: center; gap: 10px;"><span style="font-size: 20px;">🥉</span><span style="font-weight: 700; color: #1E2329; font-size: 14px;">HSC</span></div><span style="font-weight: 800; color: #0ECB81; font-size: 16px;">69.4%</span></div>
+<div style="display: flex; justify-content: space-between; align-items: center; padding-top: 4px;"><div style="display: flex; align-items: center; gap: 10px;"><span style="font-size: 16px; width: 20px; text-align: center; color: #848E9C; font-weight: 700;">4</span><span style="font-weight: 700; color: #474D57; font-size: 14px;">VCBS</span></div><span style="font-weight: 800; color: #F39C12; font-size: 16px;">55.0%</span></div>
+<div style="margin-top: 24px; padding: 12px; background: #E6FFF3; border-radius: 6px; border: 1px dashed #0ECB81;"><div style="font-size: 11px; color: #0ECB81; font-weight: 800; text-transform: uppercase; margin-bottom: 4px;">🤖 AI Consensus</div><div style="font-size: 13px; color: #1E2329; font-weight: 600;">Phần lớn tổ chức đang đồng thuận MUA ở nhóm ngành: <b style="color: #FF6B00;">Công nghệ (FPT, CMG)</b></div></div>
+</div>""", unsafe_allow_html=True)
 # --- TAB 5: SO SÁNH DỊCH VỤ VÀ GÓI ƯU ĐÃI ---
     with tab5:
         st.markdown("<br><div style='font-size: 20px; font-weight: 800; color: #1E2329; margin-bottom: 8px; text-transform: uppercase;'>TÌM KIẾM GÓI MARGIN & PHÍ TỐI ƯU</div>", unsafe_allow_html=True)
