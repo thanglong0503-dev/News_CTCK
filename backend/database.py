@@ -40,3 +40,16 @@ def fetch_broker_services():
             st.error(f"❌ Lỗi đọc dữ liệu: {e}")
             return []
     return []
+# --- HÀM LẤY DỮ LIỆU TỪ SHEET 1 (REPORTS_DB) ---
+def fetch_reports_db():
+    db = get_db_connection()
+    if db:
+        try:
+            sheet = db.worksheet("REPORTS_DB")
+            data = sheet.get_all_records()
+            return data
+        except Exception as e:
+            # Đừng dùng st.error ở đây kẻo rác giao diện, cứ print ra Terminal là được
+            print(f"Lỗi đọc Sheet REPORTS_DB: {e}") 
+            return []
+    return []    
