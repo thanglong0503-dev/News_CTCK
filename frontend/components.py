@@ -634,22 +634,54 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
         sub_tab1, sub_tab2 = st.tabs(["Dòng thời gian Khuyến nghị (Ngắn hạn)", "Danh mục Chiến lược (Trung/Dài hạn)"])
         
         # ---------------------------------------------------------
-        # THẾ GIỚI 1: DANH MỤC CHIẾN LƯỢC DÀI HẠN
+        # ---------------------------------------------------------
+        # THẾ GIỚI 1: DANH MỤC CHIẾN LƯỢC DÀI HẠN (ĐÃ NÂNG CẤP)
         # ---------------------------------------------------------
         with sub_tab2:
-            st.markdown("<br><div style='font-weight: 700; font-size: 16px; margin-bottom: 16px; color: #1E2329;'>Bảng Theo Dõi Danh Mục Đầu Tư Chiến Lược</div>", unsafe_allow_html=True)
+            st.markdown("<br><div style='font-weight: 700; font-size: 16px; margin-bottom: 16px; color: #1E2329;'>Quản trị Danh mục Đầu tư Chiến lược</div>", unsafe_allow_html=True)
             with st.spinner("Đang tải danh mục dài hạn..."):
                 portfolio_data = fetch_portfolio_db()
                 if not portfolio_data:
-                    st.info("Chưa có dữ liệu.")
+                    st.info("Chưa có dữ liệu")
                 else:
                     import pandas as pd
                     df_port = pd.DataFrame(portfolio_data)
                     
+                    # 1. TẠO BỘ LỌC TÌM KIẾM DANH MỤC
+                    portfolios = df_port['Portfolio_Name'].dropna().unique().tolist()
+                    
+                    st.markdown("<div style='background-color: #FAFAFA; padding: 16px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #EAECEF;'>", unsafe_allow_html=True)
+                    selected_port = st.selectbox("📌 Chọn Danh mục Chiến lược để theo dõi:", portfolios)
+                    st.markdown("</div>", unsafe_allow_html=True)
+
+                    # 2. LỌC DATA THEO DANH MỤC ĐÃ CHỌN
+                    filtered_port = df_port[df_port['Portfolio_Name'] == selected_port]
+
+                    # 3. AI TÍNH TOÁN THỐNG KÊ (MINI DASHBOARD)
+                    num_stocks = len(filtered_port)
+                    try:
+                        # Bóc tách dấu % để tính toán trung bình lợi nhuận
+                        avg_return = filtered_port['Expected_Return'].astype(str).str.replace('%', '').str.replace(',', '.').astype(float).mean()
+                        avg_return_str = f"+{avg_return:.1f}%"
+                    except:
+                        avg_return_str = "N/A"
+                    
+                    # Vẽ 3 thẻ chỉ số tổng quan
+                    col_s1, col_s2, col_s3 = st.columns(3)
+                    with col_s1:
+                        st.markdown(f"<div style='padding: 16px; border-radius: 8px; border: 1px solid #EAECEF; text-align: center;'><div style='color: #707A8A; font-size: 12px; font-weight: 600;'>SỐ LƯỢNG MÃ</div><div style='font-size: 24px; font-weight: 800; color: #1E2329;'>{num_stocks}</div></div>", unsafe_allow_html=True)
+                    with col_s2:
+                        st.markdown(f"<div style='padding: 16px; border-radius: 8px; border: 1px solid #EAECEF; text-align: center;'><div style='color: #707A8A; font-size: 12px; font-weight: 600;'>KỲ VỌNG TRUNG BÌNH</div><div style='font-size: 24px; font-weight: 800; color: #0ECB81;'>{avg_return_str}</div></div>", unsafe_allow_html=True)
+                    with col_s3:
+                        st.markdown(f"<div style='padding: 16px; border-radius: 8px; border: 1px solid #EAECEF; text-align: center;'><div style='color: #707A8A; font-size: 12px; font-weight: 600;'>TRẠNG THÁI THEO DÕI</div><div style='font-size: 24px; font-weight: 800; color: #FF6B00;'>Đang bám sát</div></div>", unsafe_allow_html=True)
+
+                    st.markdown("<br>", unsafe_allow_html=True)
+
+                    # 4. HIỂN THỊ BẢNG (ĐÃ ẨN CỘT TÊN DANH MỤC)
                     st.dataframe(
-                        df_port,
+                        filtered_port,
                         column_config={
-                            "Portfolio_Name": "Tên Danh mục",
+                            "Portfolio_Name": None, # Ẩn cột này đi vì đã chọn ở Dropdown rồi
                             "Sector": "Ngành",
                             "Ticker": st.column_config.TextColumn("Mã CP", width="small"),
                             "Company": "Tên Doanh nghiệp",
@@ -660,7 +692,6 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                         use_container_width=True,
                         height=400 
                     )
-                    st.caption("💡 Mẹo: Nhấn vào tiêu đề cột (ví dụ: Tên Danh mục hoặc Kỳ vọng) để tự động sắp xếp.")
 
         # ---------------------------------------------------------
         # THẾ GIỚI 2: DÒNG THỜI GIAN KHUYẾN NGHỊ (NGẮN HẠN)
