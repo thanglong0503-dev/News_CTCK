@@ -476,53 +476,44 @@ def render_hero_section():
         st.markdown("<br>", unsafe_allow_html=True)
         groups_items = list(groups.items())
         
-        # CSS MỚI: BÓP EO THẺ XUỐNG 280PX, CHIA CỘT THẲNG TẮP
+        # CSS MỚI: DÙNG CSS GRID ĐỂ TỰ CHIA CỘT, KHÔNG DÙNG ST.COLUMNS NỮA
         css_binance = """<style>
-        .b-card { background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 16px; min-height: 220px; transition: all 0.2s ease; max-width: 280px; margin: 0 auto; }
-        .b-card:hover { border-color: #E65100; box-shadow: 0 4px 12px rgba(230, 81, 0, 0.08); transform: translateY(-2px); }
-        .b-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid #F0F2F5; padding-bottom: 10px;}
-        .b-title { font-weight: 700; font-size: 13px; color: #1E2329; text-transform: uppercase; }
-        .b-more { font-size: 11px; color: #707A8A; text-decoration: none; font-weight: 600;}
+        /* Khung Grid chính: Chia 3 cột đều nhau, khoảng cách các thẻ đúng 24px */
+        .market-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+        
+        .b-card { background: #fff; border: 1px solid #EAECEF; border-radius: 12px; padding: 20px; transition: all 0.2s ease; width: 100%; box-shadow: 0 2px 8px rgba(0,0,0,0.02);}
+        .b-card:hover { border-color: #E65100; box-shadow: 0 8px 24px rgba(230, 81, 0, 0.08); transform: translateY(-4px); }
+        .b-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid #F0F2F5; padding-bottom: 12px;}
+        .b-title { font-weight: 800; font-size: 14px; color: #1E2329; text-transform: uppercase; }
+        .b-more { font-size: 12px; color: #707A8A; text-decoration: none; font-weight: 600;}
         .b-more:hover { color: #E65100; }
-        .b-row { display: flex; align-items: center; margin-bottom: 12px; }
+        .b-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding: 4px 0;}
         .b-row:last-child { margin-bottom: 0; }
         
-        /* CHIA CỘT TỶ LỆ VÀNG ĐỂ CHỮ ÔM SÁT VÀO NHAU */
-        .b-name { font-weight: 700; font-size: 13px; color: #1E2329; width: 45%; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
-        .b-price { font-size: 13px; color: #1E2329; width: 30%; text-align: right; font-family: 'SF Mono', Consolas, monospace; font-weight: 600;}
-        .b-change { font-size: 13px; font-weight: 700; width: 25%; text-align: right; }
-        
+        /* Tỷ lệ chữ bên trong ôm vừa vặn, không bị trôi dạt */
+        .b-name { font-weight: 700; font-size: 14px; color: #1E2329; flex: 1.2; }
+        .b-price { font-size: 14px; color: #1E2329; flex: 1; text-align: right; font-family: 'SF Mono', Consolas, monospace; font-weight: 600;}
+        .b-change { font-size: 14px; font-weight: 700; flex: 0.8; text-align: right; }
         .c-up { color: #0ECB81; } 
         .c-down { color: #F6465D; } 
         </style>"""
         
-        # --- VẼ HÀNG 1 ---
-        cols1 = st.columns(3)
-        for col, (group_name, tickers) in zip(cols1, groups_items[:3]):
-            with col:
-                rows_html = ""
-                for t in tickers:
-                    data = market_data.get(t, {"name": t, "price": "N/A", "change": 0})
-                    color_class = "c-up" if data['change'] >= 0 else "c-down"
-                    sign = "+" if data['change'] > 0 else ""
-                    rows_html += f"""<div class="b-row"><div class="b-name">{data['name']}</div><div class="b-price">{data['price']}</div><div class="b-change {color_class}">{sign}{data['change']:.2f}%</div></div>"""
-                card_html = f"""<div class="b-card"><div class="b-header"><div class="b-title">{group_name}</div><a href="#" class="b-more">Chi tiết ></a></div>{rows_html}</div>"""
-                st.markdown(f"{css_binance}{card_html}", unsafe_allow_html=True)
-
-        st.markdown("<div style='margin-top: 24px;'></div>", unsafe_allow_html=True)
-
-        # --- VẼ HÀNG 2 ---
-        cols2 = st.columns(3)
-        for col, (group_name, tickers) in zip(cols2, groups_items[3:6]):
-            with col:
-                rows_html = ""
-                for t in tickers:
-                    data = market_data.get(t, {"name": t, "price": "N/A", "change": 0})
-                    color_class = "c-up" if data['change'] >= 0 else "c-down"
-                    sign = "+" if data['change'] > 0 else ""
-                    rows_html += f"""<div class="b-row"><div class="b-name">{data['name']}</div><div class="b-price">{data['price']}</div><div class="b-change {color_class}">{sign}{data['change']:.2f}%</div></div>"""
-                card_html = f"""<div class="b-card"><div class="b-header"><div class="b-title">{group_name}</div><a href="#" class="b-more">Chi tiết ></a></div>{rows_html}</div>"""
-                st.markdown(f"{css_binance}{card_html}", unsafe_allow_html=True)
+        # Tạo sẵn biến gom HTML
+        cards_html = ""
+        
+        # Dùng vòng lặp quét 1 phát 6 thẻ luôn, không cần chia Hàng 1 Hàng 2 thủ công nữa
+        for group_name, tickers in groups_items[:6]:
+            rows_html = ""
+            for t in tickers:
+                data = market_data.get(t, {"name": t, "price": "N/A", "change": 0})
+                color_class = "c-up" if data['change'] >= 0 else "c-down"
+                sign = "+" if data['change'] > 0 else ""
+                rows_html += f"""<div class="b-row"><div class="b-name">{data['name']}</div><div class="b-price">{data['price']}</div><div class="b-change {color_class}">{sign}{data['change']:.2f}%</div></div>"""
+            cards_html += f"""<div class="b-card"><div class="b-header"><div class="b-title">{group_name}</div><a href="#" class="b-more">Chi tiết ></a></div>{rows_html}</div>"""
+            
+        # Vẽ toàn bộ lên màn hình bằng 1 lệnh duy nhất
+        st.markdown(f"{css_binance}<div class='market-grid'>{cards_html}</div>", unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
 
 
 # --- TAB 2: DỮ LIỆU GIAO DỊCH ---
