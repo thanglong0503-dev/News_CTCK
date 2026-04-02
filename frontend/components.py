@@ -975,6 +975,8 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
 
                 with col_leaderboard:
                     st.markdown("<div style='font-weight: 700; font-size: 16px; margin-bottom: 16px; color: #1E2329;'>🏆 Độ Tin Cậy CTCK (Win Rate)</div>", unsafe_allow_html=True)
+                    
+                    # --- 1. TÍNH TOÁN WIN RATE ---
                     def get_win_loss_auto(status):
                         s = str(status).strip().lower()
                         if 'đạt target' in s: return 'Win'
@@ -995,6 +997,7 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                             rate_color = "#0ECB81" if row['Win_Rate'] >= 60 else "#F39C12" if row['Win_Rate'] >= 40 else "#F6465D"
                             leaderboard_html += f"""<div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #EAECEF; padding-bottom: 12px; margin-bottom: 12px;"><div style="display: flex; align-items: center; gap: 10px;">{rank_icon}<span style="font-weight: 700; color: #1E2329; font-size: 14px;">{row['Broker']}</span></div><span style="font-weight: 800; color: {rate_color}; font-size: 16px;">{row['Win_Rate']:.1f}%</span></div>"""
                             
+                    # --- 2. AI CONSENSUS ---
                     buy_mask = filtered_rep['Action'].astype(str).str.upper().str.contains('MUA|TĂNG|KHẢ QUAN')
                     buy_df = filtered_rep[buy_mask]
                     consensus_html = "Hệ thống đang thu thập thêm dữ liệu để đánh giá."
@@ -1002,9 +1005,90 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                         top_tickers_str = ", ".join(buy_df['Ticker'].value_counts().head(3).index.tolist())
                         consensus_html = f"Phần lớn Tổ chức đang đồng thuận <b style='color: #0ECB81;'>MUA</b> ở các mã: <b style='color: #FF6B00;'>{top_tickers_str}</b>"
 
-                    st.markdown(f"""<div style='background: #FAFAFA; border: 1px solid #EAECEF; border-radius: 8px; padding: 20px; position: relative; margin-top: 10px;'><div style="font-size: 12px; color: #707A8A; margin-bottom: 20px; line-height: 1.5;">Tỷ lệ Win Rate được AI tự động tính toán.</div>{leaderboard_html}<div style="margin-top: 24px; padding: 12px; background: #E6FFF3; border-radius: 6px; border: 1px dashed #0ECB81;"><div style="font-size: 11px; color: #0ECB81; font-weight: 800; text-transform: uppercase; margin-bottom: 4px;">🤖 AI Consensus</div><div style="font-size: 13px; color: #1E2329; font-weight: 600;">{consensus_html}</div></div></div>""", unsafe_allow_html=True)
+                    # --- 3. ĐỘNG CƠ RADAR CƠ HỘI (NEW WOW FEATURE) ---
+                    radar_html = ""
+                    if not filtered_rep.empty:
+                        # Tính Nhiệt kế thị trường
+                        total_recs = len(filtered_rep)
+                        sell_mask = filtered_rep['Action'].astype(str).str.upper().str.contains('BÁN|GIẢM|KÉM')
+                        buy_count = buy_mask.sum()
+                        sell_count = sell_mask.sum()
+                        hold_count = total_recs - buy_count - sell_count
+                        
+                        buy_pct = (buy_count / total_recs) * 100 if total_recs > 0 else 0
+                        sell_pct = (sell_count / total_recs) * 100 if total_recs > 0 else 0
+                        hold_pct = (hold_count / total_recs) * 100 if total_recs > 0 else 0
 
-            render_short_term_timeline()
+                        # Tìm Top Upside
+                        upside_df = filtered_rep[(filtered_rep['Auto_Status'].astype(str).str.contains('ĐANG THEO DÕI')) & buy_mask].copy()
+                        upside_df['Realtime_Price'] = pd.to_numeric(upside_df['Realtime_Price'], errors='coerce')
+                        upside_df['Target_Price'] = pd.to_numeric(upside_df['Target_Price'], errors='coerce')
+                        
+                        # Chỉ lấy những mã giá hiện tại > 0 và chưa vượt target
+                        valid_upside = upside_df[(upside_df['Realtime_Price'] > 0) & (upside_df['Target_Price'] > upside_df['Realtime_Price'])].copy()
+                        
+                        top_upside_html = "<div style='font-size: 12px; color: #848E9C; font-style: italic;'>Hiện chưa có mã nào thỏa mãn tiêu chí bứt phá.</div>"
+                        if not valid_upside.empty:
+                            valid_upside['Upside_Pct'] = ((valid_upside['Target_Price'] - valid_upside['Realtime_Price']) / valid_upside['Realtime_Price']) * 100
+                            top_stock = valid_upside.sort_values(by='Upside_Pct', ascending=False).iloc[0]
+                            
+                            t_tkr = top_stock.get('Ticker', 'N/A')
+                            t_brk = top_stock.get('Broker', 'N/A')
+                            t_up = top_stock.get('Upside_Pct', 0)
+                            t_cp = f"{top_stock.get('Realtime_Price', 0):,.0f}"
+                            t_tp = f"{top_stock.get('Target_Price', 0):,.0f}"
+                            
+                            top_upside_html = f"""
+                            <div style="background: #3B424A; border-radius: 8px; padding: 12px; border-left: 3px solid #0ECB81;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                    <span style="font-size: 18px; font-weight: 800; color: #fff; font-family: 'SF Mono', Consolas, monospace;">{t_tkr}</span>
+                                    <span style="background: rgba(14, 203, 129, 0.2); color: #0ECB81; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 800;">+{t_up:.1f}% Upside</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; font-size: 12px; color: #848E9C; margin-bottom: 4px;">
+                                    <span>Giá HT: <b style="color: #fff;">{t_cp}</b></span>
+                                    <span>Target: <b style="color: #FF6B00;">{t_tp}</b></span>
+                                </div>
+                                <div style="font-size: 10px; color: #707A8A; text-align: right;">Đề xuất bởi: {t_brk}</div>
+                            </div>
+                            """
+
+                        radar_html = f"""
+                        <div style="margin-top: 16px; padding: 16px; background: linear-gradient(135deg, #1E2329, #14171A); border-radius: 12px; border: 1px solid #474D57; color: white; box-shadow: 0 8px 16px rgba(0,0,0,0.15);">
+                            <div style="font-size: 14px; font-weight: 800; color: #FF6B00; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                                <span style="font-size: 18px;">🔥</span> RADAR(AI SCAN)
+                            </div>
+                            <div style="margin-bottom: 20px;">
+                                <div style="font-size: 11px; color: #848E9C; text-transform: uppercase; font-weight: 700; margin-bottom: 8px;">Cổ phiếu có dư địa tăng cao nhất</div>
+                                {top_upside_html}
+                            </div>
+                            <div>
+                                <div style="font-size: 11px; color: #848E9C; text-transform: uppercase; font-weight: 700; margin-bottom: 8px;">Khuyến nghị</div>
+                                <div style="display: flex; height: 6px; border-radius: 4px; overflow: hidden; margin-bottom: 6px; background: #2B323A;">
+                                    <div style="width: {buy_pct}%; background: #0ECB81;"></div>
+                                    <div style="width: {hold_pct}%; background: #F39C12;"></div>
+                                    <div style="width: {sell_pct}%; background: #F6465D;"></div>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; font-size: 10px; color: #848E9C; font-weight: 700;">
+                                    <span style="color: #0ECB81;">MUA {buy_pct:.0f}%</span>
+                                    <span style="color: #F39C12;">GIỮ {hold_pct:.0f}%</span>
+                                    <span style="color: #F6465D;">BÁN {sell_pct:.0f}%</span>
+                                </div>
+                            </div>
+                        </div>
+                        """
+
+                    # --- IN TOÀN BỘ RA MÀN HÌNH ---
+                    st.markdown(f"""
+                    <div style='background: #FAFAFA; border: 1px solid #EAECEF; border-radius: 8px; padding: 20px; position: relative; margin-top: 10px;'>
+                        <div style="font-size: 12px; color: #707A8A; margin-bottom: 20px; line-height: 1.5;">Tỷ lệ Win Rate được AI tự động tính toán.</div>
+                        {leaderboard_html}
+                        <div style="margin-top: 24px; padding: 12px; background: #E6FFF3; border-radius: 6px; border: 1px dashed #0ECB81;">
+                            <div style="font-size: 11px; color: #0ECB81; font-weight: 800; text-transform: uppercase; margin-bottom: 4px;">AI Consensus</div>
+                            <div style="font-size: 13px; color: #1E2329; font-weight: 600;">{consensus_html}</div>
+                        </div>
+                    </div>
+                    {radar_html}
+                    """, unsafe_allow_html=True)
 # --- TAB 5: SO SÁNH DỊCH VỤ VÀ GÓI ƯU ĐÃI ---
     with tab5:
         st.markdown("<br><div style='font-size: 20px; font-weight: 800; color: #1E2329; margin-bottom: 8px; text-transform: uppercase;'>TÌM KIẾM GÓI MARGIN & PHÍ TỐI ƯU</div>", unsafe_allow_html=True)
