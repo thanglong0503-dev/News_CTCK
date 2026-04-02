@@ -762,11 +762,11 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                         height=450 
                     )
         # ---------------------------------------------------------
-        # THẾ GIỚI 2: DÒNG THỜI GIAN KHUYẾN NGHỊ (NGẮN HẠN)
+        # THẾ GIỚI 2: DÒNG THỜI GIAN KHUYẾN NGHỊ (NGẮN HẠN - REAL-TIME)
         # ---------------------------------------------------------
         with sub_tab1:
             st.markdown("<br>", unsafe_allow_html=True)
-            with st.spinner("Đang truy xuất hệ thống lưu trữ báo cáo (LINANCE_DB)..."):
+            with st.spinner("Đang lục tìm lịch sử và tính toán Real-time cho các báo cáo..."):
                 reports_data = fetch_reports_db()
                 
                 if not reports_data:
@@ -774,10 +774,16 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                 else:
                     import pandas as pd
                     import math
+                    import yfinance as yf
                     from datetime import datetime
+                    
                     df_rep = pd.DataFrame(reports_data)
                     
-                    # Khởi tạo Session State cho phân trang Tab 4
+                    # 1. ÉP KIỂU NGÀY VÀ SẮP XẾP MỚI NHẤT LÊN ĐẦU
+                    df_rep['Parsed_Date'] = pd.to_datetime(df_rep['Date'], format="%d/%m/%Y", errors='coerce')
+                    df_rep = df_rep.sort_values(by='Parsed_Date', ascending=False).reset_index(drop=True)
+                    
+                    # Khởi tạo Session State cho phân trang
                     if 'report_page' not in st.session_state: st.session_state.report_page = 1
                     
                     col_list, col_leaderboard = st.columns([1.7, 1])
@@ -809,7 +815,58 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                             month_str = datetime.now().strftime("/%m/%Y")
                             filtered_rep = filtered_rep[filtered_rep['Date'].astype(str).str.contains(month_str)]
 
-                        # --- XỬ LÝ PHÂN TRANG ---
+                        # --- TÍNH TOÁN REAL-TIME CHO CÁC BÁO CÁO SAU KHI LỌC ---
+                        current_prices = []
+                        auto_statuses = []
+                        
+                        for _, r in filtered_rep.iterrows():
+                            tkr = str(r.get('Ticker', '')).strip()
+                            rec_p = float(r.get('Current_Price_At_Date', 0)) if str(r.get('Current_Price_At_Date', 0)).replace('.','',1).isdigit() else 0
+                            tgt_p = float(r.get('Target_Price', 0)) if str(r.get('Target_Price', 0)).replace('.','',1).isdigit() else 0
+                            rec_date_str = str(r.get('Date', ''))
+                            
+                            cp = 0
+                            highest_price = 0
+                            lowest_price = 0
+                            
+                            try:
+                                yf_ticker = tkr + ".VN" if not tkr.endswith(".VN") else tkr
+                                try:
+                                    start_date = pd.to_datetime(rec_date_str, format="%d/%m/%Y").strftime('%Y-%m-%d')
+                                    hist = yf.Ticker(yf_ticker).history(start=start_date)
+                                except:
+                                    hist = yf.Ticker(yf_ticker).history(period="3mo")
+                                    
+                                if not hist.empty:
+                                    cp = hist['Close'].iloc[-1]
+                                    highest_price = hist['High'].max()
+                                    lowest_price = hist['Low'].min()
+                                    
+                                    if cp < 1000 and cp > 0: 
+                                        cp = cp * 1000 
+                                        highest_price = highest_price * 1000
+                                        lowest_price = lowest_price * 1000
+                            except:
+                                pass
+                                
+                            current_prices.append(cp)
+                            
+                            # CƠ CHẾ ĐÁNH GIÁ TỰ ĐỘNG
+                            action = str(r.get('Action', '')).upper()
+                            if 'MUA' in action or 'NẮM GIỮ' in action:
+                                if highest_price >= tgt_p and tgt_p > 0:
+                                    auto_statuses.append("✔️ ĐẠT TARGET")
+                                elif rec_p > 0 and lowest_price <= rec_p * 0.93: # Cắt lỗ 7%
+                                    auto_statuses.append("❌ CẮT LỖ")
+                                else:
+                                    auto_statuses.append("⏳ ĐANG THEO DÕI")
+                            else:
+                                auto_statuses.append("N/A")
+                                
+                        filtered_rep['Realtime_Price'] = current_prices
+                        filtered_rep['Auto_Status'] = auto_statuses
+
+                        # --- XỬ LÝ PHÂN TRANG (5 ITEM/TRANG) ---
                         ITEMS_PER_PAGE = 5
                         total_items = len(filtered_rep)
                         total_pages = math.ceil(total_items / ITEMS_PER_PAGE) if total_items > 0 else 1
@@ -821,8 +878,8 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                         end_idx = start_idx + ITEMS_PER_PAGE
                         paged_rep = filtered_rep.iloc[start_idx:end_idx]
 
-                        # --- HIỂN THỊ DANH SÁCH ---
-                        st.markdown("<div style='font-weight: 700; font-size: 16px; margin-bottom: 16px; color: #1E2329;'>Dòng thời gian Khuyến nghị</div>", unsafe_allow_html=True)
+                        # --- HIỂN THỊ DANH SÁCH BÁO CÁO (KÈM GIÁ REALTIME) ---
+                        st.markdown("<div style='font-weight: 700; font-size: 16px; margin-bottom: 16px; color: #1E2329;'>📋 Dòng thời gian Khuyến nghị</div>", unsafe_allow_html=True)
                         
                         if paged_rep.empty:
                             st.warning("Không tìm thấy báo cáo nào khớp với bộ lọc!")
@@ -834,7 +891,7 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                             .rep-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
                             .rep-tkr { font-size: 20px; font-weight: 800; color: #1E2329; font-family: 'SF Mono', Consolas, monospace;}
                             .rep-brk { font-size: 12px; color: #707A8A; font-weight: 700; background: #F8FAFC; padding: 4px 8px; border-radius: 4px; border: 1px solid #EAECEF;}
-                            .rep-mid { display: flex; gap: 32px; margin-bottom: 12px; }
+                            .rep-mid { display: flex; gap: 24px; margin-bottom: 12px; flex-wrap: wrap;}
                             .rep-lbl { font-size: 11px; color: #848E9C; text-transform: uppercase; font-weight: 700; margin-bottom: 4px; }
                             .rep-val { font-size: 15px; font-weight: 700; color: #1E2329; }
                             .act-mua { color: #0ECB81; background: #E6FFF3; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 800;}
@@ -853,25 +910,21 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                                 elif 'BÁN' in action: act_class = 'act-ban'
                                 else: act_class = 'act-giu'
                                 
-                                status_raw = str(r.get('Status', 'Đang theo dõi')).strip()
-                                if 'Đạt' in status_raw or 'Target' in status_raw:
-                                    sts_class = 'sts-dat'
-                                    sts_text = '✔️ ĐẠT TARGET'
-                                elif 'Cắt' in status_raw or 'Lỗ' in status_raw:
-                                    sts_class = 'sts-cat'
-                                    sts_text = '❌ CẮT LỖ'
-                                else:
-                                    sts_class = 'sts-cho'
-                                    sts_text = '⏳ ĐANG THEO DÕI'
+                                auto_sts = r['Auto_Status']
+                                if 'ĐẠT' in auto_sts: sts_class = 'sts-dat'
+                                elif 'CẮT' in auto_sts: sts_class = 'sts-cat'
+                                else: sts_class = 'sts-cho'
 
                                 try:
                                     target_price = f"{float(r.get('Target_Price', 0)):,.0f}"
-                                    current_price = f"{float(r.get('Current_Price_At_Date', 0)):,.0f}"
+                                    rec_price = f"{float(r.get('Current_Price_At_Date', 0)):,.0f}"
+                                    realtime_price = f"{float(r.get('Realtime_Price', 0)):,.0f}"
                                 except:
                                     target_price = r.get('Target_Price', 'N/A')
-                                    current_price = r.get('Current_Price_At_Date', 'N/A')
+                                    rec_price = r.get('Current_Price_At_Date', 'N/A')
+                                    realtime_price = "N/A"
 
-                                reports_html += f"""<div class="rep-card"><div class="rep-top"><div style="display: flex; align-items: center; gap: 12px;"><span class="rep-tkr">{r.get('Ticker', 'N/A')}</span><span class="{act_class}">{action}</span><span class="{sts_class}">{sts_text}</span></div><span class="rep-brk">🏢 {r.get('Broker', 'N/A')}</span></div><div class="rep-mid"><div><div class="rep-lbl">Giá Mục Tiêu</div><div class="rep-val" style="color: #FF6B00;">{target_price}</div></div><div><div class="rep-lbl">Giá Lên Báo Cáo</div><div class="rep-val">{current_price}</div></div><div><div class="rep-lbl">Ngày Phát Hành</div><div class="rep-val" style="color: #707A8A; font-weight: 600;">{r.get('Date', 'N/A')}</div></div></div><div style="font-size: 12px; text-align: right;"><a href="{r.get('Link', '#')}" target="_blank" style="color: #0052FF; font-weight: 600; text-decoration: none;">Xem chi tiết báo cáo ↗</a></div></div>"""
+                                reports_html += f"""<div class="rep-card"><div class="rep-top"><div style="display: flex; align-items: center; gap: 12px;"><span class="rep-tkr">{r.get('Ticker', 'N/A')}</span><span class="{act_class}">{action}</span><span class="{sts_class}">{auto_sts}</span></div><span class="rep-brk">🏢 {r.get('Broker', 'N/A')}</span></div><div class="rep-mid"><div><div class="rep-lbl">Giá Khuyến Nghị</div><div class="rep-val">{rec_price}</div></div><div><div class="rep-lbl">Giá Hiện Tại</div><div class="rep-val" style="color: #0052FF;">{realtime_price}</div></div><div><div class="rep-lbl">Giá Mục Tiêu</div><div class="rep-val" style="color: #FF6B00;">{target_price}</div></div><div><div class="rep-lbl">Ngày Phát Hành</div><div class="rep-val" style="color: #707A8A; font-weight: 600;">{r.get('Date', 'N/A')}</div></div></div><div style="font-size: 12px; text-align: right;"><a href="{r.get('Link', '#')}" target="_blank" style="color: #0052FF; font-weight: 600; text-decoration: none;">Xem chi tiết báo cáo ↗</a></div></div>"""
                             st.markdown(f"{css_rep}<div>{reports_html}</div>", unsafe_allow_html=True)
 
                         # --- RENDER NÚT BẤM CHUYỂN TRANG ---
@@ -888,6 +941,54 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                                 if st.button("Sau ▶", disabled=(st.session_state.report_page >= total_pages), use_container_width=True, key="rep_next"):
                                     st.session_state.report_page += 1
                                     st.rerun()
+
+                    # ==========================================
+                    # CỘT PHẢI: BẢNG XẾP HẠNG CTCK (AI SCORING)
+                    # ==========================================
+                    with col_leaderboard:
+                        st.markdown("<div style='font-weight: 700; font-size: 16px; margin-bottom: 16px; color: #1E2329;'>🏆 Độ Tin Cậy CTCK (Win Rate)</div>", unsafe_allow_html=True)
+                        
+                        # --- 1. TÍNH TOÁN WIN RATE TỪ TRẠNG THÁI TỰ ĐỘNG ---
+                        def get_win_loss_auto(status):
+                            s = str(status).strip().lower()
+                            if 'đạt target' in s: return 'Win'
+                            if 'cắt lỗ' in s: return 'Loss'
+                            return 'Pending'
+                            
+                        filtered_rep['Result'] = filtered_rep['Auto_Status'].apply(get_win_loss_auto)
+                        closed_df = filtered_rep[filtered_rep['Result'].isin(['Win', 'Loss'])]
+                        
+                        leaderboard_html = ""
+                        if closed_df.empty:
+                            leaderboard_html = "<div style='font-size: 13px; color: #707A8A; text-align: center; padding: 20px; border-bottom: 1px dashed #EAECEF; margin-bottom: 12px;'>Hệ thống đang tích lũy dữ liệu. Chưa có mã chạm Target hoặc Cắt lỗ.</div>"
+                        else:
+                            win_stats = closed_df.groupby('Broker')['Result'].apply(
+                                lambda x: (x == 'Win').sum() / len(x) * 100
+                            ).reset_index(name='Win_Rate')
+                            win_stats['Total'] = closed_df.groupby('Broker')['Result'].count().values
+                            win_stats = win_stats.sort_values(by=['Win_Rate', 'Total'], ascending=[False, False]).reset_index(drop=True)
+                            
+                            medals = ["🥇", "🥈", "🥉"]
+                            for idx, row in win_stats.iterrows():
+                                broker_name = row['Broker']
+                                win_rate = row['Win_Rate']
+                                
+                                rank_icon = f"<span style='font-size: 20px;'>{medals[idx]}</span>" if idx < 3 else f"<span style='font-size: 16px; width: 20px; text-align: center; color: #848E9C; font-weight: 700;'>{idx+1}</span>"
+                                rate_color = "#0ECB81" if win_rate >= 60 else "#F39C12" if win_rate >= 40 else "#F6465D"
+                                
+                                leaderboard_html += f"""<div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #EAECEF; padding-bottom: 12px; margin-bottom: 12px;"><div style="display: flex; align-items: center; gap: 10px;">{rank_icon}<span style="font-weight: 700; color: #1E2329; font-size: 14px;">{broker_name}</span></div><span style="font-weight: 800; color: {rate_color}; font-size: 16px;">{win_rate:.1f}%</span></div>"""
+                                
+                        # --- 2. XỬ LÝ AI CONSENSUS ---
+                        buy_df = filtered_rep[filtered_rep['Action'].astype(str).str.upper().str.contains('MUA')]
+                        consensus_html = "Hệ thống đang thu thập thêm dữ liệu để đánh giá."
+                        if not buy_df.empty:
+                            top_tickers = buy_df['Ticker'].value_counts().head(3).index.tolist()
+                            top_tickers_str = ", ".join(top_tickers)
+                            consensus_html = f"Phần lớn Tổ chức đang đồng thuận <b style='color: #0ECB81;'>MUA</b> ở các mã: <b style='color: #FF6B00;'>{top_tickers_str}</b>"
+
+                        # --- 3. IN RA MÀN HÌNH ---
+                        final_html = f"""<div style='background: #FAFAFA; border: 1px solid #EAECEF; border-radius: 8px; padding: 20px; position: relative; margin-top: 10px;'><div style="font-size: 12px; color: #707A8A; margin-bottom: 20px; line-height: 1.5;">Tỷ lệ Win Rate được AI tự động tính toán từ các báo cáo đã chạm Target hoặc Cắt lỗ (-7%).</div>{leaderboard_html}<div style="margin-top: 24px; padding: 12px; background: #E6FFF3; border-radius: 6px; border: 1px dashed #0ECB81;"><div style="font-size: 11px; color: #0ECB81; font-weight: 800; text-transform: uppercase; margin-bottom: 4px;">🤖 AI Consensus</div><div style="font-size: 13px; color: #1E2329; font-weight: 600;">{consensus_html}</div></div></div>"""
+                        st.markdown(final_html, unsafe_allow_html=True)
 
                     # ==========================================
                     # ==========================================
