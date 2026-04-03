@@ -853,15 +853,12 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                             df_temp = df_temp.sort_values(by='Parsed_Date', ascending=False).reset_index(drop=True)
                             
                             unique_tickers = df_temp['Ticker'].dropna().astype(str).str.strip().unique().tolist()
-                            yf_tickers = []
-                            for t in unique_tickers:
-                                if "." in t: yf_tickers.append(t)
-                                else: yf_tickers.extend([f"{t}.HM", f"{t}.HN", f"{t}.VN"])
+                            # QUAY XE: CHỈ DÙNG ĐUÔI .VN NHƯ CŨ
+                            yf_tickers = [t + ".VN" if not t.endswith(".VN") else t for t in unique_tickers if t]
                             
                             batch_data = pd.DataFrame()
                             if yf_tickers:
                                 try:
-                                    # threads=False chống sập RAM, ignore_tz=True chống lỗi múi giờ UPCOM
                                     batch_data = yf.download(yf_tickers, period="6mo", group_by='ticker', threads=False, progress=False, ignore_tz=True)
                                 except Exception as e: pass
                             
@@ -874,32 +871,30 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                                 rec_date_str, manual_status = str(r.get('Date', '')), str(r.get('Status', '')).strip().upper() 
                                 
                                 cp, highest_price, lowest_price = 0, 0, 0
+                                yf_t = tkr + ".VN" if not tkr.endswith(".VN") else tkr
                                 
-                                if not batch_data.empty:
-                                    for sfx in [".HM", ".HN", ".VN"] if "." not in tkr else [""]:
-                                        yf_t = tkr + sfx if "." not in tkr else tkr
-                                        ticker_df = pd.DataFrame()
+                                if not batch_data.empty and yf_tickers:
+                                    try:
+                                        if len(yf_tickers) == 1: ticker_df = batch_data 
+                                        elif isinstance(batch_data.columns, pd.MultiIndex) and yf_t in batch_data.columns.levels[0]: ticker_df = batch_data[yf_t]
+                                        else: ticker_df = pd.DataFrame()
                                         
-                                        try:
-                                            if len(yf_tickers) == 1: ticker_df = batch_data 
-                                            elif isinstance(batch_data.columns, pd.MultiIndex) and yf_t in batch_data.columns.levels[0]: ticker_df = batch_data[yf_t]
-                                            
-                                            if not ticker_df.empty and 'Close' in ticker_df.columns:
-                                                sliced_df = ticker_df.dropna(subset=['Close']).copy()
-                                                if not sliced_df.empty:
-                                                    if sliced_df.index.tz is not None: sliced_df.index = sliced_df.index.tz_localize(None)
-                                                    try:
-                                                        start_ts = pd.to_datetime(rec_date_str, format="%d/%m/%Y")
-                                                        sliced_df = sliced_df[sliced_df.index >= start_ts]
-                                                    except: pass 
-                                                        
-                                                    if not sliced_df.empty:
-                                                        cp = sliced_df['Close'].iloc[-1]
-                                                        highest_price = sliced_df['High'].max()
-                                                        lowest_price = sliced_df['Low'].min()
-                                                        if cp < 1000 and cp > 0: cp *= 1000; highest_price *= 1000; lowest_price *= 1000
-                                                        break 
-                                        except: pass
+                                        if not ticker_df.empty:
+                                            sliced_df = ticker_df.copy()
+                                            if sliced_df.index.tz is not None: sliced_df.index = sliced_df.index.tz_localize(None)
+                                            try:
+                                                start_ts = pd.to_datetime(rec_date_str, format="%d/%m/%Y")
+                                                sliced_df = sliced_df[sliced_df.index >= start_ts]
+                                            except: pass 
+                                                
+                                            if not sliced_df.empty:
+                                                valid_closes = sliced_df['Close'].dropna()
+                                                if not valid_closes.empty:
+                                                    cp = valid_closes.iloc[-1]
+                                                    highest_price = sliced_df['High'].dropna().max()
+                                                    lowest_price = sliced_df['Low'].dropna().min()
+                                                    if cp < 1000 and cp > 0: cp *= 1000; highest_price *= 1000; lowest_price *= 1000
+                                    except: pass
                                         
                                 current_prices.append(cp)
                                 
