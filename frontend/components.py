@@ -238,7 +238,7 @@ def get_market_heatmap_data():
 # KHU VỰC HIỂN THỊ CỦA TAB 2 (BẢN ĐỒ NHIỆT - MÀU CHUẨN SSI)
 # ==========================================
 def render_tab2_heatmap():
-    st.markdown("<br><div style='font-size: 20px; font-weight: 800; color: #1E2329; margin-bottom: 8px; text-transform: uppercase;'>🗺️ Bản đồ Nhiệt Dòng tiền (Market Heatmap)</div>", unsafe_allow_html=True)
+    st.markdown("<br><div style='font-size: 20px; font-weight: 800; color: #1E2329; margin-bottom: 8px; text-transform: uppercase;'>Bản đồ Nhiệt Dòng tiền (Market Heatmap)</div>", unsafe_allow_html=True)
     st.markdown("<div style='color: #474D57; font-size: 14px; margin-bottom: 24px;'>Kích thước ô vuông thể hiện Khối lượng giao dịch. Màu sắc phản ánh mức độ Tăng/Giảm chuẩn thị trường Việt Nam.</div>", unsafe_allow_html=True)
 
     with st.spinner("Đang quét tín hiệu dòng tiền VN100..."):
@@ -635,12 +635,11 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
         
         # ---------------------------------------------------------
       # ---------------------------------------------------------
-        # THẾ GIỚI 1: DANH MỤC CHIẾN LƯỢC DÀI HẠN (FULL BATCHING + 3 SÀN + ÂN XÁ 12% + UI CAM)
+        # THẾ GIỚI 1: DANH MỤC CHIẾN LƯỢC DÀI HẠN (BẢN FULL HOÀN CHỈNH TỐI THƯỢNG)
         # ---------------------------------------------------------
         with sub_tab2:
             st.markdown("<br><div style='font-weight: 900; font-size: 18px; margin-bottom: 16px; color: #FF6B00; text-transform: uppercase; border-left: 4px solid #FF6B00; padding-left: 12px;'>Quản trị & Đánh giá Danh mục Đầu tư (Real-time)</div>", unsafe_allow_html=True)
             
-            # BÙA CHÚ TẠO TIỂU VŨ TRỤ CHỐNG TẢI LẠI TOÀN TRANG
             @st.fragment
             def render_long_term_portfolio():
                 import pandas as pd
@@ -648,20 +647,26 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                 import time
 
                 # ==========================================
-                # 1. CACHE DATA VÀO RAM VÀ KÉO GIÁ SỈ TỪ YAHOO
+                # 1. KÉT SẮT & ĐỘNG CƠ LẤY SỈ (BATCHING CHUẨN SÀN HM/HN)
                 # ==========================================
                 if 'port_cached_df' not in st.session_state or time.time() - st.session_state.get('port_cache_time', 0) > 900:
-                    with st.spinner("Đang đồng bộ dữ liệu Danh mục Dài hạn và lùng sục giá 3 Sàn..."):
+                    with st.spinner("Đang đồng bộ dữ liệu Danh mục Dài hạn (Bản chuẩn 100%)..."):
                         portfolio_data = fetch_portfolio_db()
                         if not portfolio_data:
                             st.session_state.port_cached_df = pd.DataFrame()
                         else:
                             df_port = pd.DataFrame(portfolio_data)
                             
-                            # --- LẤY SỈ DỮ LIỆU ĐA SÀN ---
-                            unique_tickers = df_temp['Ticker'].dropna().astype(str).str.strip().unique().tolist()
-                            # QUAY XE: CHỈ DÙNG ĐUÔI .VN NHƯ CŨ
-                            yf_tickers = [t + ".VN" if not t.endswith(".VN") else t for t in unique_tickers if t]
+                            unique_tickers = df_port['Ticker'].dropna().astype(str).str.strip().unique().tolist()
+                            
+                            # HÀM MAP CHUẨN SÀN: CHỐNG LẤY NHẦM CHỨNG KHOÁN MỸ
+                            def get_yf_ticker(t):
+                                t = t.strip().upper()
+                                if "." in t: return t
+                                hnx_upcom = ['SHS', 'CEO', 'MBS', 'IDC', 'HUT', 'TNG', 'VCS', 'PVS', 'BSR', 'VEA', 'QNS', 'VGI', 'FOX', 'ACV', 'VTP', 'DDV', 'MSR']
+                                return t + ".HN" if t in hnx_upcom else t + ".HM"
+                                
+                            yf_tickers = [get_yf_ticker(t) for t in unique_tickers]
                             
                             batch_data = pd.DataFrame()
                             if yf_tickers:
@@ -678,7 +683,7 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                                 rec_date_str = str(row.get('Rec_Date', ''))
                                 
                                 cp, highest_price, lowest_price = 0, 0, 0
-                                yf_t = tkr + ".VN" if not tkr.endswith(".VN") else tkr
+                                yf_t = get_yf_ticker(tkr)
                                 
                                 if not batch_data.empty and yf_tickers:
                                     try:
@@ -709,18 +714,15 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                                 if rec_p > 0 and cp > 0: actual_returns.append(((cp - rec_p) / rec_p) * 100)
                                 else: actual_returns.append(None) 
                                     
-                                # --- THUẬT TOÁN ĐÁNH GIÁ (NỚI 12% VÀ LUẬT ÂN XÁ 98%) ---
+                                # CƠ CHẾ ĐÁNH GIÁ (NỚI 12% + LUẬT ÂN XÁ PHỤC HỒI 98%)
                                 if cp == 0 or lowest_price == 0: 
                                     statuses.append("⏳ Đang bám sát") 
                                 elif highest_price >= tgt_p and tgt_p > 0: 
                                     statuses.append("✔️ Đã Đạt Target")
                                 elif rec_p > 0 and lowest_price > 0 and lowest_price <= rec_p * 0.88: 
-                                    if cp >= rec_p * 0.98: 
-                                        statuses.append("⏳ Đang bám sát")
-                                    else:
-                                        statuses.append("❌ Đã Chạm Cắt Lỗ")
-                                else: 
-                                    statuses.append("⏳ Đang bám sát")
+                                    if cp >= rec_p * 0.98: statuses.append("⏳ Đang bám sát")
+                                    else: statuses.append("❌ Đã Chạm Cắt Lỗ")
+                                else: statuses.append("⏳ Đang bám sát")
 
                             df_port['Current_Price'] = current_prices
                             df_port['Actual_Return'] = actual_returns
@@ -731,18 +733,16 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                             st.session_state.port_cache_time = time.time()
 
                 # ==========================================
-                # 2. VẼ GIAO DIỆN TỪ RAM SIÊU TỐC VỚI UI TONE CAM
+                # 2. VẼ GIAO DIỆN TỪ RAM SIÊU TỐC
                 # ==========================================
                 cached_port = st.session_state.port_cached_df
                 
                 if cached_port.empty:
-                    st.info("Chưa có dữ liệu.")
+                    st.info("💡 Chưa có dữ liệu. Ngươi hãy tạo tab 'PORTFOLIO_DB' trên Sheets nhé!")
                     return
                 
-                # --- CSS ĐỘ GIAO DIỆN TONE CAM ---
                 st.markdown("""
                 <style>
-                /* Làm nổi bật thanh Dropdown */
                 div[data-baseweb="select"] > div {
                     background-color: #FFF9F5 !important;
                     border: 1px solid #FFE0B2 !important;
@@ -777,7 +777,6 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                     color_act = "#707A8A"
                     avg_act_str = "N/A"
                 
-                # --- VẼ 4 THẺ SUMMARY UI MỚI CỰC CHẤT ---
                 col_s1, col_s2, col_s3, col_s4 = st.columns(4)
                 
                 card_style = "background: linear-gradient(180deg, #FFFFFF 0%, #FFF9F5 100%); border: 1px solid #FFE0B2; border-bottom: 4px solid #FF6B00; border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 4px 12px rgba(255,107,0,0.08); transition: all 0.3s ease;"
@@ -790,7 +789,6 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                     dat_target_count = filtered_port['Auto_Status'].tolist().count('✔️ Đã Đạt Target')
                     st.markdown(f"<div style='{card_style}'><div style='{title_style}'>🏆 Đã Chạm Target</div><div style='font-size: 26px; font-weight: 900; color: #0ECB81;'>{dat_target_count}/{num_stocks}</div></div>", unsafe_allow_html=True)
 
-                # --- VẼ BẢNG KẾT QUẢ TONE CAM ---
                 st.markdown("<div style='background: #FF6B00; color: white; padding: 12px 16px; border-radius: 8px 8px 0 0; font-weight: 800; font-size: 14px; letter-spacing: 1px; margin-top: 32px;'>📊 BẢNG THEO DÕI CHI TIẾT DANH MỤC CỔ PHIẾU</div>", unsafe_allow_html=True)
                 
                 st.dataframe(
@@ -798,24 +796,23 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                     column_config={
                         "Portfolio_Name": None, 
                         "Sector": None, 
-                        "Rec_Date": st.column_config.TextColumn("NGÀY KN"),
-                        "Ticker": st.column_config.TextColumn("MÃ CP", width="small"),
-                        "Company": st.column_config.TextColumn("DOANH NGHIỆP", width="medium"),
-                        "Rec_Price": st.column_config.NumberColumn("GIÁ KN", format="%d ₫"),
-                        "Current_Price": st.column_config.NumberColumn("GIÁ HIỆN TẠI", format="%d ₫"),
-                        "Highest_Reached": st.column_config.NumberColumn("ĐỈNH ĐÃ CHẠM", format="%d ₫"),
-                        "Target_Price": st.column_config.NumberColumn("GIÁ MỤC TIÊU", format="%d ₫"),
-                        "Expected_Return": st.column_config.TextColumn("KỲ VỌNG"),
-                        "Actual_Return": st.column_config.NumberColumn("LÃI/LỖ", format="%.1f %%"),
-                        "Auto_Status": st.column_config.TextColumn("ĐÁNH GIÁ (AI)"),
-                        "Link": st.column_config.LinkColumn("NGUỒN", display_text="Xem ↗")
+                        "Rec_Date": st.column_config.TextColumn("🔸 NGÀY KN"),
+                        "Ticker": st.column_config.TextColumn("🔸 MÃ CP", width="small"),
+                        "Company": st.column_config.TextColumn("🔸 DOANH NGHIỆP", width="medium"),
+                        "Rec_Price": st.column_config.NumberColumn("🔸 GIÁ KN", format="%d ₫"),
+                        "Current_Price": st.column_config.NumberColumn("🔸 GIÁ HIỆN TẠI", format="%d ₫"),
+                        "Highest_Reached": st.column_config.NumberColumn("🔸 ĐỈNH ĐÃ CHẠM", format="%d ₫"),
+                        "Target_Price": st.column_config.NumberColumn("🔸 GIÁ MỤC TIÊU", format="%d ₫"),
+                        "Expected_Return": st.column_config.TextColumn("🔸 KỲ VỌNG"),
+                        "Actual_Return": st.column_config.NumberColumn("🔸 LÃI/LỖ", format="%.1f %%"),
+                        "Auto_Status": st.column_config.TextColumn("🔸 ĐÁNH GIÁ (AI)"),
+                        "Link": st.column_config.LinkColumn("🔸 NGUỒN", display_text="Xem ↗")
                     },
                     hide_index=True,
                     width="stretch",
                     height=450 
                 )
             
-            # KÍCH HOẠT TIỂU VŨ TRỤ
             render_long_term_portfolio()
         # ---------------------------------------------------------
       # ---------------------------------------------------------
@@ -835,10 +832,10 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                 from datetime import datetime
 
                 # ==========================================
-                # 1. KÉT SẮT & ĐỘNG CƠ LẤY SỈ (BATCHING) + TÌM 3 SÀN
+                # 1. KÉT SẮT & ĐỘNG CƠ LẤY SỈ (BATCHING CHUẨN SÀN HM/HN)
                 # ==========================================
                 if 'rep_cached_df' not in st.session_state or time.time() - st.session_state.get('rep_cache_time', 0) > 900:
-                    with st.spinner("Đang tải HÀNG TRĂM báo cáo và đồng bộ giá sỉ (Batching)..."):
+                    with st.spinner("Đang tải báo cáo và đồng bộ giá (Bản chuẩn 100%)..."):
                         reports_data = fetch_reports_db()
                         if not reports_data:
                             st.session_state.rep_cached_df = pd.DataFrame()
@@ -848,8 +845,15 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                             df_temp = df_temp.sort_values(by='Parsed_Date', ascending=False).reset_index(drop=True)
                             
                             unique_tickers = df_temp['Ticker'].dropna().astype(str).str.strip().unique().tolist()
-                            # QUAY XE: CHỈ DÙNG ĐUÔI .VN NHƯ CŨ
-                            yf_tickers = [t + ".VN" if not t.endswith(".VN") else t for t in unique_tickers if t]
+                            
+                            # HÀM MAP CHUẨN SÀN: CHỐNG LẤY NHẦM CHỨNG KHOÁN MỸ
+                            def get_yf_ticker(t):
+                                t = t.strip().upper()
+                                if "." in t: return t
+                                hnx_upcom = ['SHS', 'CEO', 'MBS', 'IDC', 'HUT', 'TNG', 'VCS', 'PVS', 'BSR', 'VEA', 'QNS', 'VGI', 'FOX', 'ACV', 'VTP', 'DDV', 'MSR']
+                                return t + ".HN" if t in hnx_upcom else t + ".HM"
+                                
+                            yf_tickers = [get_yf_ticker(t) for t in unique_tickers]
                             
                             batch_data = pd.DataFrame()
                             if yf_tickers:
@@ -866,7 +870,7 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                                 rec_date_str, manual_status = str(r.get('Date', '')), str(r.get('Status', '')).strip().upper() 
                                 
                                 cp, highest_price, lowest_price = 0, 0, 0
-                                yf_t = tkr + ".VN" if not tkr.endswith(".VN") else tkr
+                                yf_t = get_yf_ticker(tkr)
                                 
                                 if not batch_data.empty and yf_tickers:
                                     try:
@@ -919,7 +923,7 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                 # ==========================================
                 cached_df = st.session_state.rep_cached_df
                 if cached_df.empty:
-                    st.info("💡 Chưa có dữ liệu báo cáo LINANCE_DB")
+                    st.info("Chưa có dữ liệu báo cáo LINANCE_DB")
                     return
                 
                 df_rep = cached_df.copy()
@@ -953,7 +957,7 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                     end_idx = start_idx + ITEMS_PER_PAGE
                     paged_rep = filtered_rep.iloc[start_idx:end_idx]
 
-                    st.markdown("<div style='font-weight: 700; font-size: 16px; margin-bottom: 16px; color: #1E2329;'>📋 Dòng thời gian Khuyến nghị</div>", unsafe_allow_html=True)
+                    st.markdown("<div style='font-weight: 700; font-size: 16px; margin-bottom: 16px; color: #1E2329;'>Dòng thời gian Khuyến nghị</div>", unsafe_allow_html=True)
                     
                     if paged_rep.empty: st.warning("Không tìm thấy báo cáo nào khớp với bộ lọc!")
                     else:
@@ -993,7 +997,7 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                                 st.session_state.report_page += 1
 
                 with col_leaderboard:
-                    st.markdown("<div style='font-weight: 700; font-size: 16px; margin-bottom: 16px; color: #1E2329;'>🏆 Độ Tin Cậy CTCK (Win Rate)</div>", unsafe_allow_html=True)
+                    st.markdown("<div style='font-weight: 700; font-size: 16px; margin-bottom: 16px; color: #1E2329;'>BẢNG XẾP HẠNG</div>", unsafe_allow_html=True)
                     
                     def get_win_loss_auto(status):
                         s = str(status).strip().lower()
