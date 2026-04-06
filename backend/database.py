@@ -65,3 +65,16 @@ def fetch_portfolio_db():
             print(f"Lỗi đọc Sheet PORTFOLIO_DB: {e}") 
             return []
     return []
+# --- HÀM LẤY GIÁ THỦ CÔNG TỪ SHEET (MANUAL_PRICE_DB) ---
+def fetch_manual_price_db():
+    db = get_db_connection()
+    if db:
+        try:
+            sheet = db.worksheet("MANUAL_PRICE_DB")
+            # Dùng get_all_values() để cào dữ liệu thô (bất chấp format phẩy, chấm)
+            data = sheet.get_all_values()
+            return data
+        except Exception as e:
+            print(f"Lỗi đọc Sheet MANUAL_PRICE_DB: {e}") 
+            return []
+    return []
