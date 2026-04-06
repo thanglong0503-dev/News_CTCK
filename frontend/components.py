@@ -20,20 +20,7 @@ from backend.ai_analysis import (
     fetch_cafef_reports, 
     generate_ai_report_scoring
 )
-@st.cache_data(ttl=900) # Cache 15 phút để tiết kiệm lượt gọi API của Google
-def fetch_manual_price_db():
-    """
-    Hàm kết nối trực tiếp với tab MANUAL_PRICE_DB trên Google Sheets
-    """
-    try:
-        # LƯU Ý: Giám đốc kiểm tra xem tên biến 'client' và 'STR_SPREADSHEET_ID' 
-        # có giống với mấy hàm fetch cũ không nhé. Nếu khác thì sửa lại cho giống là chạy ngon!
-        sheet = client.open_by_key(STR_SPREADSHEET_ID).worksheet("MANUAL_PRICE_DB")
-        data = sheet.get_all_records()
-        return data
-    except Exception as e:
-        print(f"Lỗi khi truy cập MANUAL_PRICE_DB: {e}")
-        return []
+
 # ==========================================
 # KHỐI 0: ĐỒNG HỒ REAL-TIME (TOP BAR)
 # ==========================================
