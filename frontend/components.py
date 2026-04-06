@@ -10,7 +10,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # --- IMPORT CÁC HÀM TỪ BACKEND ---
-from backend.database import fetch_broker_services, fetch_reports_db, fetch_portfolio_db
+from backend.database import fetch_broker_services, fetch_reports_db, fetch_portfolio_db, fetch_manual_price_db
 from backend.official_news import fetch_mainstream_news
 from backend.market_data import fetch_realtime_data
 from backend.ai_analysis import (
