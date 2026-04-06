@@ -840,10 +840,11 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
             render_long_term_portfolio()
 # ---------------------------------------------------------
         # ---------------------------------------------------------
+        # ---------------------------------------------------------
         # THẾ GIỚI 3: THEO DÕI DÒNG TIỀN VNDIAMOND (HYBRID REAL-TIME)
         # ---------------------------------------------------------
         with sub_tab3:
-            st.markdown("<br><div style='font-weight: 900; font-size: 18px; margin-bottom: 16px; color: #0088FF; text-transform: uppercase; border-left: 4px solid #0088FF; padding-left: 12px;'>Phân tích Dòng tiền Cơ cấu Rổ VNDiamond</div>", unsafe_allow_html=True)
+            st.markdown("<br><div style='font-weight: 900; font-size: 18px; margin-bottom: 16px; color: #FF6B00; text-transform: uppercase; border-left: 5px solid #FF6B00; padding-left: 12px;'>Phân tích Dòng tiền Cơ cấu Rổ VNDiamond</div>", unsafe_allow_html=True)
             
             @st.fragment
             def render_vndiamond_flow():
@@ -856,7 +857,6 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                         diamond_data = fetch_vndiamond_db()
                         manual_data = fetch_manual_price_db()
                         
-                        # --- TẠO TỪ ĐIỂN PHAO CỨU SINH ---
                         manual_dict = {}
                         if manual_data and len(manual_data) > 1:
                             for row in manual_data[1:]:
@@ -874,41 +874,31 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                             unique_tickers = df_dm['Ticker'].dropna().astype(str).str.strip().unique().tolist()
                             yf_tickers = [t + ".VN" if not t.endswith(".VN") else t for t in unique_tickers if t]
                             
-                            # --- ĐỘNG CƠ LẤY GIÁ YAHOO BỌC THÉP CHỐNG LỖI ---
                             batch_prices = {}
                             if yf_tickers:
                                 try:
-                                    # Lấy giá sỉ (Bỏ group_by để chuẩn hóa cấu trúc dữ liệu Yahoo)
                                     yf_data = yf.download(yf_tickers, period="1d", interval="1m", threads=False, progress=False, ignore_tz=True)
                                     if not yf_data.empty:
                                         for tkr in unique_tickers:
                                             yf_t = tkr + ".VN" if not tkr.endswith(".VN") else tkr
                                             cp = 0
                                             try:
-                                                if len(yf_tickers) == 1:
-                                                    cp = yf_data['Close'].dropna().iloc[-1]
-                                                elif 'Close' in yf_data.columns:
-                                                    # Dò mìn: Có mã đó trong rổ tải về thì mới bốc giá!
-                                                    if yf_t in yf_data['Close'].columns:
-                                                        cp = yf_data['Close'][yf_t].dropna().iloc[-1]
+                                                if len(yf_tickers) == 1: cp = yf_data['Close'].dropna().iloc[-1]
+                                                elif 'Close' in yf_data.columns and yf_t in yf_data['Close'].columns:
+                                                    cp = yf_data['Close'][yf_t].dropna().iloc[-1]
                                             except: pass
-                                            
                                             if cp > 0:
                                                 if cp < 1000: cp *= 1000
                                                 batch_prices[tkr] = cp
                                 except: pass
 
-                            # --- MIX GIÁ HYBRID & TÍNH TOÁN DÒNG TIỀN (CHỐNG LỖI TÊN CỘT) ---
                             final_prices, cash_flows, clean_vols = [], [], []
                             for _, row in df_dm.iterrows():
                                 tkr = str(row.get('Ticker', '')).strip().upper()
-                                
-                                # Quét mọi thể loại tên cột Khối lượng mà sếp có thể đặt trên Sheet
                                 vol_val = row.get('Est_Volume', row.get('Est_Trade_Vol', row.get('Ước tính giao dịch', row.get('Volume', row.get('Khối lượng', 0)))))
                                 try: est_trade = float(str(vol_val).replace(',', '').replace(' ', ''))
                                 except: est_trade = 0
                                 
-                                # Ưu tiên Yahoo -> Nếu lỗi lấy Phao cứu sinh
                                 cp = batch_prices.get(tkr, 0)
                                 if (cp == 0 or pd.isna(cp)) and tkr in manual_dict:
                                     cp = manual_dict[tkr]
@@ -920,7 +910,6 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                             df_dm['Current_Price'] = final_prices
                             df_dm['Clean_Volume'] = clean_vols 
                             df_dm['Est_Cash_Flow'] = cash_flows
-                            
                             st.session_state.diamond_cached_df = df_dm
                         st.session_state.diamond_cache_time = time.time()
 
@@ -928,35 +917,54 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                 if df_final.empty:
                     st.info("Chưa có dữ liệu")
                 else:
-                    # TỔNG HỢP NHANH (Dùng cột Clean_Volume nội bộ đảm bảo 100% an toàn)
                     total_buy = df_final[df_final['Clean_Volume'] > 0]['Est_Cash_Flow'].sum()
                     total_sell = abs(df_final[df_final['Clean_Volume'] < 0]['Est_Cash_Flow'].sum())
-                    
-                    c1, c2, c3 = st.columns(3)
-                    with c1: st.metric("Tổng Lực Mua Dự Kiến", f"{total_buy/1e9:.1f} Tỷ")
-                    with c2: st.metric("Tổng Lực Xả Dự Kiến", f"{total_sell/1e9:.1f} Tỷ")
-                    with c3: 
-                        net_flow = total_buy - total_sell
-                        st.metric("Trạng Thái Ròng", f"{net_flow/1e9:.1f} Tỷ", delta=float(net_flow), delta_color="normal")
+                    net_flow = total_buy - total_sell
 
-                    st.markdown("<br>", unsafe_allow_html=True)
+                    # TONE CAM - TRẮNG CHO WIDGET (HTML TÙY CHỈNH NÂNG CAO)
+                    net_color = "#0ECB81" if net_flow >= 0 else "#F6465D"
+                    net_sign = "+" if net_flow > 0 else ""
+                    net_icon = "📈" if net_flow >= 0 else "📉"
+                    
+                    metrics_html = f"""
+                    <div style="display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 200px; background: #FFFFFF; border: 1px solid #EAECEF; border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+                            <div style="font-size: 12px; color: #707A8A; font-weight: 800; text-transform: uppercase; margin-bottom: 8px;">Lực Mua Dự Kiến</div>
+                            <div style="font-size: 26px; font-weight: 900; color: #1E2329;">{total_buy/1e9:,.1f} <span style="font-size: 16px; color: #707A8A;">Tỷ ₫</span></div>
+                        </div>
+                        <div style="flex: 1; min-width: 200px; background: #FFFFFF; border: 1px solid #EAECEF; border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+                            <div style="font-size: 12px; color: #707A8A; font-weight: 800; text-transform: uppercase; margin-bottom: 8px;">Lực Xả Dự Kiến</div>
+                            <div style="font-size: 26px; font-weight: 900; color: #1E2329;">{total_sell/1e9:,.1f} <span style="font-size: 16px; color: #707A8A;">Tỷ ₫</span></div>
+                        </div>
+                        <div style="flex: 1; min-width: 200px; background: linear-gradient(180deg, #FFFFFF 0%, #FFF9F5 100%); border: 1px solid #FFE0B2; border-bottom: 4px solid #FF6B00; border-radius: 12px; padding: 20px; box-shadow: 0 4px 16px rgba(255,107,0,0.08);">
+                            <div style="font-size: 12px; color: #FF6B00; font-weight: 900; text-transform: uppercase; margin-bottom: 8px;">{net_icon} Trạng Thái Ròng</div>
+                            <div style="font-size: 26px; font-weight: 900; color: {net_color};">{net_sign}{net_flow/1e9:,.1f} <span style="font-size: 16px;">Tỷ ₫</span></div>
+                        </div>
+                    </div>
+                    """
+                    st.markdown(metrics_html, unsafe_allow_html=True)
+
+                    # TONE CAM - TRẮNG CHO BẢNG DỮ LIỆU
+                    st.markdown("<div style='background: linear-gradient(90deg, #FF6B00 0%, #FFA033 100%); color: white; padding: 12px 16px; border-radius: 8px 8px 0 0; font-weight: 800; font-size: 14px; letter-spacing: 1px;'>💎 BẢNG DÒNG TIỀN CHI TIẾT (ĐÃ CHUẨN HÓA VNĐ)</div>", unsafe_allow_html=True)
+
+                    # Chuẩn hóa dữ liệu sang dạng chuỗi có dấu phẩy để UI hiển thị đẹp tuyệt đối
+                    df_display = df_final.copy()
+                    df_display['Khối Lượng'] = df_display['Clean_Volume'].apply(lambda x: f"{x:,.0f}")
+                    df_display['Giá Hiện Tại'] = df_display['Current_Price'].apply(lambda x: f"{x:,.0f} ₫" if pd.notnull(x) else "N/A")
+                    df_display['Thành Tiền (VNĐ)'] = df_display['Est_Cash_Flow'].apply(lambda x: f"{x:,.0f} ₫")
+                    
                     st.dataframe(
-                        df_final,
+                        df_display,
                         column_config={
                             "Ticker": st.column_config.TextColumn("MÃ CP", width="small"),
                             "Industry": st.column_config.TextColumn("NGÀNH", width="medium"),
-                            "New_Weight": st.column_config.TextColumn("TỶ TRỌNG MỚI", width="small"),
-                            "Old_Weight": None,
-                            "Est_Volume": None, 
-                            "Est_Trade_Vol": None,
-                            "Ước tính giao dịch": None,
-                            "Volume": None,
-                            "Khối lượng": None,
-                            "Clean_Volume": st.column_config.NumberColumn("KHỐI LƯỢNG GD", format="%d"),
-                            "Current_Price": st.column_config.NumberColumn("GIÁ HT", format="%d ₫"),
-                            "Est_Cash_Flow": st.column_config.NumberColumn("GIÁ TRỊ DÒNG TIỀN", format="%d ₫")
+                            "New_Weight": st.column_config.TextColumn("TỶ TRỌNG", width="small"),
+                            "Khối Lượng": st.column_config.TextColumn("KHỐI LƯỢNG GD", width="medium"),
+                            "Giá Hiện Tại": st.column_config.TextColumn("GIÁ HT", width="medium"),
+                            "Thành Tiền (VNĐ)": st.column_config.TextColumn("GIÁ TRỊ DÒNG TIỀN", width="large"),
+                            "Old_Weight": None, "Est_Volume": None, "Est_Trade_Vol": None, "Ước tính giao dịch": None, "Volume": None, "Khối lượng": None, "Clean_Volume": None, "Current_Price": None, "Est_Cash_Flow": None
                         },
-                        hide_index=True, use_container_width=True
+                        hide_index=True, use_container_width=True, height=500
                     )
                     st.caption("Dữ liệu dòng tiền = Giá hiện tại x Khối lượng ước tính. Dấu âm (-) thể hiện áp lực bán ròng.")
 
