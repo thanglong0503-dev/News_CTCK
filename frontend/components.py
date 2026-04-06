@@ -10,7 +10,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # --- IMPORT CÁC HÀM TỪ BACKEND ---
-from backend.database import fetch_broker_services, fetch_reports_db, fetch_portfolio_db, fetch_manual_price_db
+from backend.database import fetch_broker_services, fetch_reports_db, fetch_portfolio_db, fetch_manual_price_db, fetch_vndiamond_db
 from backend.official_news import fetch_mainstream_news
 from backend.market_data import fetch_realtime_data
 from backend.ai_analysis import (
@@ -631,7 +631,7 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
         st.markdown("<div style='color: #474D57; font-size: 14px; margin-bottom: 24px;'>Theo dõi giá mục tiêu của các CTCK và các danh mục đầu tư trung/dài hạn.</div>", unsafe_allow_html=True)
 
         # Tạo 2 Tab con bên trong Tab 4
-        sub_tab1, sub_tab2 = st.tabs(["Dòng thời gian Khuyến nghị (Ngắn hạn)", "Danh mục Chiến lược (Trung/Dài hạn)"])
+        sub_tab1, sub_tab2, sub_tab3 = st.tabs(["Dòng thời gian Khuyến nghị (Ngắn hạn)", "Danh mục Chiến lược (Trung/Dài hạn)","VNDiamond Flow"])
         
         # ---------------------------------------------------------
       # ---------------------------------------------------------
@@ -838,6 +838,103 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
             
             # KÍCH HOẠT TIỂU VŨ TRỤ
             render_long_term_portfolio()
+# ---------------------------------------------------------
+        # THẾ GIỚI 3: THEO DÕI DÒNG TIỀN VNDIAMOND (HYBRID REAL-TIME)
+        # ---------------------------------------------------------
+        with sub_tab3:
+            st.markdown("<br><div style='font-weight: 900; font-size: 18px; margin-bottom: 16px; color: #0088FF; text-transform: uppercase; border-left: 4px solid #0088FF; padding-left: 12px;'>Phân tích Dòng tiền Cơ cấu Rổ VNDiamond</div>", unsafe_allow_html=True)
+            
+            @st.fragment
+            def render_vndiamond_flow():
+                import pandas as pd
+                import yfinance as yf
+                import time
+
+                if 'diamond_cached_df' not in st.session_state or time.time() - st.session_state.get('diamond_cache_time', 0) > 900:
+                    with st.spinner("Đang soi dòng tiền Kim cương..."):
+                        diamond_data = fetch_vndiamond_db()
+                        manual_data = fetch_manual_price_db() # Vẫn dùng phao cứu sinh nhé sếp
+                        
+                        manual_dict = {}
+                        if manual_data and len(manual_data) > 1:
+                            for row in manual_data[1:]:
+                                if len(row) >= 2:
+                                    tk = str(row[0]).strip().upper()
+                                    pr_str = str(row[1]).replace(',', '').replace('.', '').replace(' ', '').strip()
+                                    try: manual_dict[tk] = float(pr_str)
+                                    except: pass
+
+                        if not diamond_data:
+                            st.session_state.diamond_cached_df = pd.DataFrame()
+                        else:
+                            df_dm = pd.DataFrame(diamond_data)
+                            unique_tickers = df_dm['Ticker'].unique().tolist()
+                            yf_tickers = [t + ".VN" for t in unique_tickers]
+                            
+                            batch_prices = {}
+                            try:
+                                yf_data = yf.download(yf_tickers, period="1d", interval="1m", progress=False, ignore_tz=True)
+                                if not yf_data.empty:
+                                    for tkr in unique_tickers:
+                                        yf_t = tkr + ".VN"
+                                        try:
+                                            cp = yf_data['Close'][yf_t].iloc[-1]
+                                            if cp < 1000 and cp > 0: cp *= 1000
+                                            batch_prices[tkr] = cp
+                                        except: pass
+                            except: pass
+
+                            # MIX GIÁ HYBRID & TÍNH TOÁN DÒNG TIỀN
+                            final_prices, cash_flows = [], []
+                            for _, row in df_dm.iterrows():
+                                tkr = str(row.get('Ticker', '')).strip().upper()
+                                est_trade = float(str(row.get('Est_Trade_Vol', 0)).replace(',', '')) 
+                                
+                                # Ưu tiên Yahoo -> Nếu lỗi lấy Phao cứu sinh
+                                cp = batch_prices.get(tkr, 0)
+                                if (cp == 0 or pd.isna(cp)) and tkr in manual_dict:
+                                    cp = manual_dict[tkr]
+                                
+                                final_prices.append(cp if cp > 0 else None)
+                                # Tính giá trị dòng tiền dự kiến (VNĐ)
+                                cash_flows.append(cp * est_trade if cp > 0 else 0)
+
+                            df_dm['Current_Price'] = final_prices
+                            df_dm['Est_Cash_Flow'] = cash_flows
+                            st.session_state.diamond_cached_df = df_dm
+                            st.session_state.diamond_cache_time = time.time()
+
+                df_final = st.session_state.diamond_cached_df
+                if df_final.empty:
+                    st.info("VNDIAMOND_DB")
+                else:
+                    # TỔNG HỢP NHANH
+                    total_buy = df_final[df_final['Est_Trade_Vol'] > 0]['Est_Cash_Flow'].sum()
+                    total_sell = abs(df_final[df_final['Est_Trade_Vol'] < 0]['Est_Cash_Flow'].sum())
+                    
+                    c1, c2, c3 = st.columns(3)
+                    with c1: st.metric("Tổng Lực Mua Dự Kiến", f"{total_buy/1e9:.1f} Tỷ")
+                    with c2: st.metric("Tổng Lực Xả Dự Kiến", f"{total_sell/1e9:.1f} Tỷ")
+                    with c3: 
+                        net_flow = total_buy - total_sell
+                        st.metric("Trạng Thái Ròng", f"{net_flow/1e9:.1f} Tỷ", delta=net_flow, delta_color="normal")
+
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    st.dataframe(
+                        df_final,
+                        column_config={
+                            "Ticker": st.column_config.TextColumn("MÃ CP"),
+                            "Industry": st.column_config.TextColumn("NGÀNH"),
+                            "New_Weight": st.column_config.TextColumn("TỶ TRỌNG MỚI"),
+                            "Est_Trade_Vol": st.column_config.NumberColumn("KHỐI LƯỢNG GD", format="%d"),
+                            "Current_Price": st.column_config.NumberColumn("GIÁ HT", format="%d ₫"),
+                            "Est_Cash_Flow": st.column_config.NumberColumn("GIÁ TRỊ DÒNG TIỀN (DỰ KIẾN)", format="%d ₫")
+                        },
+                        hide_index=True, use_container_width=True
+                    )
+                    st.caption("Dữ liệu dòng tiền được tính bằng: Giá hiện tại x Khối lượng ước tính giao dịch.")
+
+            render_vndiamond_flow()
         # ---------------------------------------------------------
       # ---------------------------------------------------------
         # THẾ GIỚI 2: DÒNG THỜI GIAN KHUYẾN NGHỊ (BẢN FULL HOÀN CHỈNH TỐI THƯỢNG)
