@@ -1507,7 +1507,7 @@ def render_news_section():
 # =========================================================
     # TAB 6: TRUNG TÂM PHÂN TÍCH & ĐỊNH GIÁ CỔ PHIẾU
     # =========================================================
-with tab6:
+    with tab6:
         st.markdown("<br><div style='font-weight: 900; font-size: 20px; margin-bottom: 24px; color: #FF6B00; text-transform: uppercase; border-left: 5px solid #FF6B00; padding-left: 12px;'>Trung Tâm Phân Tích & Định Giá Chuyên Sâu</div>", unsafe_allow_html=True)
         
         @st.fragment
