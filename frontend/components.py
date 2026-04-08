@@ -463,13 +463,7 @@ def render_hero_section():
 </style>""", unsafe_allow_html=True)
 
     # Sửa dòng này thành 5 Tab
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "TỔNG QUAN THỊ TRƯỜNG", 
-        "DỮ LIỆU GIAO DỊCH", 
-        "PHÂN TÍCH AI", 
-        "BÁO CÁO TỔ CHỨC",
-        "SO SÁNH DỊCH VỤ" # Tab mới đây!
-    ])
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["TỔNG QUAN THỊ TRƯỜNG", "DỮ LIỆU GIAO DỊCH", "PHÂN TÍCH AI", "BÁO CÁO TỔ CHỨC", "SO SÁNH DỊCH VỤ", "PHÂN TÍCH CỔ PHIẾU"])
 
   # --- TAB 1: TỔNG QUAN THỊ TRƯỜNG ---
     with tab1:
@@ -1510,7 +1504,115 @@ def render_news_section():
             if st.button("Sau ▶", disabled=(st.session_state.current_page >= total_pages), use_container_width=True, key="next_btn"):
                 st.session_state.current_page += 1
                 st.rerun(scope="fragment")
+# =========================================================
+    # TAB 6: TRUNG TÂM PHÂN TÍCH & ĐỊNH GIÁ CỔ PHIẾU
+    # =========================================================
+    with tab6:
+        st.markdown("<br><div style='font-weight: 900; font-size: 20px; margin-bottom: 24px; color: #FF6B00; text-transform: uppercase; border-left: 5px solid #FF6B00; padding-left: 12px;'>Trung Tâm Phân Tích & Định Giá Chuyên Sâu</div>", unsafe_allow_html=True)
+        
+        @st.fragment
+        def render_stock_analysis_standalone():
+            import yfinance as yf
+            import pandas as pd
+            import plotly.graph_objects as go
+            
+            # Thanh tìm kiếm
+            col_search, col_empty = st.columns([1, 3])
+            with col_search:
+                search_ticker = st.text_input("🔍 Nhập mã CP ", value="FPT", max_chars=10).upper().strip()
 
+            if search_ticker:
+                with st.spinner(f"Đang tra cứu dữ"):
+                    yf_symbol = search_ticker + ".VN"
+                    stock = yf.Ticker(yf_symbol)
+                    
+                    try:
+                        info = stock.info
+                        hist = stock.history(period="1y")
+                        
+                        if not hist.empty:
+                            # Bố cục 2 cột cho màn hình chính
+                            col_left, col_right = st.columns([1, 2.5])
+                            
+                            with col_left:
+                                # 1. KHỐI HIỂN THỊ GIÁ REAL-TIME
+                                current_price = info.get('currentPrice', hist['Close'].iloc[-1])
+                                prev_close = info.get('previousClose', hist['Close'].iloc[-2])
+                                change = current_price - prev_close
+                                change_pct = (change / prev_close) * 100 if prev_close else 0
+                                
+                                color = "#0ECB81" if change >= 0 else "#F6465D"
+                                sign = "+" if change >= 0 else ""
+                                
+                                st.markdown(f"""
+                                <div style='background: #FFFFFF; border: 1px solid #EAECEF; border-radius: 8px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); margin-bottom: 24px;'>
+                                    <h2 style='margin:0; color:#1E2329; font-size: 38px; font-weight: 900;'>{search_ticker}</h2>
+                                    <div style='color: #848E9C; font-size: 13px; margin-bottom: 12px; text-transform: uppercase;'>{info.get('industry', 'Bảng điện tử HOSE/HNX')}</div>
+                                    <h1 style='margin:0; color:{color}; font-size: 34px;'>{current_price:,.0f} ₫</h1>
+                                    <div style='color:{color}; font-size: 15px; font-weight: 800;'>{sign}{change:,.0f} ({sign}{change_pct:.2f}%)</div>
+                                </div>
+                                """, unsafe_allow_html=True)
+                                
+                                # 2. BẢNG CHỈ SỐ TÀI CHÍNH
+                                st.markdown("<div style='font-weight: 800; font-size: 16px; margin-bottom: 12px; color: #1E2329;'>📊 Chỉ số tài chính</div>", unsafe_allow_html=True)
+                                
+                                metrics = {
+                                    "Vốn hóa": f"{info.get('marketCap', 0)/1e9:,.0f} Tỷ",
+                                    "Khối lượng TB": f"{info.get('averageVolume', 0):,.0f}",
+                                    "EPS (TTM)": f"{info.get('trailingEps', 0):,.0f} ₫",
+                                    "P/E": f"{info.get('trailingPE', 0):.2f}",
+                                    "P/B": f"{info.get('priceToBook', 0):.2f}",
+                                    "Beta": f"{info.get('beta', 0):.2f}"
+                                }
+                                
+                                for k, v in metrics.items():
+                                    st.markdown(f"<div style='display: flex; justify-content: space-between; border-bottom: 1px dashed #EAECEF; padding: 10px 0; font-size: 14px;'><span style='color:#707A8A;'>{k}</span><span style='font-weight:800; color:#1E2329;'>{v}</span></div>", unsafe_allow_html=True)
+
+                            with col_right:
+                                # 3. BIỂU ĐỒ NẾN KỸ THUẬT
+                                st.markdown("<div style='font-weight: 800; font-size: 16px; margin-bottom: 12px; color: #1E2329;'>📈 Phân tích Kỹ thuật (1 Năm)</div>", unsafe_allow_html=True)
+                                fig_tech = go.Figure(data=[go.Candlestick(
+                                    x=hist.index, open=hist['Open'], high=hist['High'], low=hist['Low'], close=hist['Close'],
+                                    increasing_line_color='#0ECB81', decreasing_line_color='#F6465D'
+                                )])
+                                fig_tech.update_layout(
+                                    margin=dict(l=0, r=0, t=0, b=0), height=350,
+                                    xaxis_rangeslider_visible=False, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                                    yaxis=dict(gridcolor='#F0F0F0')
+                                )
+                                st.plotly_chart(fig_tech, use_container_width=True)
+
+                                # 4. BIỂU ĐỒ ĐỊNH GIÁ P/E
+                                st.markdown("<div style='font-weight: 800; font-size: 16px; margin-top: 24px; margin-bottom: 12px; color: #1E2329;'>⚖️ Định giá cổ phiếu theo P/E</div>", unsafe_allow_html=True)
+                                eps = info.get('trailingEps', 0)
+                                if eps and eps > 0:
+                                    hist['PE_History'] = hist['Close'] / eps
+                                    mean_pe = hist['PE_History'].mean()
+
+                                    fig_pe = go.Figure()
+                                    fig_pe.add_trace(go.Scatter(
+                                        x=hist.index, y=hist['PE_History'], mode='lines', name='Mức P/E',
+                                        line=dict(color='#FF6B00', width=2), fill='tozeroy', fillcolor='rgba(255, 107, 0, 0.1)'
+                                    ))
+                                    fig_pe.add_trace(go.Scatter(
+                                        x=hist.index, y=[mean_pe]*len(hist), mode='lines', name='P/E Trung bình',
+                                        line=dict(color='#848E9C', width=1.5, dash='dash')
+                                    ))
+                                    fig_pe.update_layout(
+                                        margin=dict(l=0, r=0, t=0, b=0), height=300,
+                                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                                        yaxis=dict(gridcolor='#F0F0F0'), showlegend=False
+                                    )
+                                    st.plotly_chart(fig_pe, use_container_width=True)
+                                else:
+                                    st.info("💡 Không đủ dữ liệu Lợi nhuận (EPS) để vẽ biểu đồ định giá P/E.")
+                        else:
+                            st.warning(f"Không lấy được dữ liệu của mã {search_ticker}.")
+                    except Exception as e:
+                        st.error(f"🚨 Có lỗi xảy ra khi truy xuất mã ")
+        
+        # Nhớ gọi cái hàm vừa tạo ra để nó vẽ lên web
+        render_stock_analysis_standalone()
 # ==========================================
 # ==========================================
 # KHỐI 4: FOOTER BẢN QUYỀN
