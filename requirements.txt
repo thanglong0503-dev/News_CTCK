@@ -7,3 +7,6 @@ cloudscraper
 plotly
 gspread
 google-auth
+vnstock
+oauth2client
+tqdm
