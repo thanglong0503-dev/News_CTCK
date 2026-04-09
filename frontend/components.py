@@ -559,8 +559,7 @@ def render_hero_section():
             import gspread
             from oauth2client.service_account import ServiceAccountCredentials
             import json
-            
-            # --- 1. HÀM RÚT DATA TỪ KÉT SẮT CÓ LƯU ĐỆM ---
+
             @st.cache_data(ttl=3600, show_spinner="Đang kết nối Database RS...") 
             def fetch_real_rs_data():
                 try:
@@ -569,14 +568,10 @@ def render_hero_section():
                     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
                     creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
                     client = gspread.authorize(creds)
-                    
-                    # Rút data từ Tab RS_DATA (Sếp nhớ check đúng tên Tab nhé)
                     sheet = client.open("LINANCE_DB").worksheet("RS_DATA")
                     data = sheet.get_all_records()
                     df = pd.DataFrame(data)
-                    
                     if not df.empty:
-                        # Chỉ lấy top 20 mã khỏe nhất (RS_1M từ 80 trở lên)
                         df = df[df['RS_1M'] >= 80]
                         df = df.sort_values(by="RS_1M", ascending=False).head(20).reset_index(drop=True)
                     return df
@@ -585,13 +580,12 @@ def render_hero_section():
                     return pd.DataFrame()
 
             df_rs = fetch_real_rs_data()
-            
             if df_rs.empty:
                 st.warning("⚠️ Dữ liệu RS đang được con Bot chạy ngầm cập nhật, Sếp vui lòng quay lại sau ít phút!")
                 return
 
-            # --- 2. GIAO DIỆN BẢNG (ÉP PHẲNG CHỐNG LỖI) ---
-            css_rs_table = "<style>.rs-table-container { width: 100%; background: #fff; border: 1px solid #EAECEF; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }.rs-table { width: 100%; border-collapse: collapse; text-align: center; font-family: 'Segoe UI', sans-serif; }.rs-table th { background-color: #F8FAFC; color: #474D57; font-size: 12px; font-weight: 800; text-transform: uppercase; padding: 12px 16px; border-bottom: 2px solid #EAECEF; }.rs-table td { padding: 12px 16px; border-bottom: 1px solid #F0F2F5; font-size: 14px; font-weight: 700; color: #1E2329; }.rs-table tr:hover { background-color: #F8FAFC; }.rs-ticker { font-size: 16px; font-weight: 900; color: #1E2329; }.rs-sector { font-size: 11px; color: #848E9C; font-weight: 600; }.rs-cell { color: #fff; font-weight: 800; font-size: 14px; border-radius: 4px; padding: 4px 10px; display: inline-block; min-width: 35px; }</style>"
+            # CSS và Giao diện (ÉP PHẲNG ĐỂ CHỐNG LỖI HIỂN THỊ)
+            css_rs_table = "<style>.rs-table-container { width: 100%; background: #fff; border: 1px solid #EAECEF; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }.rs-table { width: 100%; border-collapse: collapse; text-align: center; font-family: 'Segoe UI', sans-serif; }.rs-table th { background-color: #F8FAFC; color: #474D57; font-size: 11px; font-weight: 800; text-transform: uppercase; padding: 12px 16px; border-bottom: 2px solid #EAECEF; }.rs-table td { padding: 10px 16px; border-bottom: 1px solid #F0F2F5; font-size: 14px; font-weight: 700; color: #1E2329; }.rs-ticker { font-size: 15px; font-weight: 900; color: #1E2329; }.rs-sector { font-size: 10px; color: #848E9C; font-weight: 600; }.rs-cell { color: #fff; font-weight: 800; font-size: 13px; border-radius: 4px; padding: 4px 8px; display: inline-block; min-width: 32px; }</style>"
             
             def get_rs_style(score):
                 if score >= 90: return "background-color: #9C27B0; color: #FFFFFF;"
@@ -605,49 +599,7 @@ def render_hero_section():
                 style_3m = get_rs_style(row['RS_3M'])
                 rows_html += f"<tr><td style='text-align: left;'><div class='rs-ticker'>{row['Mã CK']}</div><div class='rs-sector'>{row['Ngành']}</div></td><td><div class='rs-cell' style='{style_1m}'>{row['RS_1M']}</div></td><td><div class='rs-cell' style='{style_3m}'>{row['RS_3M']}</div></td></tr>"
                 
-            table_html = f"<div class='rs-table-container'><table class='rs-table'><thead><tr><th style='text-align: left;'>CỔ PHIẾU</th><th>RS 1 THÁNG</th><th>RS 3 THÁNG</th></tr></thead><tbody>{rows_html}</tbody></table></div>"
-            
-            st.markdown(css_rs_table + table_html, unsafe_allow_html=True)
-            
-        render_rs_ranking_table()
-
-            # (Giữ nguyên phần CSS bọc bảng và vòng lặp render ở bên dưới của Sếp...)
-            
-            # Sắp xếp theo RS 1 Tháng giảm dần để lấy Top cổ phiếu khỏe nhất
-            df_rs = df_rs.sort_values(by="RS_1M", ascending=False).reset_index(drop=True)
-
-            # CSS bọc bảng cho đẹp
-            css_rs_table = """
-            <style>
-            .rs-table-container { width: 100%; background: #fff; border: 1px solid #EAECEF; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }
-            .rs-table { width: 100%; border-collapse: collapse; text-align: center; font-family: 'Segoe UI', sans-serif; }
-            .rs-table th { background-color: #F8FAFC; color: #474D57; font-size: 12px; font-weight: 800; text-transform: uppercase; padding: 12px 16px; border-bottom: 2px solid #EAECEF; }
-            .rs-table td { padding: 12px 16px; border-bottom: 1px solid #F0F2F5; font-size: 14px; font-weight: 700; color: #1E2329; }
-            .rs-table tr:last-child td { border-bottom: none; }
-            .rs-table tr:hover { background-color: #F8FAFC; }
-            .rs-ticker { font-size: 16px; font-weight: 900; color: #1E2329; font-family: 'SF Mono', Consolas, monospace; }
-            .rs-sector { font-size: 12px; color: #848E9C; font-weight: 600; }
-            .rs-cell { color: #fff; font-weight: 800; font-size: 15px; border-radius: 4px; padding: 6px 12px; display: inline-block; min-width: 32px; text-align: center;}
-            </style>
-            """
-            
-            # Hàm tô màu điểm RS chuẩn CANSLIM
-            def get_rs_style(score):
-                if score >= 90: return "background-color: #9C27B0; color: #FFFFFF;" # Tím
-                elif score >= 70: return "background-color: #0ECB81; color: #FFFFFF;" # Xanh lá
-                elif score >= 40: return "background-color: #FFB300; color: #1E2329;" # Vàng
-                else: return "background-color: #F6465D; color: #FFFFFF;" # Đỏ
-            
-            # Render từng dòng của bảng (ÉP PHẲNG ĐỂ CHỐNG LỖI STREAMLIT)
-            rows_html = ""
-            for _, row in df_rs.iterrows():
-                style_1m = get_rs_style(row['RS_1M'])
-                style_3m = get_rs_style(row['RS_3M'])
-                
-                rows_html += f"<tr><td style='text-align: left;'><div class='rs-ticker'>{row['Mã CK']}</div><div class='rs-sector'>{row['Ngành']}</div></td><td><div class='rs-cell' style='{style_1m}'>{row['RS_1M']}</div></td><td><div class='rs-cell' style='{style_3m}'>{row['RS_3M']}</div></td></tr>"
-                
-            table_html = f"<div class='rs-table-container'><table class='rs-table'><thead><tr><th style='text-align: left;'>CỔ PHIẾU</th><th>RS 1 THÁNG</th><th>RS 3 THÁNG</th></tr></thead><tbody>{rows_html}</tbody></table></div>"
-            
+            table_html = f"<div class='rs-table-container'><table class='rs-table'><thead><tr><th style='text-align: left;'>CỔ PHIẾU</th><th>RS 1T</th><th>RS 3T</th></tr></thead><tbody>{rows_html}</tbody></table></div>"
             st.markdown(css_rs_table + table_html, unsafe_allow_html=True)
             
         render_rs_ranking_table()
