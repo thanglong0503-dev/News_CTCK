@@ -557,18 +557,47 @@ def render_hero_section():
         def render_rs_ranking_table():
             import pandas as pd
             
-            # --- HÀM MÔ PHỎNG KÉO DATA TỪ GOOGLE SHEET ---
-            # (Sau này Sếp chỉ cần thay cục mock_data này bằng hàm kéo GG Sheet của Sếp là xong)
-            mock_data = [
-                {"Mã CK": "FPT", "Ngành": "Công nghệ", "RS_1M": 95, "RS_3M": 92},
-                {"Mã CK": "VGI", "Ngành": "Viễn thông", "RS_1M": 98, "RS_3M": 85},
-                {"Mã CK": "VIX", "Ngành": "Chứng khoán", "RS_1M": 82, "RS_3M": 75},
-                {"Mã CK": "MBB", "Ngành": "Ngân hàng", "RS_1M": 76, "RS_3M": 80},
-                {"Mã CK": "HPG", "Ngành": "Thép", "RS_1M": 65, "RS_3M": 50},
-                {"Mã CK": "VHM", "Ngành": "Bất động sản", "RS_1M": 35, "RS_3M": 20},
-                {"Mã CK": "VIC", "Ngành": "Bất động sản", "RS_1M": 25, "RS_3M": 15},
-            ]
-            df_rs = pd.DataFrame(mock_data)
+            @st.fragment
+        def render_rs_ranking_table():
+            import pandas as pd
+            import gspread
+            from oauth2client.service_account import ServiceAccountCredentials
+            import json
+            
+            # --- HÀM RÚT DATA TỪ KÉT SẮT CÓ LƯU ĐỆM ---
+            @st.cache_data(ttl=3600, show_spinner="Đang tải Bảng vàng RS...") 
+            def fetch_real_rs_data():
+                try:
+                    # Lấy chìa khóa từ két Streamlit
+                    creds_str = st.secrets["GOOGLE_CREDENTIALS_JSON"]
+                    creds_dict = json.loads(creds_str)
+                    
+                    # Mở cửa Google Sheet
+                    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+                    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+                    client = gspread.authorize(creds)
+                    
+                    # Rút data từ Tab RS_DATA
+                    sheet = client.open("LINANCE_DB").worksheet("RS_DATA")
+                    data = sheet.get_all_records()
+                    
+                    df = pd.DataFrame(data)
+                    # Lọc lấy top 20 cổ phiếu mạnh nhất (RS 1M > 80)
+                    if not df.empty:
+                        df = df[df['RS_1M'] >= 80]
+                        df = df.sort_values(by="RS_1M", ascending=False).head(20).reset_index(drop=True)
+                    return df
+                except Exception as e:
+                    st.error(f"Lỗi đường ống RS: {e}")
+                    return pd.DataFrame()
+
+            df_rs = fetch_real_rs_data()
+            
+            if df_rs.empty:
+                st.warning("⚠️ Dữ liệu RS đang được cập nhật, vui lòng quay lại sau.")
+                return
+
+            # (Giữ nguyên phần CSS bọc bảng và vòng lặp render ở bên dưới của Sếp...)
             
             # Sắp xếp theo RS 1 Tháng giảm dần để lấy Top cổ phiếu khỏe nhất
             df_rs = df_rs.sort_values(by="RS_1M", ascending=False).reset_index(drop=True)
