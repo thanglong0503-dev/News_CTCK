@@ -548,7 +548,7 @@ def render_hero_section():
             st.markdown(f"{css_ai_alerts}<div class='a-card-grid'>{cards_html}</div>", unsafe_allow_html=True)
 
         # =========================================================
-        # BẢNG XẾP HẠNG SỨC MẠNH GIÁ (RS)
+        # BẢNG XẾP HẠNG SỨC MẠNH GIÁ (RS) - PHIÊN BẢN REAL-DATA
         # =========================================================
         st.markdown("<br><div style='font-size: 14px; font-weight: 700; color: #E65100; margin-bottom: 16px; text-transform: uppercase; border-top: 1px solid #EAECEF; padding-top: 32px;'>🔥 Bảng Xếp Hạng Sức Mạnh Giá (RS)</div>", unsafe_allow_html=True)
         st.markdown("<div style='color: #707A8A; font-size: 13px; margin-bottom: 16px;'>Dữ liệu được hệ thống tự động chấm điểm và xếp hạng từ Database (Google Sheets). <span style='color: #9C27B0; font-weight: 800;'>Màu Tím (RS > 90)</span> là các siêu cổ phiếu dẫn dắt thị trường.</div>", unsafe_allow_html=True)
@@ -556,46 +556,60 @@ def render_hero_section():
         @st.fragment
         def render_rs_ranking_table():
             import pandas as pd
-            
-            @st.fragment
-        def render_rs_ranking_table():
-            import pandas as pd
             import gspread
             from oauth2client.service_account import ServiceAccountCredentials
             import json
             
-            # --- HÀM RÚT DATA TỪ KÉT SẮT CÓ LƯU ĐỆM ---
-            @st.cache_data(ttl=3600, show_spinner="Đang tải Bảng vàng RS...") 
+            # --- 1. HÀM RÚT DATA TỪ KÉT SẮT CÓ LƯU ĐỆM ---
+            @st.cache_data(ttl=3600, show_spinner="Đang kết nối Database RS...") 
             def fetch_real_rs_data():
                 try:
-                    # Lấy chìa khóa từ két Streamlit
                     creds_str = st.secrets["GOOGLE_CREDENTIALS_JSON"]
                     creds_dict = json.loads(creds_str)
-                    
-                    # Mở cửa Google Sheet
                     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
                     creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
                     client = gspread.authorize(creds)
                     
-                    # Rút data từ Tab RS_DATA
+                    # Rút data từ Tab RS_DATA (Sếp nhớ check đúng tên Tab nhé)
                     sheet = client.open("LINANCE_DB").worksheet("RS_DATA")
                     data = sheet.get_all_records()
-                    
                     df = pd.DataFrame(data)
-                    # Lọc lấy top 20 cổ phiếu mạnh nhất (RS 1M > 80)
+                    
                     if not df.empty:
+                        # Chỉ lấy top 20 mã khỏe nhất (RS_1M từ 80 trở lên)
                         df = df[df['RS_1M'] >= 80]
                         df = df.sort_values(by="RS_1M", ascending=False).head(20).reset_index(drop=True)
                     return df
                 except Exception as e:
-                    st.error(f"Lỗi đường ống RS: {e}")
+                    st.error(f"Lỗi kết nối Google Sheet: {e}")
                     return pd.DataFrame()
 
             df_rs = fetch_real_rs_data()
             
             if df_rs.empty:
-                st.warning("⚠️ Dữ liệu RS đang được cập nhật, vui lòng quay lại sau.")
+                st.warning("⚠️ Dữ liệu RS đang được con Bot chạy ngầm cập nhật, Sếp vui lòng quay lại sau ít phút!")
                 return
+
+            # --- 2. GIAO DIỆN BẢNG (ÉP PHẲNG CHỐNG LỖI) ---
+            css_rs_table = "<style>.rs-table-container { width: 100%; background: #fff; border: 1px solid #EAECEF; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }.rs-table { width: 100%; border-collapse: collapse; text-align: center; font-family: 'Segoe UI', sans-serif; }.rs-table th { background-color: #F8FAFC; color: #474D57; font-size: 12px; font-weight: 800; text-transform: uppercase; padding: 12px 16px; border-bottom: 2px solid #EAECEF; }.rs-table td { padding: 12px 16px; border-bottom: 1px solid #F0F2F5; font-size: 14px; font-weight: 700; color: #1E2329; }.rs-table tr:hover { background-color: #F8FAFC; }.rs-ticker { font-size: 16px; font-weight: 900; color: #1E2329; }.rs-sector { font-size: 11px; color: #848E9C; font-weight: 600; }.rs-cell { color: #fff; font-weight: 800; font-size: 14px; border-radius: 4px; padding: 4px 10px; display: inline-block; min-width: 35px; }</style>"
+            
+            def get_rs_style(score):
+                if score >= 90: return "background-color: #9C27B0; color: #FFFFFF;"
+                elif score >= 70: return "background-color: #0ECB81; color: #FFFFFF;"
+                elif score >= 40: return "background-color: #FFB300; color: #1E2329;"
+                else: return "background-color: #F6465D; color: #FFFFFF;"
+
+            rows_html = ""
+            for _, row in df_rs.iterrows():
+                style_1m = get_rs_style(row['RS_1M'])
+                style_3m = get_rs_style(row['RS_3M'])
+                rows_html += f"<tr><td style='text-align: left;'><div class='rs-ticker'>{row['Mã CK']}</div><div class='rs-sector'>{row['Ngành']}</div></td><td><div class='rs-cell' style='{style_1m}'>{row['RS_1M']}</div></td><td><div class='rs-cell' style='{style_3m}'>{row['RS_3M']}</div></td></tr>"
+                
+            table_html = f"<div class='rs-table-container'><table class='rs-table'><thead><tr><th style='text-align: left;'>CỔ PHIẾU</th><th>RS 1 THÁNG</th><th>RS 3 THÁNG</th></tr></thead><tbody>{rows_html}</tbody></table></div>"
+            
+            st.markdown(css_rs_table + table_html, unsafe_allow_html=True)
+            
+        render_rs_ranking_table()
 
             # (Giữ nguyên phần CSS bọc bảng và vòng lặp render ở bên dưới của Sếp...)
             
