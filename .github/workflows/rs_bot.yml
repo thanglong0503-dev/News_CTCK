@@ -1,0 +1,33 @@
+name: Run RS Pipeline Bot
+
+on:
+  schedule:
+    # 09:00 UTC tương đương với 16:00 chiều giờ Việt Nam (Lúc thị trường vừa đóng cửa)
+    # Chạy từ Thứ 2 đến Thứ 6 (1-5)
+    - cron: '0 9 * * 1-5'
+  
+  workflow_dispatch: # Cái này cho phép Sếp bấm nút "Run" bằng tay trên GitHub lúc nào cũng được
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Kéo code từ kho về
+      uses: actions/checkout@v3
+      
+    - name: Cài đặt Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10' # Hoặc phiên bản Sếp đang xài
+        
+    - name: Cài đặt thư viện
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Khởi động Bot Cào Data
+      env:
+        # Chỗ này để nhét chìa khóa Google bảo mật
+        GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+      run: python rs_worker.py
