@@ -595,39 +595,15 @@ def render_hero_section():
                 elif score >= 40: return "background-color: #FFB300; color: #1E2329;" # Vàng
                 else: return "background-color: #F6465D; color: #FFFFFF;" # Đỏ
             
-            # Render từng dòng của bảng
+            # Render từng dòng của bảng (ÉP PHẲNG ĐỂ CHỐNG LỖI STREAMLIT)
             rows_html = ""
             for _, row in df_rs.iterrows():
                 style_1m = get_rs_style(row['RS_1M'])
                 style_3m = get_rs_style(row['RS_3M'])
                 
-                rows_html += f"""
-                <tr>
-                    <td style='text-align: left;'>
-                        <div class='rs-ticker'>{row['Mã CK']}</div>
-                        <div class='rs-sector'>{row['Ngành']}</div>
-                    </td>
-                    <td><div class='rs-cell' style='{style_1m}'>{row['RS_1M']}</div></td>
-                    <td><div class='rs-cell' style='{style_3m}'>{row['RS_3M']}</div></td>
-                </tr>
-                """
+                rows_html += f"<tr><td style='text-align: left;'><div class='rs-ticker'>{row['Mã CK']}</div><div class='rs-sector'>{row['Ngành']}</div></td><td><div class='rs-cell' style='{style_1m}'>{row['RS_1M']}</div></td><td><div class='rs-cell' style='{style_3m}'>{row['RS_3M']}</div></td></tr>"
                 
-            table_html = f"""
-            <div class='rs-table-container'>
-                <table class='rs-table'>
-                    <thead>
-                        <tr>
-                            <th style='text-align: left;'>CỔ PHIẾU</th>
-                            <th>RS 1 THÁNG</th>
-                            <th>RS 3 THÁNG</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {rows_html}
-                    </tbody>
-                </table>
-            </div>
-            """
+            table_html = f"<div class='rs-table-container'><table class='rs-table'><thead><tr><th style='text-align: left;'>CỔ PHIẾU</th><th>RS 1 THÁNG</th><th>RS 3 THÁNG</th></tr></thead><tbody>{rows_html}</tbody></table></div>"
             
             st.markdown(css_rs_table + table_html, unsafe_allow_html=True)
             
