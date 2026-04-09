@@ -10,3 +10,4 @@ google-auth
 vnstock==0.2.9.2.3
 oauth2client
 tqdm
+ipython
