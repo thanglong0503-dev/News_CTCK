@@ -521,7 +521,7 @@ def render_hero_section():
         technical_alerts = generate_technical_alerts()
         f319_data = get_f319_sentiment()
 
-        # Sentiment Index (Giữ nguyên của Sếp)
+        # Sentiment Index
         st.markdown("<div style='font-size: 14px; font-weight: 700; color: #E65100; margin-bottom: 16px; text-transform: uppercase;'>Chỉ số Tâm lý Thị trường (Sentiment Index)</div>", unsafe_allow_html=True)
         col_gauge, col_top_news = st.columns([1, 2.2])
         with col_gauge:
@@ -540,7 +540,7 @@ def render_hero_section():
                 if top_bearish_news: rows_html += f"""<div><a href="{top_bearish_news[0]['link']}" target="_blank" style="text-decoration: none;"><span class="ai-tag b-down-t">TÍN HIỆU TIÊU CỰC</span><span class="ai-title">{top_bearish_news[0]['title']}</span></a></div>"""
                 st.markdown(f"{css_ai_news}<div class='ai-news-card'>{rows_html}</div>", unsafe_allow_html=True)
 
-        # Technical Alerts (Giữ nguyên của Sếp)
+        # Technical Alerts
         st.markdown("<br><div style='font-size: 14px; font-weight: 700; color: #E65100; margin-bottom: 16px; text-transform: uppercase;'>Báo động Kỹ thuật (Technical Alerts)</div>", unsafe_allow_html=True)
         if technical_alerts:
             css_ai_alerts = """<style>.a-card-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px;} .a-card { background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 16px; text-align: center; transition: all 0.2s ease;} .a-card:hover { border-color: #E65100; box-shadow: 0 4px 12px rgba(230, 81, 0, 0.08);} .a-ticker { font-size: 16px; font-weight: 700; color: #1E2329; margin-bottom: 12px;} .a-type { font-size: 11px; font-weight: 700; padding: 6px 8px; border-radius: 4px; color: #fff; text-transform: uppercase; display: inline-block; margin-bottom: 12px; width: 100%; box-sizing: border-box;} .a-details { font-size: 12px; color: #707A8A; line-height: 1.5; font-weight: 500;}</style>"""
@@ -549,7 +549,7 @@ def render_hero_section():
 
 
         # =========================================================
-        # KHU VỰC ĐỊNH LƯỢNG KÉP (GIỮ BẢNG TRÁI + THÊM TOP-DOWN PHẢI)
+        # KHU VỰC ĐỊNH LƯỢNG KÉP (BẢNG TRÁI + TOP-DOWN PHẢI)
         # =========================================================
         st.markdown("<br><h3 style='color: #1E2329; margin-top: 32px; margin-bottom: 24px; border-top: 1px solid #EAECEF; padding-top: 32px;'>Định Lượng Dòng Tiền & Bộ Lọc Sóng Ngành</h3>", unsafe_allow_html=True)
 
@@ -572,14 +572,29 @@ def render_hero_section():
                 st.error(f"Lỗi kết nối Tab {worksheet_name}: {e}")
                 return pd.DataFrame()
 
-        with st.spinner("Đang tải dữ liệu..."):
-            df_rs = fetch_db_from_sheet("RS_DATA")
-            df_ind = fetch_db_from_sheet("INDUSTRY_DATA")
+        with st.spinner("Đang xử lý dữ liệu..."):
+            df_rs_raw = fetch_db_from_sheet("RS_DATA")
+            df_ind_raw = fetch_db_from_sheet("INDUSTRY_DATA")
+            
+            # --- FIX LỖI DẤU PHẨY VIỆT NAM ---
+            if not df_ind_raw.empty:
+                df_ind = df_ind_raw.copy()
+                df_ind['RS_TB'] = df_ind['RS_TB'].astype(str).str.replace(',', '.').astype(float)
+            else:
+                df_ind = pd.DataFrame()
 
-        # CHIA ĐÔI MÀN HÌNH (Tỷ lệ 1:1.1 cho cột phải rộng rãi xíu)
+            if not df_rs_raw.empty:
+                df_rs = df_rs_raw.copy()
+                df_rs['RS_1M'] = df_rs['RS_1M'].astype(str).str.replace(',', '.').astype(float)
+                df_rs['RS_3M'] = df_rs['RS_3M'].astype(str).str.replace(',', '.').astype(float)
+                df_rs['Thanh_Khoản_Tỷ'] = df_rs['Thanh_Khoản_Tỷ'].astype(str).str.replace(',', '.').astype(float)
+                df_rs['Điểm_KT'] = df_rs['Điểm_KT'].astype(str).str.replace(',', '.').astype(float)
+            else:
+                df_rs = pd.DataFrame()
+
         col_left, col_right = st.columns([1, 1.1], gap="large")
 
-        # --- CỘT TRÁI: BẢNG XẾP HẠNG (GIỮ NGUYÊN 100% CỦA SẾP) ---
+        # --- CỘT TRÁI: BẢNG XẾP HẠNG (GIỮ NGUYÊN 100%) ---
         with col_left:
             st.markdown("<div style='font-size: 14px; font-weight: 700; color: #E65100; margin-bottom: 16px; text-transform: uppercase;'>🔥 Bảng Xếp Hạng Sức Mạnh Giá (RS)</div>", unsafe_allow_html=True)
             st.markdown("<div style='color: #707A8A; font-size: 13px; margin-bottom: 16px;'>Dữ liệu đã lọc Rác. <span style='color: #9C27B0; font-weight: 800;'>Màu Tím (RS > 90)</span> là các mã dẫn dắt.</div>", unsafe_allow_html=True)
@@ -602,59 +617,47 @@ def render_hero_section():
                 for _, row in df_rs_sorted.iterrows():
                     style_1m = get_rs_style(row['RS_1M'])
                     style_3m = get_rs_style(row['RS_3M'])
-                    rows_html += f"<tr><td style='text-align: left;'><div class='rs-ticker'>{row['Mã CK']}</div><div class='rs-sector'>{row['Ngành']}</div></td><td><div class='rs-cell' style='{style_1m}'>{row['RS_1M']}</div></td><td><div class='rs-cell' style='{style_3m}'>{row['RS_3M']}</div></td></tr>"
+                    # KHÔNG XUỐNG DÒNG ĐỂ TRÁNH LỖI HTML
+                    rows_html += f"<tr><td style='text-align: left;'><div class='rs-ticker'>{row['Mã CK']}</div><div class='rs-sector'>{row['Ngành']}</div></td><td><div class='rs-cell' style='{style_1m}'>{int(row['RS_1M'])}</div></td><td><div class='rs-cell' style='{style_3m}'>{int(row['RS_3M'])}</div></td></tr>"
                     
                 table_html = f"<div class='rs-table-container'><table class='rs-table'><thead><tr><th style='text-align: left;'>CỔ PHIẾU</th><th>RS 1T</th><th>RS 3T</th></tr></thead><tbody>{rows_html}</tbody></table></div>"
                 st.markdown(css_rs_table + table_html, unsafe_allow_html=True)
 
 
-        # --- CỘT PHẢI: BỘ LỌC TOP-DOWN (SCREENER TÀI CHÍNH) ---
+        # --- CỘT PHẢI: BỘ LỌC TOP-DOWN ---
         with col_right:
             st.markdown("<div style='font-size: 14px; font-weight: 700; color: #303F9F; text-transform: uppercase; margin-bottom: 16px;'>🎯 Screener Tài Chính: Lọc Sóng Ngành</div>", unsafe_allow_html=True)
-            st.markdown("<div style='color: #707A8A; font-size: 13px; margin-bottom: 16px;'>Chọn Ngành đang dẫn sóng để tìm ra những Cổ phiếu mạnh nhất trong hệ sinh thái đó.</div>", unsafe_allow_html=True)
+            st.markdown("<div style='color: #707A8A; font-size: 13px; margin-bottom: 16px;'>Chọn Ngành đang dẫn sóng để tìm ra những Cổ phiếu mạnh nhất.</div>", unsafe_allow_html=True)
 
             if df_ind.empty or df_rs.empty:
                 st.warning("⚠️ Đang tải dữ liệu bộ lọc...")
             else:
-                # Lấy danh sách ngành đã sắp xếp theo Sức mạnh RS
+                # Sắp xếp lại chuẩn xác sau khi đã fix dấu phẩy
                 df_ind_sorted = df_ind.sort_values(by="RS_TB", ascending=False).reset_index(drop=True)
                 industry_options = [f"{row['Ngành']} (RS: {row['RS_TB']:.1f})" for _, row in df_ind_sorted.iterrows()]
 
-                # BƯỚC 1: NÚT CHỌN NGÀNH (Selectbox của Streamlit)
                 st.markdown("<span style='font-weight:700; font-size:14px; color:#1E2329;'>BƯỚC 1: CHỌN NGÀNH ĐỂ SOI DÒNG TIỀN</span>", unsafe_allow_html=True)
                 selected_option = st.selectbox("Danh sách Ngành (Sắp xếp từ mạnh đến yếu):", industry_options, label_visibility="collapsed")
                 
-                # Bóc tách tên ngành gốc từ option đã chọn (cắt bỏ phần "(RS: xxx)")
                 selected_industry_name = selected_option.split(" (RS:")[0]
 
                 st.markdown("<br>", unsafe_allow_html=True)
-
-                # BƯỚC 2: BẢNG LỌC CỔ PHIẾU THEO NGÀNH CHỌN
                 st.markdown(f"<span style='font-weight:700; font-size:14px; color:#1E2329;'>BƯỚC 2: TOP CỔ PHIẾU NGÀNH <span style='color:#E65100;'>{selected_industry_name.upper()}</span></span>", unsafe_allow_html=True)
                 
-                # Lọc data RS chỉ lấy mã thuộc ngành được chọn, có thanh khoản
                 df_filtered = df_rs[(df_rs['Ngành'] == selected_industry_name) & (df_rs['Thanh_Khoản_Tỷ'] > 0)].copy()
                 df_filtered = df_filtered.sort_values(by="RS_1M", ascending=False).head(15).reset_index(drop=True)
 
                 if df_filtered.empty:
                     st.info("Chưa có dữ liệu cổ phiếu thanh khoản cao cho ngành này.")
                 else:
-                    # Tái sử dụng CSS bảng để nhìn đồng bộ với bên trái, nhưng thêm cột Điểm KT
                     rows_html_right = ""
                     for _, row in df_filtered.iterrows():
                         style_1m = get_rs_style(row['RS_1M'])
-                        
-                        # Vẽ sao (Ngôi sao) cho Điểm Kỹ Thuật (Thang 5)
                         score = int(row['Điểm_KT'])
                         stars = "⭐" * score + "☆" * (5 - score)
 
-                        rows_html_right += f"""
-                        <tr>
-                            <td style='text-align: left;'><div class='rs-ticker'>{row['Mã CK']}</div><div class='rs-sector'>Thanh khoản: {row['Thanh_Khoản_Tỷ']:.1f} Tỷ</div></td>
-                            <td><div class='rs-cell' style='{style_1m}'>{row['RS_1M']}</div></td>
-                            <td style='color: #E65100; font-size: 12px; font-weight: 700;'>{stars}</td>
-                        </tr>
-                        """
+                        # FIX LỖI HTML: VIẾT TRÊN 1 DÒNG DUY NHẤT
+                        rows_html_right += f"<tr><td style='text-align: left;'><div class='rs-ticker'>{row['Mã CK']}</div><div class='rs-sector'>Thanh khoản: {row['Thanh_Khoản_Tỷ']:.1f} Tỷ</div></td><td><div class='rs-cell' style='{style_1m}'>{int(row['RS_1M'])}</div></td><td style='color: #E65100; font-size: 13px; font-weight: 700;'>{stars}</td></tr>"
                         
                     table_html_right = f"<div class='rs-table-container'><table class='rs-table'><thead><tr><th style='text-align: left;'>MÃ CK</th><th>RS 1T</th><th>ĐIỂM KỸ THUẬT</th></tr></thead><tbody>{rows_html_right}</tbody></table></div>"
                     st.markdown(css_rs_table + table_html_right, unsafe_allow_html=True)
