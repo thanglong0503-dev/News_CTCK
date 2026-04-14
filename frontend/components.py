@@ -541,23 +541,46 @@ def render_hero_section():
                 st.markdown(f"{css_ai_news}<div class='ai-news-card'>{rows_html}</div>", unsafe_allow_html=True)
 
         # =========================================================
-        # BÁO ĐỘNG KỸ THUẬT (TECHNICAL ALERTS) - TOP 5 GOLDEN STOCKS
         # =========================================================
-        st.markdown("<br><div style='font-size: 14px; font-weight: 700; color: #E65100; margin-bottom: 16px; text-transform: uppercase;'>Top 5 Siêu Cổ Phiếu </div>", unsafe_allow_html=True)
+        # BÁO ĐỘNG KỸ THUẬT - TOP 5 GOLDEN STOCKS (ĐÃ FIX LỖI)
+        # =========================================================
+        import pandas as pd
+        import gspread
+        from oauth2client.service_account import ServiceAccountCredentials
+        import json
 
-        # Sử dụng df_rs đã fetch ở trên
-        if not df_rs.empty:
-            # 🌪️ BƯỚC 1: PHỄU LỌC
-            # Lọc mã có RS > 80 và Điểm Kỹ Thuật từ 4 trở lên
-            df_golden = df_rs[(df_rs['RS_1M'] >= 80) & (df_rs['Điểm_KT'] >= 4)].copy()
-            
-            # 🌪️ BƯỚC 2: SẮP XẾP THEO THANH KHOẢN (ƯU TIÊN TIỀN LỚN)
+        # Tự động kết nối và lấy data mà không phiền đến các hàm khác
+        @st.cache_data(ttl=3600, show_spinner=False)
+        def fetch_data_for_top5():
+            try:
+                creds_str = st.secrets["GOOGLE_CREDENTIALS"]
+                creds_dict = json.loads(creds_str)
+                scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+                creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+                client = gspread.authorize(creds)
+                sheet = client.open("LINANCE_DB").worksheet("RS_DATA")
+                
+                raw_data = sheet.get_all_values()
+                if len(raw_data) > 1:
+                    df = pd.DataFrame(raw_data[1:], columns=raw_data[0])
+                    for col in ['RS_1M', 'Điểm_KT', 'Thanh_Khoản_Tỷ', 'Giá']:
+                        df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
+                    return df
+                return pd.DataFrame()
+            except Exception as e:
+                return pd.DataFrame()
+
+        # Gọi data
+        df_top5 = fetch_data_for_top5()
+
+        st.markdown("<br><div style='font-size: 14px; font-weight: 700; color: #E65100; margin-bottom: 16px; text-transform: uppercase;'>Top 5 Siêu Cổ Phiếu</div>", unsafe_allow_html=True)
+
+        if not df_top5.empty:
+            # LỌC PHỄU
+            df_golden = df_top5[(df_top5['RS_1M'] >= 80) & (df_top5['Điểm_KT'] >= 4)].copy()
             df_golden = df_golden.sort_values(by="Thanh_Khoản_Tỷ", ascending=False).head(5)
 
-            if df_golden.empty:
-                st.info("Hệ thống đang quét... chưa có mã nào đạt đủ tiêu chuẩn 'Siêu cổ'.")
-            else:
-                # 🌪️ BƯỚC 3: HIỂN THỊ UI CARD
+            if not df_golden.empty:
                 css_ai_alerts = """
                 <style>
                 .a-card-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
@@ -569,25 +592,24 @@ def render_hero_section():
                 .a-rs-tag { color: #9C27B0; font-weight: 800; }
                 </style>
                 """
-                
                 cards_html = ""
                 for _, row in df_golden.iterrows():
-                    # Tạo nội dung cho từng Card
                     cards_html += f"""
                     <div class="a-card">
                         <div class="a-ticker">{row['Mã CK']}</div>
                         <div class="a-type">ĐỘT PHÁ SỨC MẠNH</div>
                         <div class="a-details">
-                            Giá: {row['Giá']:,}<br>
+                            Giá: {int(row['Giá']):,}<br>
                             Thanh khoản: <span style="color:#1E2329;">{row['Thanh_Khoản_Tỷ']:.1f} Tỷ</span><br>
                             Điểm RS: <span class="a-rs-tag">{int(row['RS_1M'])}</span>
                         </div>
                     </div>
                     """
-                
                 st.markdown(css_ai_alerts + f"<div class='a-card-grid'>{cards_html}</div>", unsafe_allow_html=True)
+            else:
+                st.info("Hệ thống đang quét... chưa có mã nào đạt đủ tiêu chuẩn 'Siêu cổ'.")
         else:
-            st.warning(" Đang kết nối Database")
+            st.warning("Đang kết nối Database")
 
 
         # =========================================================
