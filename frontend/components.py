@@ -542,10 +542,10 @@ def render_hero_section():
 
         # =========================================================
         # =========================================================
-        # BÁO ĐỘNG KỸ THUẬT - TOP 5 GOLDEN STOCKS (ĐÃ FIX LỖI IMPORT)
+        # =========================================================
+        # BÁO ĐỘNG KỸ THUẬT - TOP 5 GOLDEN STOCKS (ĐÃ FIX LỖI THỤT LỀ)
         # =========================================================
         
-        # Tạo hàm fetch ẩn, GIẤU TOÀN BỘ IMPORT VÀO TRONG NÀY để Python khỏi ngáo!
         @st.cache_data(ttl=3600, show_spinner=False)
         def fetch_golden_data_safe():
             import pandas as pd
@@ -570,13 +570,11 @@ def render_hero_section():
             except Exception as e:
                 return pd.DataFrame()
 
-        # Gọi hàm an toàn
         df_top5 = fetch_golden_data_safe()
 
-        st.markdown("<br><div style='font-size: 14px; font-weight: 700; color: #E65100; margin-bottom: 16px; text-transform: uppercase;'> Top 5 Siêu Cổ Phiếu </div>", unsafe_allow_html=True)
+        st.markdown("<br><div style='font-size: 14px; font-weight: 700; color: #E65100; margin-bottom: 16px; text-transform: uppercase;'>Top 5 Siêu Cổ Phiếu </div>", unsafe_allow_html=True)
 
         if not df_top5.empty:
-            # LỌC PHỄU
             df_golden = df_top5[(df_top5['RS_1M'] >= 80) & (df_top5['Điểm_KT'] >= 4)].copy()
             df_golden = df_golden.sort_values(by="Thanh_Khoản_Tỷ", ascending=False).head(5)
 
@@ -592,25 +590,17 @@ def render_hero_section():
                 .a-rs-tag { color: #9C27B0; font-weight: 800; }
                 </style>
                 """
+                
                 cards_html = ""
                 for _, row in df_golden.iterrows():
-                    cards_html += f"""
-                    <div class="a-card">
-                        <div class="a-ticker">{row['Mã CK']}</div>
-                        <div class="a-type">ĐỘT PHÁ SỨC MẠNH</div>
-                        <div class="a-details">
-                            Giá: {int(row['Giá']):,}<br>
-                            Thanh khoản: <span style="color:#1E2329;">{row['Thanh_Khoản_Tỷ']:.1f} Tỷ</span><br>
-                            Điểm RS: <span class="a-rs-tag">{int(row['RS_1M'])}</span>
-                        </div>
-                    </div>
-                    """
+                    # FIX: Viết trên 1 dòng duy nhất, cấm tuyệt đối xuống dòng thụt lề!
+                    cards_html += f"<div class='a-card'><div class='a-ticker'>{row['Mã CK']}</div><div class='a-type'>ĐỘT PHÁ SỨC MẠNH</div><div class='a-details'>Giá: {int(row['Giá']):,}<br>Thanh khoản: <span style='color:#1E2329;'>{row['Thanh_Khoản_Tỷ']:.1f} Tỷ</span><br>Điểm RS: <span class='a-rs-tag'>{int(row['RS_1M'])}</span></div></div>"
+                
                 st.markdown(css_ai_alerts + f"<div class='a-card-grid'>{cards_html}</div>", unsafe_allow_html=True)
             else:
                 st.info("Hệ thống đang quét... chưa có mã nào đạt đủ tiêu chuẩn 'Siêu cổ'.")
         else:
-            st.warning("⚠️ Đang kết nối Database ")
-
+            st.warning("⚠️ Đang kết nối Database")
 
         # =========================================================
         # KHU VỰC ĐỊNH LƯỢNG KÉP (BẢNG TRÁI + TOP-DOWN PHẢI)
