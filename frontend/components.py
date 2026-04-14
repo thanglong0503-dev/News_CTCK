@@ -542,16 +542,16 @@ def render_hero_section():
 
         # =========================================================
         # =========================================================
-        # BÁO ĐỘNG KỸ THUẬT - TOP 5 GOLDEN STOCKS (ĐÃ FIX LỖI)
+        # BÁO ĐỘNG KỸ THUẬT - TOP 5 GOLDEN STOCKS (ĐÃ FIX LỖI IMPORT)
         # =========================================================
-        import pandas as pd
-        import gspread
-        from oauth2client.service_account import ServiceAccountCredentials
-        import json
-
-        # Tự động kết nối và lấy data mà không phiền đến các hàm khác
+        
+        # Tạo hàm fetch ẩn, GIẤU TOÀN BỘ IMPORT VÀO TRONG NÀY để Python khỏi ngáo!
         @st.cache_data(ttl=3600, show_spinner=False)
-        def fetch_data_for_top5():
+        def fetch_golden_data_safe():
+            import pandas as pd
+            import gspread
+            import json
+            from oauth2client.service_account import ServiceAccountCredentials
             try:
                 creds_str = st.secrets["GOOGLE_CREDENTIALS"]
                 creds_dict = json.loads(creds_str)
@@ -570,10 +570,10 @@ def render_hero_section():
             except Exception as e:
                 return pd.DataFrame()
 
-        # Gọi data
-        df_top5 = fetch_data_for_top5()
+        # Gọi hàm an toàn
+        df_top5 = fetch_golden_data_safe()
 
-        st.markdown("<br><div style='font-size: 14px; font-weight: 700; color: #E65100; margin-bottom: 16px; text-transform: uppercase;'>Top 5 Siêu Cổ Phiếu</div>", unsafe_allow_html=True)
+        st.markdown("<br><div style='font-size: 14px; font-weight: 700; color: #E65100; margin-bottom: 16px; text-transform: uppercase;'> Top 5 Siêu Cổ Phiếu </div>", unsafe_allow_html=True)
 
         if not df_top5.empty:
             # LỌC PHỄU
@@ -609,7 +609,7 @@ def render_hero_section():
             else:
                 st.info("Hệ thống đang quét... chưa có mã nào đạt đủ tiêu chuẩn 'Siêu cổ'.")
         else:
-            st.warning("Đang kết nối Database")
+            st.warning("⚠️ Đang kết nối Database ")
 
 
         # =========================================================
