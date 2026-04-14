@@ -540,12 +540,54 @@ def render_hero_section():
                 if top_bearish_news: rows_html += f"""<div><a href="{top_bearish_news[0]['link']}" target="_blank" style="text-decoration: none;"><span class="ai-tag b-down-t">TÍN HIỆU TIÊU CỰC</span><span class="ai-title">{top_bearish_news[0]['title']}</span></a></div>"""
                 st.markdown(f"{css_ai_news}<div class='ai-news-card'>{rows_html}</div>", unsafe_allow_html=True)
 
-        # Technical Alerts
-        st.markdown("<br><div style='font-size: 14px; font-weight: 700; color: #E65100; margin-bottom: 16px; text-transform: uppercase;'>Báo động Kỹ thuật (Technical Alerts)</div>", unsafe_allow_html=True)
-        if technical_alerts:
-            css_ai_alerts = """<style>.a-card-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px;} .a-card { background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 16px; text-align: center; transition: all 0.2s ease;} .a-card:hover { border-color: #E65100; box-shadow: 0 4px 12px rgba(230, 81, 0, 0.08);} .a-ticker { font-size: 16px; font-weight: 700; color: #1E2329; margin-bottom: 12px;} .a-type { font-size: 11px; font-weight: 700; padding: 6px 8px; border-radius: 4px; color: #fff; text-transform: uppercase; display: inline-block; margin-bottom: 12px; width: 100%; box-sizing: border-box;} .a-details { font-size: 12px; color: #707A8A; line-height: 1.5; font-weight: 500;}</style>"""
-            cards_html = "".join([f"""<div class="a-card"><div class="a-ticker">{a['ticker']}</div><div class="a-type" style="background-color: {a['color']};">{a['type']}</div><div class="a-details">{a['details']}</div></div>""" for a in technical_alerts])
-            st.markdown(f"{css_ai_alerts}<div class='a-card-grid'>{cards_html}</div>", unsafe_allow_html=True)
+        # =========================================================
+        # BÁO ĐỘNG KỸ THUẬT (TECHNICAL ALERTS) - TOP 5 GOLDEN STOCKS
+        # =========================================================
+        st.markdown("<br><div style='font-size: 14px; font-weight: 700; color: #E65100; margin-bottom: 16px; text-transform: uppercase;'>Top 5 Siêu Cổ Phiếu </div>", unsafe_allow_html=True)
+
+        # Sử dụng df_rs đã fetch ở trên
+        if not df_rs.empty:
+            # 🌪️ BƯỚC 1: PHỄU LỌC
+            # Lọc mã có RS > 80 và Điểm Kỹ Thuật từ 4 trở lên
+            df_golden = df_rs[(df_rs['RS_1M'] >= 80) & (df_rs['Điểm_KT'] >= 4)].copy()
+            
+            # 🌪️ BƯỚC 2: SẮP XẾP THEO THANH KHOẢN (ƯU TIÊN TIỀN LỚN)
+            df_golden = df_golden.sort_values(by="Thanh_Khoản_Tỷ", ascending=False).head(5)
+
+            if df_golden.empty:
+                st.info("Hệ thống đang quét... chưa có mã nào đạt đủ tiêu chuẩn 'Siêu cổ'.")
+            else:
+                # 🌪️ BƯỚC 3: HIỂN THỊ UI CARD
+                css_ai_alerts = """
+                <style>
+                .a-card-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
+                .a-card { background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 16px; text-align: center; transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.02);}
+                .a-card:hover { border-color: #0ECB81; box-shadow: 0 4px 12px rgba(14, 203, 129, 0.15); transform: translateY(-2px);}
+                .a-ticker { font-size: 18px; font-weight: 900; color: #1E2329; margin-bottom: 8px;}
+                .a-type { font-size: 11px; font-weight: 700; padding: 6px 8px; border-radius: 4px; color: #fff; text-transform: uppercase; display: inline-block; margin-bottom: 12px; width: 100%; box-sizing: border-box; background-color: #0ECB81;}
+                .a-details { font-size: 12px; color: #707A8A; line-height: 1.5; font-weight: 600;}
+                .a-rs-tag { color: #9C27B0; font-weight: 800; }
+                </style>
+                """
+                
+                cards_html = ""
+                for _, row in df_golden.iterrows():
+                    # Tạo nội dung cho từng Card
+                    cards_html += f"""
+                    <div class="a-card">
+                        <div class="a-ticker">{row['Mã CK']}</div>
+                        <div class="a-type">ĐỘT PHÁ SỨC MẠNH</div>
+                        <div class="a-details">
+                            Giá: {row['Giá']:,}<br>
+                            Thanh khoản: <span style="color:#1E2329;">{row['Thanh_Khoản_Tỷ']:.1f} Tỷ</span><br>
+                            Điểm RS: <span class="a-rs-tag">{int(row['RS_1M'])}</span>
+                        </div>
+                    </div>
+                    """
+                
+                st.markdown(css_ai_alerts + f"<div class='a-card-grid'>{cards_html}</div>", unsafe_allow_html=True)
+        else:
+            st.warning(" Đang kết nối Database")
 
 
         # =========================================================
