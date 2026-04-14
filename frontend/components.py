@@ -642,33 +642,39 @@ def render_hero_section():
             if df_ind.empty or df_rs.empty:
                 st.warning("⚠️ Đang tải dữ liệu bộ lọc...")
             else:
-                df_ind_sorted = df_ind.sort_values(by="RS_TB", ascending=False).reset_index(drop=True)
-                industry_options = [f"{row['Ngành']} (RS: {row['RS_TB']:.1f})" for _, row in df_ind_sorted.iterrows()]
+                # 🚀 MA THUẬT NẰM Ở ĐÂY: @st.fragment giúp chống Load trắng toàn trang
+                @st.fragment
+                def render_industry_filter():
+                    df_ind_sorted = df_ind.sort_values(by="RS_TB", ascending=False).reset_index(drop=True)
+                    industry_options = [f"{row['Ngành']} (RS: {row['RS_TB']:.1f})" for _, row in df_ind_sorted.iterrows()]
 
-                st.markdown("<span style='font-weight:700; font-size:14px; color:#1E2329;'>BƯỚC 1: CHỌN NGÀNH ĐỂ SOI DÒNG TIỀN</span>", unsafe_allow_html=True)
-                selected_option = st.selectbox("Danh sách Ngành (Sắp xếp từ mạnh đến yếu):", industry_options, label_visibility="collapsed")
+                    st.markdown("<span style='font-weight:700; font-size:14px; color:#1E2329;'>BƯỚC 1: CHỌN NGÀNH ĐỂ SOI DÒNG TIỀN</span>", unsafe_allow_html=True)
+                    selected_option = st.selectbox("Danh sách Ngành (Sắp xếp từ mạnh đến yếu):", industry_options, label_visibility="collapsed")
+                    
+                    selected_industry_name = selected_option.split(" (RS:")[0]
+
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    st.markdown(f"<span style='font-weight:700; font-size:14px; color:#1E2329;'>BƯỚC 2: TOP CỔ PHIẾU NGÀNH <span style='color:#E65100;'>{selected_industry_name.upper()}</span></span>", unsafe_allow_html=True)
+                    
+                    df_filtered = df_rs[(df_rs['Ngành'] == selected_industry_name) & (df_rs['Thanh_Khoản_Tỷ'] > 0)].copy()
+                    df_filtered = df_filtered.sort_values(by="RS_1M", ascending=False).head(15).reset_index(drop=True)
+
+                    if df_filtered.empty:
+                        st.info("Chưa có dữ liệu cổ phiếu thanh khoản cao cho ngành này.")
+                    else:
+                        rows_html_right = ""
+                        for _, row in df_filtered.iterrows():
+                            style_1m = get_rs_style(row['RS_1M'])
+                            score = int(row['Điểm_KT'])
+                            stars = "⭐" * score + "☆" * (5 - score)
+
+                            rows_html_right += f"<tr><td style='text-align: left;'><div class='rs-ticker'>{row['Mã CK']}</div><div class='rs-sector'>Thanh khoản: {row['Thanh_Khoản_Tỷ']:.1f} Tỷ</div></td><td><div class='rs-cell' style='{style_1m}'>{int(row['RS_1M'])}</div></td><td style='color: #E65100; font-size: 13px; font-weight: 700;'>{stars}</td></tr>"
+                            
+                        table_html_right = f"<div class='rs-table-container'><table class='rs-table'><thead><tr><th style='text-align: left;'>MÃ CK</th><th>RS 1T</th><th>ĐIỂM KỸ THUẬT</th></tr></thead><tbody>{rows_html_right}</tbody></table></div>"
+                        st.markdown(css_rs_table + table_html_right, unsafe_allow_html=True)
                 
-                selected_industry_name = selected_option.split(" (RS:")[0]
-
-                st.markdown("<br>", unsafe_allow_html=True)
-                st.markdown(f"<span style='font-weight:700; font-size:14px; color:#1E2329;'>BƯỚC 2: TOP CỔ PHIẾU NGÀNH <span style='color:#E65100;'>{selected_industry_name.upper()}</span></span>", unsafe_allow_html=True)
-                
-                df_filtered = df_rs[(df_rs['Ngành'] == selected_industry_name) & (df_rs['Thanh_Khoản_Tỷ'] > 0)].copy()
-                df_filtered = df_filtered.sort_values(by="RS_1M", ascending=False).head(15).reset_index(drop=True)
-
-                if df_filtered.empty:
-                    st.info("Chưa có dữ liệu cổ phiếu thanh khoản cao cho ngành này.")
-                else:
-                    rows_html_right = ""
-                    for _, row in df_filtered.iterrows():
-                        style_1m = get_rs_style(row['RS_1M'])
-                        score = int(row['Điểm_KT'])
-                        stars = "⭐" * score + "☆" * (5 - score)
-
-                        rows_html_right += f"<tr><td style='text-align: left;'><div class='rs-ticker'>{row['Mã CK']}</div><div class='rs-sector'>Thanh khoản: {row['Thanh_Khoản_Tỷ']:.1f} Tỷ</div></td><td><div class='rs-cell' style='{style_1m}'>{int(row['RS_1M'])}</div></td><td style='color: #E65100; font-size: 13px; font-weight: 700;'>{stars}</td></tr>"
-                        
-                    table_html_right = f"<div class='rs-table-container'><table class='rs-table'><thead><tr><th style='text-align: left;'>MÃ CK</th><th>RS 1T</th><th>ĐIỂM KỸ THUẬT</th></tr></thead><tbody>{rows_html_right}</tbody></table></div>"
-                    st.markdown(css_rs_table + table_html_right, unsafe_allow_html=True)
+                # Gọi cái mảnh ghép vừa tạo ra
+                render_industry_filter()
 
         # =========================================================
         # Social Sentiment
