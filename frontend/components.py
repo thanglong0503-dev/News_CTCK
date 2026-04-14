@@ -696,19 +696,35 @@ def render_hero_section():
             if df_ind.empty or df_rs.empty:
                 st.warning("⚠️ Đang tải dữ liệu bộ lọc...")
             else:
-                # 🚀 MA THUẬT NẰM Ở ĐÂY: @st.fragment giúp chống Load trắng toàn trang
                 @st.fragment
                 def render_industry_filter():
                     df_ind_sorted = df_ind.sort_values(by="RS_TB", ascending=False).reset_index(drop=True)
-                    industry_options = [f"{row['Ngành']} (RS: {row['RS_TB']:.1f})" for _, row in df_ind_sorted.iterrows()]
+                    
+                    # 1. Gắn thêm Xu hướng vào danh sách thả xuống (Dropdown)
+                    industry_options = []
+                    for _, row in df_ind_sorted.iterrows():
+                        trend = str(row.get('Xu_Hướng', 'TRUNG TÍNH')).strip()
+                        industry_options.append(f"{row['Ngành']} (RS: {row['RS_TB']:.1f}) - {trend}")
 
                     st.markdown("<span style='font-weight:700; font-size:14px; color:#1E2329;'>BƯỚC 1: CHỌN NGÀNH ĐỂ SOI DÒNG TIỀN</span>", unsafe_allow_html=True)
                     selected_option = st.selectbox("Danh sách Ngành (Sắp xếp từ mạnh đến yếu):", industry_options, label_visibility="collapsed")
                     
+                    # 2. Bóc tách Tên ngành và Xu hướng từ Option Sếp vừa chọn
                     selected_industry_name = selected_option.split(" (RS:")[0]
+                    selected_trend = selected_option.split(" - ")[-1].strip()
+                    
+                    # 3. Phân loại màu sắc cho Huy hiệu
+                    if "TÍCH CỰC" in selected_trend: trend_color = "#0ECB81" # Xanh lá siêu khỏe
+                    elif "YẾU" in selected_trend: trend_color = "#F6465D" # Đỏ rực
+                    else: trend_color = "#FFB300" # Vàng cam tích lũy
+
+                    # Tạo Huy hiệu HTML
+                    trend_badge = f"<span style='background-color: {trend_color}; color: #ffffff; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 800; margin-left: 10px; vertical-align: middle;'>{selected_trend}</span>"
 
                     st.markdown("<br>", unsafe_allow_html=True)
-                    st.markdown(f"<span style='font-weight:700; font-size:14px; color:#1E2329;'>BƯỚC 2: TOP CỔ PHIẾU NGÀNH <span style='color:#E65100;'>{selected_industry_name.upper()}</span></span>", unsafe_allow_html=True)
+                    
+                    # 4. Hiển thị Tiêu đề Bước 2 KÈM HUY HIỆU MÀU
+                    st.markdown(f"<div style='margin-bottom: 16px;'><span style='font-weight:700; font-size:14px; color:#1E2329;'>BƯỚC 2: TOP CỔ PHIẾU NGÀNH <span style='color:#E65100;'>{selected_industry_name.upper()}</span></span>{trend_badge}</div>", unsafe_allow_html=True)
                     
                     df_filtered = df_rs[(df_rs['Ngành'] == selected_industry_name) & (df_rs['Thanh_Khoản_Tỷ'] > 0)].copy()
                     df_filtered = df_filtered.sort_values(by="RS_1M", ascending=False).head(15).reset_index(drop=True)
@@ -727,7 +743,6 @@ def render_hero_section():
                         table_html_right = f"<div class='rs-table-container'><table class='rs-table'><thead><tr><th style='text-align: left;'>MÃ CK</th><th>RS 1T</th><th>ĐIỂM KỸ THUẬT</th></tr></thead><tbody>{rows_html_right}</tbody></table></div>"
                         st.markdown(css_rs_table + table_html_right, unsafe_allow_html=True)
                 
-                # Gọi cái mảnh ghép vừa tạo ra
                 render_industry_filter()
 
         # =========================================================
