@@ -521,7 +521,7 @@ def render_hero_section():
         technical_alerts = generate_technical_alerts()
         f319_data = get_f319_sentiment()
 
-        # Sentiment Index
+        # Sentiment Index (Giữ nguyên của Sếp)
         st.markdown("<div style='font-size: 14px; font-weight: 700; color: #E65100; margin-bottom: 16px; text-transform: uppercase;'>Chỉ số Tâm lý Thị trường (Sentiment Index)</div>", unsafe_allow_html=True)
         col_gauge, col_top_news = st.columns([1, 2.2])
         with col_gauge:
@@ -540,74 +540,104 @@ def render_hero_section():
                 if top_bearish_news: rows_html += f"""<div><a href="{top_bearish_news[0]['link']}" target="_blank" style="text-decoration: none;"><span class="ai-tag b-down-t">TÍN HIỆU TIÊU CỰC</span><span class="ai-title">{top_bearish_news[0]['title']}</span></a></div>"""
                 st.markdown(f"{css_ai_news}<div class='ai-news-card'>{rows_html}</div>", unsafe_allow_html=True)
 
-        # Technical Alerts
+        # Technical Alerts (Giữ nguyên của Sếp)
         st.markdown("<br><div style='font-size: 14px; font-weight: 700; color: #E65100; margin-bottom: 16px; text-transform: uppercase;'>Báo động Kỹ thuật (Technical Alerts)</div>", unsafe_allow_html=True)
         if technical_alerts:
             css_ai_alerts = """<style>.a-card-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px;} .a-card { background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 16px; text-align: center; transition: all 0.2s ease;} .a-card:hover { border-color: #E65100; box-shadow: 0 4px 12px rgba(230, 81, 0, 0.08);} .a-ticker { font-size: 16px; font-weight: 700; color: #1E2329; margin-bottom: 12px;} .a-type { font-size: 11px; font-weight: 700; padding: 6px 8px; border-radius: 4px; color: #fff; text-transform: uppercase; display: inline-block; margin-bottom: 12px; width: 100%; box-sizing: border-box;} .a-details { font-size: 12px; color: #707A8A; line-height: 1.5; font-weight: 500;}</style>"""
             cards_html = "".join([f"""<div class="a-card"><div class="a-ticker">{a['ticker']}</div><div class="a-type" style="background-color: {a['color']};">{a['type']}</div><div class="a-details">{a['details']}</div></div>""" for a in technical_alerts])
             st.markdown(f"{css_ai_alerts}<div class='a-card-grid'>{cards_html}</div>", unsafe_allow_html=True)
 
-        # =========================================================
-        # =========================================================
-        # BẢNG XẾP HẠNG SỨC MẠNH GIÁ (RS) - DÙNG CHUNG KEY CŨ
-        # =========================================================
-        st.markdown("<br><div style='font-size: 14px; font-weight: 700; color: #E65100; margin-bottom: 16px; text-transform: uppercase; border-top: 1px solid #EAECEF; padding-top: 32px;'>🔥 Bảng Xếp Hạng Sức Mạnh Giá (RS)</div>", unsafe_allow_html=True)
-        st.markdown("<div style='color: #707A8A; font-size: 13px; margin-bottom: 16px;'>Dữ liệu từ Database chung. <span style='color: #9C27B0; font-weight: 800;'>Màu Tím (RS > 90)</span> là các siêu cổ phiếu dẫn dắt thị trường.</div>", unsafe_allow_html=True)
 
-        @st.fragment
-        def render_rs_ranking_table():
-            import pandas as pd
-            import gspread
-            from oauth2client.service_account import ServiceAccountCredentials
-            import json
+        # =========================================================
+        # KHU VỰC PHÂN TÍCH KỸ THUẬT ĐA CHIỀU (REAL-DATA 2 CỘT)
+        # =========================================================
+        st.markdown("<br><h3 style='color: #1E2329; margin-top: 32px; margin-bottom: 24px; border-top: 1px solid #EAECEF; padding-top: 32px;'>Phân Tích Kỹ Thuật Đa Chiều</h3>", unsafe_allow_html=True)
 
-            @st.cache_data(ttl=3600, show_spinner="Đang kết nối Database RS...") 
-            def fetch_real_rs_data():
-                try:
-                    # SỬ DỤNG ĐÚNG TÊN KEY CŨ CỦA GIÁM ĐỐC
-                    creds_str = st.secrets["GOOGLE_CREDENTIALS"]
-                    creds_dict = json.loads(creds_str)
-                    
-                    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-                    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-                    client = gspread.authorize(creds)
-                    
-                    # Rút data từ Tab RS_DATA (Tab mới Sếp vừa tạo)
-                    sheet = client.open("LINANCE_DB").worksheet("RS_DATA")
-                    data = sheet.get_all_records()
-                    df = pd.DataFrame(data)
-                    if not df.empty:
-                        df = df[df['RS_1M'] >= 80]
-                        df = df.sort_values(by="RS_1M", ascending=False).head(20).reset_index(drop=True)
-                    return df
-                except Exception as e:
-                    st.error(f"Lỗi kết nối Google Sheet: {e}")
-                    return pd.DataFrame()
+        import pandas as pd
+        import gspread
+        from oauth2client.service_account import ServiceAccountCredentials
+        import json
+        import plotly.graph_objects as go
+        from plotly.subplots import make_subplots
 
-            df_rs = fetch_real_rs_data()
+        @st.cache_data(ttl=3600, show_spinner="Đang lấy dữ liệu từ Google Sheets...")
+        def fetch_db_from_sheet(worksheet_name):
+            try:
+                creds_str = st.secrets["GOOGLE_CREDENTIALS"]
+                creds_dict = json.loads(creds_str)
+                scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+                creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+                client = gspread.authorize(creds)
+                sheet = client.open("LINANCE_DB").worksheet(worksheet_name)
+                return pd.DataFrame(sheet.get_all_records())
+            except Exception as e:
+                st.error(f"Lỗi kết nối Tab {worksheet_name}: {e}")
+                return pd.DataFrame()
+
+        with st.spinner("Đang xử lý dữ liệu..."):
+            df_rs = fetch_db_from_sheet("RS_DATA")
+            df_ind = fetch_db_from_sheet("INDUSTRY_DATA")
+
+        # CHIA ĐÔI MÀN HÌNH CHUẨN MAS
+        col_left, col_right = st.columns([1, 1], gap="large")
+
+        # --- CỘT TRÁI: TOP CỔ PHIẾU ---
+        with col_left:
+            st.markdown("<div style='font-size: 14px; font-weight: 700; color: #E65100; text-transform: uppercase; margin-bottom: 8px;'>🔥 Top Sức Mạnh Giá (SMG)</div>", unsafe_allow_html=True)
+            st.markdown("<div style='color: #707A8A; font-size: 13px; margin-bottom: 24px;'>Dữ liệu đã lọc Rác (Thanh khoản > 1 tỷ, Giá > 2k). <span style='color: #9C27B0; font-weight: 800;'>Màu Tím (RS > 90)</span> là mạnh nhất.</div>", unsafe_allow_html=True)
+
             if df_rs.empty:
-                st.warning("⚠️ Đang tải dữ liệu, Sếp vui lòng đợi trong giây lát!")
-                return
+                st.warning("⚠️ Đang tải dữ liệu cổ phiếu...")
+            else:
+                df_rs_filtered = df_rs[df_rs['RS_1M'] >= 80]
+                df_rs_sorted = df_rs_filtered.sort_values(by="RS_1M", ascending=False).head(20).reset_index(drop=True)
 
-            # Giao diện bảng
-            css_rs_table = "<style>.rs-table-container { width: 100%; background: #fff; border: 1px solid #EAECEF; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }.rs-table { width: 100%; border-collapse: collapse; text-align: center; font-family: 'Segoe UI', sans-serif; }.rs-table th { background-color: #F8FAFC; color: #474D57; font-size: 11px; font-weight: 800; text-transform: uppercase; padding: 12px 16px; border-bottom: 2px solid #EAECEF; }.rs-table td { padding: 10px 16px; border-bottom: 1px solid #F0F2F5; font-size: 14px; font-weight: 700; color: #1E2329; }.rs-ticker { font-size: 15px; font-weight: 900; color: #1E2329; }.rs-sector { font-size: 10px; color: #848E9C; font-weight: 600; }.rs-cell { color: #fff; font-weight: 800; font-size: 13px; border-radius: 4px; padding: 4px 8px; display: inline-block; min-width: 32px; }</style>"
-            
-            def get_rs_style(score):
-                if score >= 90: return "background-color: #9C27B0; color: #FFFFFF;"
-                elif score >= 70: return "background-color: #0ECB81; color: #FFFFFF;"
-                elif score >= 40: return "background-color: #FFB300; color: #1E2329;"
-                else: return "background-color: #F6465D; color: #FFFFFF;"
-
-            rows_html = ""
-            for _, row in df_rs.iterrows():
-                style_1m = get_rs_style(row['RS_1M'])
-                style_3m = get_rs_style(row['RS_3M'])
-                rows_html += f"<tr><td style='text-align: left;'><div class='rs-ticker'>{row['Mã CK']}</div><div class='rs-sector'>{row['Ngành']}</div></td><td><div class='rs-cell' style='{style_1m}'>{row['RS_1M']}</div></td><td><div class='rs-cell' style='{style_3m}'>{row['RS_3M']}</div></td></tr>"
+                css_rs_table = "<style>.rs-table-container { width: 100%; background: #fff; border: 1px solid #EAECEF; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }.rs-table { width: 100%; border-collapse: collapse; text-align: center; font-family: 'Segoe UI', sans-serif; }.rs-table th { background-color: #F8FAFC; color: #474D57; font-size: 11px; font-weight: 800; text-transform: uppercase; padding: 12px 16px; border-bottom: 2px solid #EAECEF; }.rs-table td { padding: 10px 16px; border-bottom: 1px solid #F0F2F5; font-size: 14px; font-weight: 700; color: #1E2329; }.rs-ticker { font-size: 15px; font-weight: 900; color: #1E2329; }.rs-sector { font-size: 10px; color: #848E9C; font-weight: 600; }.rs-cell { color: #fff; font-weight: 800; font-size: 13px; border-radius: 4px; padding: 4px 8px; display: inline-block; min-width: 32px; }</style>"
                 
-            table_html = f"<div class='rs-table-container'><table class='rs-table'><thead><tr><th style='text-align: left;'>CỔ PHIẾU</th><th>RS 1T</th><th>RS 3T</th></tr></thead><tbody>{rows_html}</tbody></table></div>"
-            st.markdown(css_rs_table + table_html, unsafe_allow_html=True)
-            
-        render_rs_ranking_table()
+                def get_rs_style(score):
+                    if score >= 90: return "background-color: #9C27B0; color: #FFFFFF;"
+                    elif score >= 70: return "background-color: #0ECB81; color: #FFFFFF;"
+                    elif score >= 40: return "background-color: #FFB300; color: #1E2329;"
+                    else: return "background-color: #F6465D; color: #FFFFFF;"
+
+                rows_html = ""
+                for _, row in df_rs_sorted.iterrows():
+                    style_1m = get_rs_style(row['RS_1M'])
+                    style_3m = get_rs_style(row['RS_3M'])
+                    rows_html += f"<tr><td style='text-align: left;'><div class='rs-ticker'>{row['Mã CK']}</div><div class='rs-sector'>{row['Ngành']}</div></td><td><div class='rs-cell' style='{style_1m}'>{row['RS_1M']}</div></td><td><div class='rs-cell' style='{style_3m}'>{row['RS_3M']}</div></td></tr>"
+                    
+                table_html = f"<div class='rs-table-container'><table class='rs-table'><thead><tr><th style='text-align: left;'>CỔ PHIẾU</th><th>RS 1T</th><th>RS 3T</th></tr></thead><tbody>{rows_html}</tbody></table></div>"
+                st.markdown(css_rs_table + table_html, unsafe_allow_html=True)
+
+        # --- CỘT PHẢI: BẢN ĐỒ NGÀNH ---
+        with col_right:
+            st.markdown("<div style='font-size: 14px; font-weight: 700; color: #303F9F; text-transform: uppercase; margin-bottom: 8px;'>📊 Bản Đồ Sức Mạnh Ngành</div>", unsafe_allow_html=True)
+            st.markdown("<div style='color: #707A8A; font-size: 13px; margin-bottom: 24px;'>Cột thể hiện dòng tiền (RS). Chấm tròn (Markers) thể hiện Điểm Kỹ Thuật (Độ đẹp của Chart).</div>", unsafe_allow_html=True)
+
+            if df_ind.empty:
+                st.warning("⚠️ Đang tải dữ liệu Ngành...")
+            else:
+                fig = make_subplots(specs=[[{"secondary_y": True}]])
+                trend_colors = {"TÍCH CỰC": "#0ECB81", "TRUNG TÍNH": "#FFB300", "YẾU": "#F6465D"}
+                colors = [trend_colors.get(trend, "#607D8B") for trend in df_ind['Xu_Hướng']]
+
+                fig.add_trace(go.Bar(x=df_ind['Ngành'], y=df_ind['RS_TB'], name='Sức Mạnh RS', marker_color=colors, opacity=0.8), secondary_y=False)
+                fig.add_trace(go.Scatter(x=df_ind['Ngành'], y=df_ind['Điểm_KT_TB'], name='Điểm KT', mode='markers', marker=dict(color='#1976D2', size=12, line=dict(color='white', width=1.5))), secondary_y=True)
+
+                fig.update_layout(
+                    plot_bgcolor='white', paper_bgcolor='white',
+                    font=dict(family='Segoe UI, sans-serif', size=11, color='#474D57'),
+                    margin=dict(l=10, r=10, t=10, b=10),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                    xaxis=dict(automargin=True)
+                )
+                fig.update_yaxes(title_text="<b>RS</b> (Thang 100)", range=[0, 100], secondary_y=False)
+                fig.update_yaxes(title_text="<b>Điểm KT</b> (Thang 5)", range=[0, 5], secondary_y=True)
+
+                fig.update_traces(hovertemplate="Ngành: <b>%{x}</b><br>Số mã: <b>%{customdata[0]}</b><br>RS TB: <b>%{y:.1f}</b><br>Xu hướng: <b>%{customdata[1]}</b>", customdata=list(zip(df_ind['Số_Mã'], df_ind['Xu_Hướng'])), secondary_y=False)
+                fig.update_traces(hovertemplate="Ngành: <b>%{x}</b><br>Điểm KT: <b>%{y:.1f}</b>", secondary_y=True)
+
+                st.plotly_chart(fig, use_container_width=True, theme="streamlit")
 
         # =========================================================
         # Social Sentiment
