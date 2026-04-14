@@ -567,34 +567,45 @@ def render_hero_section():
                 creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
                 client = gspread.authorize(creds)
                 sheet = client.open("LINANCE_DB").worksheet(worksheet_name)
-                return pd.DataFrame(sheet.get_all_records())
+                
+                # SỬA LỖI Ở ĐÂY: Lấy raw string thay vì để nó tự format sai
+                raw_data = sheet.get_all_values()
+                if len(raw_data) > 1:
+                    headers = raw_data[0]
+                    df = pd.DataFrame(raw_data[1:], columns=headers)
+                    return df
+                return pd.DataFrame()
             except Exception as e:
                 st.error(f"Lỗi kết nối Tab {worksheet_name}: {e}")
                 return pd.DataFrame()
 
-        with st.spinner("Đang xử lý dữ liệu..."):
+        with st.spinner("Đang xử lý dữ liệu chuẩn Việt Nam..."):
             df_rs_raw = fetch_db_from_sheet("RS_DATA")
             df_ind_raw = fetch_db_from_sheet("INDUSTRY_DATA")
             
-            # --- FIX LỖI DẤU PHẨY VIỆT NAM ---
+            # Hàm dọn dẹp số liệu: chuyển phẩy thành chấm và ép kiểu an toàn
+            def clean_number(series):
+                return pd.to_numeric(series.astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
+
             if not df_ind_raw.empty:
                 df_ind = df_ind_raw.copy()
-                df_ind['RS_TB'] = df_ind['RS_TB'].astype(str).str.replace(',', '.').astype(float)
+                df_ind['RS_TB'] = clean_number(df_ind['RS_TB'])
+                df_ind['Điểm_KT_TB'] = clean_number(df_ind['Điểm_KT_TB'])
             else:
                 df_ind = pd.DataFrame()
 
             if not df_rs_raw.empty:
                 df_rs = df_rs_raw.copy()
-                df_rs['RS_1M'] = df_rs['RS_1M'].astype(str).str.replace(',', '.').astype(float)
-                df_rs['RS_3M'] = df_rs['RS_3M'].astype(str).str.replace(',', '.').astype(float)
-                df_rs['Thanh_Khoản_Tỷ'] = df_rs['Thanh_Khoản_Tỷ'].astype(str).str.replace(',', '.').astype(float)
-                df_rs['Điểm_KT'] = df_rs['Điểm_KT'].astype(str).str.replace(',', '.').astype(float)
+                df_rs['RS_1M'] = clean_number(df_rs['RS_1M'])
+                df_rs['RS_3M'] = clean_number(df_rs['RS_3M'])
+                df_rs['Thanh_Khoản_Tỷ'] = clean_number(df_rs['Thanh_Khoản_Tỷ'])
+                df_rs['Điểm_KT'] = clean_number(df_rs['Điểm_KT'])
             else:
                 df_rs = pd.DataFrame()
 
         col_left, col_right = st.columns([1, 1.1], gap="large")
 
-        # --- CỘT TRÁI: BẢNG XẾP HẠNG (GIỮ NGUYÊN 100%) ---
+        # --- CỘT TRÁI: BẢNG XẾP HẠNG (GIỮ NGUYÊN) ---
         with col_left:
             st.markdown("<div style='font-size: 14px; font-weight: 700; color: #E65100; margin-bottom: 16px; text-transform: uppercase;'>🔥 Bảng Xếp Hạng Sức Mạnh Giá (RS)</div>", unsafe_allow_html=True)
             st.markdown("<div style='color: #707A8A; font-size: 13px; margin-bottom: 16px;'>Dữ liệu đã lọc Rác. <span style='color: #9C27B0; font-weight: 800;'>Màu Tím (RS > 90)</span> là các mã dẫn dắt.</div>", unsafe_allow_html=True)
@@ -617,7 +628,6 @@ def render_hero_section():
                 for _, row in df_rs_sorted.iterrows():
                     style_1m = get_rs_style(row['RS_1M'])
                     style_3m = get_rs_style(row['RS_3M'])
-                    # KHÔNG XUỐNG DÒNG ĐỂ TRÁNH LỖI HTML
                     rows_html += f"<tr><td style='text-align: left;'><div class='rs-ticker'>{row['Mã CK']}</div><div class='rs-sector'>{row['Ngành']}</div></td><td><div class='rs-cell' style='{style_1m}'>{int(row['RS_1M'])}</div></td><td><div class='rs-cell' style='{style_3m}'>{int(row['RS_3M'])}</div></td></tr>"
                     
                 table_html = f"<div class='rs-table-container'><table class='rs-table'><thead><tr><th style='text-align: left;'>CỔ PHIẾU</th><th>RS 1T</th><th>RS 3T</th></tr></thead><tbody>{rows_html}</tbody></table></div>"
@@ -632,7 +642,6 @@ def render_hero_section():
             if df_ind.empty or df_rs.empty:
                 st.warning("⚠️ Đang tải dữ liệu bộ lọc...")
             else:
-                # Sắp xếp lại chuẩn xác sau khi đã fix dấu phẩy
                 df_ind_sorted = df_ind.sort_values(by="RS_TB", ascending=False).reset_index(drop=True)
                 industry_options = [f"{row['Ngành']} (RS: {row['RS_TB']:.1f})" for _, row in df_ind_sorted.iterrows()]
 
@@ -656,7 +665,6 @@ def render_hero_section():
                         score = int(row['Điểm_KT'])
                         stars = "⭐" * score + "☆" * (5 - score)
 
-                        # FIX LỖI HTML: VIẾT TRÊN 1 DÒNG DUY NHẤT
                         rows_html_right += f"<tr><td style='text-align: left;'><div class='rs-ticker'>{row['Mã CK']}</div><div class='rs-sector'>Thanh khoản: {row['Thanh_Khoản_Tỷ']:.1f} Tỷ</div></td><td><div class='rs-cell' style='{style_1m}'>{int(row['RS_1M'])}</div></td><td style='color: #E65100; font-size: 13px; font-weight: 700;'>{stars}</td></tr>"
                         
                     table_html_right = f"<div class='rs-table-container'><table class='rs-table'><thead><tr><th style='text-align: left;'>MÃ CK</th><th>RS 1T</th><th>ĐIỂM KỸ THUẬT</th></tr></thead><tbody>{rows_html_right}</tbody></table></div>"
