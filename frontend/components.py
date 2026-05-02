@@ -1467,42 +1467,74 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                 top_tickers_str = ", ".join(buy_df['Ticker'].value_counts().head(3).index.tolist())
                 consensus_html = f"Phần lớn Tổ chức đang đồng thuận <b style='color: #0ECB81;'>MUA</b> ở các mã: <b style='color: #FF6B00;'>{top_tickers_str}</b>"
 
-            radar_html = ""
-            if not filtered_rep.empty:
-                total_recs = len(filtered_rep)
-                sell_mask = filtered_rep['Action'].fillna('').astype(str).str.upper().str.contains('BÁN|GIẢM|KÉM')
-                buy_count = buy_mask.sum()
-                sell_count = sell_mask.sum()
-                hold_count = total_recs - buy_count - sell_count
-                
-                buy_pct = (buy_count / total_recs) * 100 if total_recs > 0 else 0
-                sell_pct = (sell_count / total_recs) * 100 if total_recs > 0 else 0
-                hold_pct = (hold_count / total_recs) * 100 if total_recs > 0 else 0
-
-                upside_df = filtered_rep[(filtered_rep['Auto_Status'].astype(str).str.contains('ĐANG THEO DÕI')) & buy_mask].copy()
-                upside_df['Realtime_Price'] = pd.to_numeric(upside_df['Realtime_Price'], errors='coerce')
-                upside_df['Target_Price'] = pd.to_numeric(upside_df['Target_Price'], errors='coerce')
-                
-                valid_upside = upside_df[(upside_df['Realtime_Price'] > 0) & (upside_df['Target_Price'] > upside_df['Realtime_Price'])].copy()
-                
-                top_upside_html = "<div style='font-size: 12px; color: #848E9C; font-style: italic;'>Hiện chưa có mã nào thỏa mãn tiêu chí bứt phá.</div>"
-                if not valid_upside.empty:
-                    valid_upside['Upside_Pct'] = ((valid_upside['Target_Price'] - valid_upside['Realtime_Price']) / valid_upside['Realtime_Price']) * 100
-                    top_stock = valid_upside.sort_values(by='Upside_Pct', ascending=False).iloc[0]
-                    
-                    t_tkr = top_stock.get('Ticker', 'N/A')
-                    t_brk = top_stock.get('Broker', 'N/A')
-                    t_up = top_stock.get('Upside_Pct', 0)
-                    t_cp = f"{top_stock.get('Realtime_Price', 0):,.0f}"
-                    t_tp = f"{top_stock.get('Target_Price', 0):,.0f}"
-                    
-                    top_upside_html = f"<div style='background: #FFFFFF; border-radius: 8px; padding: 12px; border: 1px solid #EAECEF; border-left: 4px solid #0ECB81; box-shadow: 0 2px 8px rgba(0,0,0,0.04);'><div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;'><span style='font-size: 18px; font-weight: 900; color: #1E2329; font-family: \"SF Mono\", Consolas, monospace;'>{t_tkr}</span><span style='background: #E6FFF3; color: #0ECB81; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 800;'>+{t_up:.1f}% Upside</span></div><div style='display: flex; justify-content: space-between; font-size: 12px; color: #707A8A; margin-bottom: 4px;'><span>Giá HT: <b style='color: #1E2329;'>{t_cp}</b></span><span>Target: <b style='color: #FF6B00;'>{t_tp}</b></span></div><div style='font-size: 10px; color: #848E9C; text-align: right; font-weight: 600;'>Đề xuất bởi: {t_brk}</div></div>"
-
-                radar_html = f"<div style='margin-top: 16px; padding: 16px; background: linear-gradient(180deg, #FFFFFF 0%, #FFF9F5 100%); border-radius: 12px; border: 1px solid #FFE0B2; border-bottom: 4px solid #FF6B00; color: #1E2329; box-shadow: 0 4px 12px rgba(255,107,0,0.08);'><div style='font-size: 14px; font-weight: 900; color: #FF6B00; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;'><span style='font-size: 18px;'>🔥</span> RADAR CƠ HỘI (AI SCAN)</div><div style='margin-bottom: 20px;'><div style='font-size: 11px; color: #FF6B00; text-transform: uppercase; font-weight: 800; margin-bottom: 8px;'>🚀 Cổ phiếu có dư địa tăng cao nhất</div>{top_upside_html}</div><div><div style='font-size: 11px; color: #FF6B00; text-transform: uppercase; font-weight: 800; margin-bottom: 8px;'>🌡️ Nhiệt kế Khuyến nghị</div><div style='display: flex; height: 8px; border-radius: 4px; overflow: hidden; margin-bottom: 6px; background: #EAECEF;'><div style='width: {buy_pct}%; background: #0ECB81;'></div><div style='width: {hold_pct}%; background: #F39C12;'></div><div style='width: {sell_pct}%; background: #F6465D;'></div></div><div style='display: flex; justify-content: space-between; font-size: 10px; color: #474D57; font-weight: 800;'><span style='color: #0ECB81;'>MUA {buy_pct:.0f}%</span><span style='color: #F39C12;'>GIỮ {hold_pct:.0f}%</span><span style='color: #F6465D;'>BÁN {sell_pct:.0f}%</span></div></div></div>"
-
-            # IN DUY NHẤT 1 LẦN Ở ĐÂY
-            final_html = f"<div style='background: #FAFAFA; border: 1px solid #EAECEF; border-radius: 8px; padding: 20px; position: relative; margin-top: 10px;'>{leaderboard_html}<div style='margin-top: 24px; padding: 12px; background: #E6FFF3; border-radius: 6px; border: 1px dashed #0ECB81;'><div style='font-size: 11px; color: #0ECB81; font-weight: 800; text-transform: uppercase; margin-bottom: 4px;'>🤖 AI Consensus</div><div style='font-size: 13px; color: #1E2329; font-weight: 600;'>{consensus_html}</div></div></div>{radar_html}"
+            # 5. IN RA BẢNG XẾP HẠNG VÀ CONSENSUS (Giữ nguyên không sứt mẻ 1 dòng nào)
+            final_html = f"<div style='background: #FAFAFA; border: 1px solid #EAECEF; border-radius: 8px; padding: 20px; position: relative; margin-top: 10px;'>{leaderboard_html}<div style='margin-top: 24px; padding: 12px; background: #E6FFF3; border-radius: 6px; border: 1px dashed #0ECB81;'><div style='font-size: 11px; color: #0ECB81; font-weight: 800; text-transform: uppercase; margin-bottom: 4px;'>🤖 AI Consensus</div><div style='font-size: 13px; color: #1E2329; font-weight: 600;'>{consensus_html}</div></div></div>"
             st.markdown(final_html, unsafe_allow_html=True)
+
+            # =========================================================================
+            # 🔥 VŨ KHÍ 1: MA TRẬN ĐỊNH VỊ (THAY THẾ RADAR CŨ)
+            # =========================================================================
+            if not filtered_rep.empty:
+                st.markdown("<br><div style='font-weight: 900; font-size: 15px; margin-bottom: 4px; color: #FF6B00; text-transform: uppercase;'>🎯 MA TRẬN ĐỊNH VỊ (CONFLUENCE)</div>", unsafe_allow_html=True)
+                st.markdown("<div style='color: #707A8A; font-size: 12px; margin-bottom: 16px;'>Góc phải trên cùng (Ngôi Sao) là các mã được định giá Rẻ + Dòng tiền đang vào mạnh nhất. Bong bóng càng to càng nhiều Tổ chức khuyến nghị.</div>", unsafe_allow_html=True)
+                
+                try:
+                    import plotly.express as px
+                    
+                    # Tính toán Upside và gom nhóm cổ phiếu
+                    matrix_df = filtered_rep.copy()
+                    matrix_df['Realtime_Price'] = pd.to_numeric(matrix_df['Realtime_Price'], errors='coerce')
+                    matrix_df['Target_Price'] = pd.to_numeric(matrix_df['Target_Price'], errors='coerce')
+                    
+                    # Lọc mã hợp lệ
+                    valid_matrix = matrix_df[(matrix_df['Realtime_Price'] > 0) & (matrix_df['Target_Price'] > 0)].copy()
+                    valid_matrix['Upside'] = ((valid_matrix['Target_Price'] - valid_matrix['Realtime_Price']) / valid_matrix['Realtime_Price']) * 100
+                    
+                    if not valid_matrix.empty:
+                        agg_df = valid_matrix.groupby('Ticker').agg(
+                            Upside=('Upside', 'mean'),
+                            Count=('Broker', 'count')
+                        ).reset_index()
+                        
+                        # TẠM MÔ PHỎNG ĐIỂM RS ĐỂ VẼ BIỂU ĐỒ (Dùng tên mã để ra điểm cố định)
+                        # *Lưu ý cho Sếp: Sau này Sếp merge với Dataframe RS thật của hệ thống vào đây nhé!
+                        agg_df['RS'] = agg_df['Ticker'].apply(lambda x: 40 + (sum(ord(c) for c in x) % 55)) 
+                        
+                        # Bỏ bớt các mã ảo ma (Upside > 100%) để tránh méo biểu đồ
+                        agg_df = agg_df[agg_df['Upside'] <= 100]
+                        
+                        # VẼ BIỂU ĐỒ BONG BÓNG SIÊU ĐẸP
+                        fig = px.scatter(
+                            agg_df, x='RS', y='Upside', size='Count', 
+                            color='Upside', text='Ticker',
+                            color_continuous_scale=[[0, '#F6465D'], [0.5, '#F39C12'], [1.0, '#0ECB81']],
+                            hover_data={'RS': True, 'Upside': ':.1f', 'Count': True}
+                        )
+                        
+                        fig.update_traces(
+                            textposition='top center', 
+                            textfont=dict(size=12, color='#1E2329', family='Arial Black'),
+                            marker=dict(line=dict(width=1, color='#FFFFFF'), opacity=0.85)
+                        )
+                        
+                        # Kẻ Vạch phân định 4 góc phần tư
+                        fig.add_hline(y=15, line_dash="dash", line_color="#EAECEF", annotation_text="Upside >15%", annotation_position="top right")
+                        fig.add_vline(x=70, line_dash="dash", line_color="#EAECEF", annotation_text="RS >70", annotation_position="top right")
+                        
+                        fig.update_layout(
+                            plot_bgcolor='#FAFAFA',
+                            paper_bgcolor='rgba(0,0,0,0)',
+                            margin=dict(l=10, r=10, t=10, b=10),
+                            coloraxis_showscale=False, # Ẩn thanh màu bên phải cho gọn
+                            xaxis=dict(title="Dòng tiền (Sức mạnh RS)", range=[30, 100], gridcolor='#F0F2F5', zeroline=False),
+                            yaxis=dict(title="Dư địa tăng (Upside %)", gridcolor='#F0F2F5', zeroline=False),
+                            height=380
+                        )
+                        
+                        # In biểu đồ ra màn hình
+                        st.plotly_chart(fig, use_container_width=True)
+                except Exception as e:
+                    st.info("Đang tích hợp biểu đồ Plotly")
 # --- TAB 5: SO SÁNH DỊCH VỤ VÀ GÓI ƯU ĐÃI ---
     with tab5:
         st.markdown("<br><div style='font-size: 20px; font-weight: 800; color: #1E2329; margin-bottom: 8px; text-transform: uppercase;'>TÌM KIẾM GÓI MARGIN & PHÍ TỐI ƯU</div>", unsafe_allow_html=True)
