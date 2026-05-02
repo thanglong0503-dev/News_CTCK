@@ -1313,7 +1313,8 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                         st.session_state.rep_cache_time = time.time()
 
                 # ==========================================
-        # 2. VẼ GIAO DIỆN
+        # ==========================================
+        # 2. VẼ GIAO DIỆN (ĐÃ FIX LỖI SCOPE + GIỮ FRAGMENT CHUYỂN TRANG MƯỢT)
         # ==========================================
         cached_df = st.session_state.rep_cached_df
         if cached_df.empty:
@@ -1321,28 +1322,31 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
             return
         
         df_rep = cached_df.copy()
+        
+        # --- BƯỚC A: ĐẶT BỘ LỌC Ở NGOÀI CÙNG ĐỂ TẤT CẢ ĐỀU XÀI CHUNG DATA ---
+        st.markdown("<div style='background-color: #FAFAFA; padding: 16px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #EAECEF;'>", unsafe_allow_html=True)
+        f_col1, f_col2 = st.columns(2)
+        all_rep_brokers = ["Tất cả"] + df_rep['Broker'].dropna().unique().tolist()
+        with f_col1: rep_broker_filter = st.selectbox("Lọc theo Công ty:", all_rep_brokers, key="rep_brk_flt")
+        with f_col2: rep_time_filter = st.selectbox("Thời gian:", ["Tất cả", "Tháng này", "Hôm nay"], key="rep_time_flt")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        filtered_rep = df_rep.copy()
+        if rep_broker_filter != "Tất cả": filtered_rep = filtered_rep[filtered_rep['Broker'] == rep_broker_filter]
+        if rep_time_filter == "Hôm nay":
+            today_str = datetime.now().strftime("%d/%m/%Y")
+            filtered_rep = filtered_rep[filtered_rep['Date'].astype(str).str.contains(today_str)]
+        elif rep_time_filter == "Tháng này":
+            month_str = datetime.now().strftime("/%m/%Y")
+            filtered_rep = filtered_rep[filtered_rep['Date'].astype(str).str.contains(month_str)]
+
+        # --- BƯỚC B: CHIA CỘT ---
         col_list, col_leaderboard = st.columns([1.7, 1])
         
         with col_list:
-            # Dùng bùa @st.fragment để nhốt khu vực này lại, bấm nút không bị xám toàn màn hình
+            # CHỈ NHỐT PHẦN PHÂN TRANG VÀ IN DANH SÁCH VÀO FRAGMENT ĐỂ CHỐNG XÁM MÀN
             @st.fragment
             def render_report_list_with_pagination():
-                st.markdown("<div style='background-color: #FAFAFA; padding: 16px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #EAECEF;'>", unsafe_allow_html=True)
-                f_col1, f_col2 = st.columns(2)
-                all_rep_brokers = ["Tất cả"] + df_rep['Broker'].dropna().unique().tolist()
-                with f_col1: rep_broker_filter = st.selectbox("Lọc theo Công ty:", all_rep_brokers, key="rep_brk_flt")
-                with f_col2: rep_time_filter = st.selectbox("Thời gian:", ["Tất cả", "Tháng này", "Hôm nay"], key="rep_time_flt")
-                st.markdown("</div>", unsafe_allow_html=True)
-
-                filtered_rep = df_rep.copy()
-                if rep_broker_filter != "Tất cả": filtered_rep = filtered_rep[filtered_rep['Broker'] == rep_broker_filter]
-                if rep_time_filter == "Hôm nay":
-                    today_str = datetime.now().strftime("%d/%m/%Y")
-                    filtered_rep = filtered_rep[filtered_rep['Date'].astype(str).str.contains(today_str)]
-                elif rep_time_filter == "Tháng này":
-                    month_str = datetime.now().strftime("/%m/%Y")
-                    filtered_rep = filtered_rep[filtered_rep['Date'].astype(str).str.contains(month_str)]
-
                 ITEMS_PER_PAGE = 5
                 total_items = len(filtered_rep)
                 total_pages = math.ceil(total_items / ITEMS_PER_PAGE) if total_items > 0 else 1
@@ -1356,7 +1360,8 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
 
                 st.markdown("<div style='font-weight: 700; font-size: 16px; margin-bottom: 16px; color: #1E2329;'>Dòng thời gian Khuyến nghị</div>", unsafe_allow_html=True)
                 
-                if paged_rep.empty: st.warning("Không tìm thấy báo cáo nào khớp với bộ lọc!")
+                if paged_rep.empty: 
+                    st.warning("Không tìm thấy báo cáo nào khớp với bộ lọc!")
                 else:
                     css_rep = "<style>.rep-card { background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 16px; margin-bottom: 16px; transition: all 0.2s ease; border-left: 4px solid #1E2329; } .rep-card:hover { border-color: #FF6B00; border-left: 4px solid #FF6B00; box-shadow: 0 4px 12px rgba(230, 81, 0, 0.08); transform: translateX(4px); } .rep-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; } .rep-tkr { font-size: 20px; font-weight: 800; color: #1E2329; font-family: 'SF Mono', Consolas, monospace;} .rep-brk { font-size: 12px; color: #707A8A; font-weight: 700; background: #F8FAFC; padding: 4px 8px; border-radius: 4px; border: 1px solid #EAECEF;} .rep-mid { display: flex; gap: 24px; margin-bottom: 12px; flex-wrap: wrap;} .rep-lbl { font-size: 11px; color: #848E9C; text-transform: uppercase; font-weight: 700; margin-bottom: 4px; } .rep-val { font-size: 15px; font-weight: 700; color: #1E2329; } .act-badge { background: #F0F2F5; color: #474D57; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 800;} .act-mua { color: #0ECB81; background: #E6FFF3; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 800;} .act-ban { color: #F6465D; background: #FFF1F0; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 800;} .act-giu { color: #F39C12; background: #FEF5E7; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 800;} .sts-dat { color: #0ECB81; border: 1px solid #0ECB81; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; } .sts-cat { color: #F6465D; border: 1px solid #F6465D; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; } .sts-cho { color: #848E9C; border: 1px solid #848E9C; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; }</style>"
                     reports_html = ""
@@ -1393,7 +1398,7 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                         if st.button("Sau ▶", disabled=(st.session_state.report_page >= total_pages), use_container_width=True, key="rep_next"):
                             st.session_state.report_page += 1
             
-            # Gọi cái lồng ra để Streamlit thực thi
+            # Gọi hàm hiển thị Cột Trái
             render_report_list_with_pagination()
 
         with col_leaderboard:
