@@ -1391,34 +1391,74 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                                 st.session_state.report_page += 1
 
                 with col_leaderboard:
-                    st.markdown("<div style='font-weight: 700; font-size: 16px; margin-bottom: 16px; color: #1E2329;'>BẢNG XẾP HẠNG</div>", unsafe_allow_html=True)
+                    st.markdown("<div style='font-weight: 700; font-size: 16px; margin-bottom: 8px; color: #1E2329; text-transform: uppercase;'>BẢNG XẾP HẠNG</div>", unsafe_allow_html=True)
+                    st.markdown("<div style='color: #707A8A; font-size: 12px; margin-bottom: 16px;'>Tỷ lệ Win Rate tính trên các kèo đã đóng. Ưu tiên tổ chức có số lượng dự đoán ĐÚNG nhiều nhất.</div>", unsafe_allow_html=True)
                     
+                    # 1. Hàm phân loại trạng thái
                     def get_win_loss_auto(status):
                         s = str(status).strip().lower()
                         if 'đạt target' in s: return 'Win'
                         if 'cắt lỗ' in s: return 'Loss'
                         return 'Pending'
+                        
                     filtered_rep['Result'] = filtered_rep['Auto_Status'].apply(get_win_loss_auto)
-                    closed_df = filtered_rep[filtered_rep['Result'].isin(['Win', 'Loss'])]
                     
-                    leaderboard_html = ""
-                    if closed_df.empty: leaderboard_html = "<div style='font-size: 13px; color: #707A8A; text-align: center; padding: 20px; border-bottom: 1px dashed #EAECEF; margin-bottom: 12px;'>Chưa có mã chạm Target hoặc Cắt lỗ.</div>"
-                    else:
-                        win_stats = closed_df.groupby('Broker')['Result'].apply(lambda x: (x == 'Win').sum() / len(x) * 100).reset_index(name='Win_Rate')
-                        win_stats['Total'] = closed_df.groupby('Broker')['Result'].count().values
-                        win_stats = win_stats.sort_values(by=['Win_Rate', 'Total'], ascending=[False, False]).reset_index(drop=True)
-                        medals = ["🥇", "🥈", "🥉"]
-                        for idx, row in win_stats.iterrows():
-                            rank_icon = f"<span style='font-size: 20px;'>{medals[idx]}</span>" if idx < 3 else f"<span style='font-size: 16px; width: 20px; text-align: center; color: #848E9C; font-weight: 700;'>{idx+1}</span>"
-                            rate_color = "#0ECB81" if row['Win_Rate'] >= 60 else "#F39C12" if row['Win_Rate'] >= 40 else "#F6465D"
-                            leaderboard_html += f"<div style='display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #EAECEF; padding-bottom: 12px; margin-bottom: 12px;'><div style='display: flex; align-items: center; gap: 10px;'>{rank_icon}<span style='font-weight: 700; color: #1E2329; font-size: 14px;'>{row['Broker']}</span></div><span style='font-weight: 800; color: {rate_color}; font-size: 16px;'>{row['Win_Rate']:.1f}%</span></div>"
+                    # 2. Xử lý logic ĐIỂM UY TÍN
+                    import pandas as pd
+                    stats = []
+                    brokers = filtered_rep['Broker'].unique()
+                    
+                    for broker in brokers:
+                        df_broker = filtered_rep[filtered_rep['Broker'] == broker]
+                        wins = len(df_broker[df_broker['Result'] == 'Win'])
+                        losses = len(df_broker[df_broker['Result'] == 'Loss'])
+                        pending = len(df_broker[df_broker['Result'] == 'Pending'])
+                        
+                        closed_trades = wins + losses
+                        
+                        # Chỉ tính tổ chức nào đã có kèo đóng
+                        if closed_trades > 0:
+                            win_rate = (wins / closed_trades) * 100
+                            score = wins + (win_rate / 100)
                             
+                            stats.append({
+                                'Broker': broker,
+                                'Wins': wins,
+                                'Closed': closed_trades,
+                                'Pending': pending,
+                                'Win_Rate': win_rate,
+                                'Score': score
+                            })
+                    
+                    df_stats = pd.DataFrame(stats)
+                    leaderboard_html = ""
+                    
+                    if df_stats.empty: 
+                        leaderboard_html = "<div style='font-size: 13px; color: #707A8A; text-align: center; padding: 20px; border-bottom: 1px dashed #EAECEF; margin-bottom: 12px;'>Chưa có mã chạm Target hoặc Cắt lỗ.</div>"
+                    else:
+                        # 3. Sắp xếp theo ĐIỂM UY TÍN (Score) giảm dần
+                        df_stats = df_stats.sort_values(by='Score', ascending=False).reset_index(drop=True)
+                        
+                        medals = ["🥇", "🥈", "🥉"]
+                        for idx, row in df_stats.iterrows():
+                            rank_icon = f"<span style='font-size: 20px;'>{medals[idx]}</span>" if idx < 3 else f"<span style='font-size: 16px; width: 20px; text-align: center; color: #848E9C; font-weight: 700; display: inline-block;'>{idx+1}</span>"
+                            rate_color = "#0ECB81" if row['Win_Rate'] >= 50 else "#F6465D"
+                            
+                            # ÉP VIẾT TRÊN 1 DÒNG DUY NHẤT ĐỂ STREAMLIT KHÔNG LỖI HIỂN THỊ
+                            leaderboard_html += f"<div style='display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #F0F2F5; padding: 12px 0; margin-bottom: 0;'><div style='display: flex; align-items: center; gap: 12px;'>{rank_icon}<span style='font-weight: 700; color: #1E2329; font-size: 14px;'>{row['Broker']}</span></div><div style='text-align: right;'><div style='font-weight: 800; color: {rate_color}; font-size: 15px;'>{row['Win_Rate']:.1f}%</div><div style='font-size: 11px; font-weight: 600; color: #848E9C; margin-top: 2px;'>Win {row['Wins']}/{row['Closed']} kèo (Chờ: {row['Pending']})</div></div></div>"
+                    
+                    st.markdown(f"<div style='background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);'>{leaderboard_html}</div>", unsafe_allow_html=True)
+                    
+                    # 4. Khu vực AI CONSENSUS
                     buy_mask = filtered_rep['Action'].fillna('').astype(str).str.upper().str.contains('MUA|TĂNG|KHẢ QUAN')
                     buy_df = filtered_rep[buy_mask]
                     consensus_html = "Hệ thống đang thu thập thêm dữ liệu để đánh giá."
+                    
                     if not buy_df.empty:
                         top_tickers_str = ", ".join(buy_df['Ticker'].value_counts().head(3).index.tolist())
                         consensus_html = f"Phần lớn Tổ chức đang đồng thuận <b style='color: #0ECB81;'>MUA</b> ở các mã: <b style='color: #FF6B00;'>{top_tickers_str}</b>"
+                        
+                    st.markdown(f"<div style='background-color: #E6FFF3; border: 1px dashed #0ECB81; border-radius: 8px; padding: 16px; font-size: 13px; color: #1E2329;'><b>🎯 AI CONSENSUS</b><br><br>{consensus_html}</div>", unsafe_allow_html=True)
 
                     radar_html = ""
                     if not filtered_rep.empty:
