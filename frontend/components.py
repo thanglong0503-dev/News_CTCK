@@ -1324,71 +1324,77 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
         col_list, col_leaderboard = st.columns([1.7, 1])
         
         with col_list:
-            st.markdown("<div style='background-color: #FAFAFA; padding: 16px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #EAECEF;'>", unsafe_allow_html=True)
-            f_col1, f_col2 = st.columns(2)
-            all_rep_brokers = ["Tất cả"] + df_rep['Broker'].dropna().unique().tolist()
-            with f_col1: rep_broker_filter = st.selectbox("Lọc theo Công ty:", all_rep_brokers, key="rep_brk_flt")
-            with f_col2: rep_time_filter = st.selectbox("Thời gian:", ["Tất cả", "Tháng này", "Hôm nay"], key="rep_time_flt")
-            st.markdown("</div>", unsafe_allow_html=True)
+            # Dùng bùa @st.fragment để nhốt khu vực này lại, bấm nút không bị xám toàn màn hình
+            @st.fragment
+            def render_report_list_with_pagination():
+                st.markdown("<div style='background-color: #FAFAFA; padding: 16px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #EAECEF;'>", unsafe_allow_html=True)
+                f_col1, f_col2 = st.columns(2)
+                all_rep_brokers = ["Tất cả"] + df_rep['Broker'].dropna().unique().tolist()
+                with f_col1: rep_broker_filter = st.selectbox("Lọc theo Công ty:", all_rep_brokers, key="rep_brk_flt")
+                with f_col2: rep_time_filter = st.selectbox("Thời gian:", ["Tất cả", "Tháng này", "Hôm nay"], key="rep_time_flt")
+                st.markdown("</div>", unsafe_allow_html=True)
 
-            filtered_rep = df_rep.copy()
-            if rep_broker_filter != "Tất cả": filtered_rep = filtered_rep[filtered_rep['Broker'] == rep_broker_filter]
-            if rep_time_filter == "Hôm nay":
-                today_str = datetime.now().strftime("%d/%m/%Y")
-                filtered_rep = filtered_rep[filtered_rep['Date'].astype(str).str.contains(today_str)]
-            elif rep_time_filter == "Tháng này":
-                month_str = datetime.now().strftime("/%m/%Y")
-                filtered_rep = filtered_rep[filtered_rep['Date'].astype(str).str.contains(month_str)]
+                filtered_rep = df_rep.copy()
+                if rep_broker_filter != "Tất cả": filtered_rep = filtered_rep[filtered_rep['Broker'] == rep_broker_filter]
+                if rep_time_filter == "Hôm nay":
+                    today_str = datetime.now().strftime("%d/%m/%Y")
+                    filtered_rep = filtered_rep[filtered_rep['Date'].astype(str).str.contains(today_str)]
+                elif rep_time_filter == "Tháng này":
+                    month_str = datetime.now().strftime("/%m/%Y")
+                    filtered_rep = filtered_rep[filtered_rep['Date'].astype(str).str.contains(month_str)]
 
-            ITEMS_PER_PAGE = 5
-            total_items = len(filtered_rep)
-            total_pages = math.ceil(total_items / ITEMS_PER_PAGE) if total_items > 0 else 1
-            
-            if st.session_state.report_page > total_pages: st.session_state.report_page = total_pages
-            if st.session_state.report_page < 1: st.session_state.report_page = 1
+                ITEMS_PER_PAGE = 5
+                total_items = len(filtered_rep)
+                total_pages = math.ceil(total_items / ITEMS_PER_PAGE) if total_items > 0 else 1
                 
-            start_idx = (st.session_state.report_page - 1) * ITEMS_PER_PAGE
-            end_idx = start_idx + ITEMS_PER_PAGE
-            paged_rep = filtered_rep.iloc[start_idx:end_idx]
-
-            st.markdown("<div style='font-weight: 700; font-size: 16px; margin-bottom: 16px; color: #1E2329;'>Dòng thời gian Khuyến nghị</div>", unsafe_allow_html=True)
-            
-            if paged_rep.empty: st.warning("Không tìm thấy báo cáo nào khớp với bộ lọc!")
-            else:
-                css_rep = "<style>.rep-card { background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 16px; margin-bottom: 16px; transition: all 0.2s ease; border-left: 4px solid #1E2329; } .rep-card:hover { border-color: #FF6B00; border-left: 4px solid #FF6B00; box-shadow: 0 4px 12px rgba(230, 81, 0, 0.08); transform: translateX(4px); } .rep-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; } .rep-tkr { font-size: 20px; font-weight: 800; color: #1E2329; font-family: 'SF Mono', Consolas, monospace;} .rep-brk { font-size: 12px; color: #707A8A; font-weight: 700; background: #F8FAFC; padding: 4px 8px; border-radius: 4px; border: 1px solid #EAECEF;} .rep-mid { display: flex; gap: 24px; margin-bottom: 12px; flex-wrap: wrap;} .rep-lbl { font-size: 11px; color: #848E9C; text-transform: uppercase; font-weight: 700; margin-bottom: 4px; } .rep-val { font-size: 15px; font-weight: 700; color: #1E2329; } .act-badge { background: #F0F2F5; color: #474D57; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 800;} .act-mua { color: #0ECB81; background: #E6FFF3; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 800;} .act-ban { color: #F6465D; background: #FFF1F0; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 800;} .act-giu { color: #F39C12; background: #FEF5E7; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 800;} .sts-dat { color: #0ECB81; border: 1px solid #0ECB81; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; } .sts-cat { color: #F6465D; border: 1px solid #F6465D; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; } .sts-cho { color: #848E9C; border: 1px solid #848E9C; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; }</style>"
-                reports_html = ""
-                for _, r in paged_rep.iterrows():
-                    action = str(r.get('Action', '')).upper()
-                    if 'MUA' in action or 'TĂNG' in action or 'KHẢ QUAN' in action: act_class = 'act-mua'
-                    elif 'BÁN' in action or 'GIẢM' in action or 'KÉM' in action: act_class = 'act-ban'
-                    elif 'GIỮ' in action or 'TRUNG LẬP' in action: act_class = 'act-giu'
-                    else: act_class = 'act-badge'
+                if st.session_state.report_page > total_pages: st.session_state.report_page = total_pages
+                if st.session_state.report_page < 1: st.session_state.report_page = 1
                     
-                    auto_sts = r['Auto_Status']
-                    if 'ĐẠT' in auto_sts: sts_class = 'sts-dat'
-                    elif 'CẮT' in auto_sts: sts_class = 'sts-cat'
-                    else: sts_class = 'sts-cho'
+                start_idx = (st.session_state.report_page - 1) * ITEMS_PER_PAGE
+                end_idx = start_idx + ITEMS_PER_PAGE
+                paged_rep = filtered_rep.iloc[start_idx:end_idx]
 
-                    try:
-                        target_price = f"{float(r.get('Target_Price', 0)):,.0f}"
-                        rec_price = f"{float(r.get('Current_Price_At_Date', 0)):,.0f}"
-                        realtime_price = f"{float(r.get('Realtime_Price', 0)):,.0f}" if r.get('Realtime_Price', 0) > 0 else "N/A"
-                    except: target_price, rec_price, realtime_price = 'N/A', 'N/A', 'N/A'
+                st.markdown("<div style='font-weight: 700; font-size: 16px; margin-bottom: 16px; color: #1E2329;'>Dòng thời gian Khuyến nghị</div>", unsafe_allow_html=True)
+                
+                if paged_rep.empty: st.warning("Không tìm thấy báo cáo nào khớp với bộ lọc!")
+                else:
+                    css_rep = "<style>.rep-card { background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 16px; margin-bottom: 16px; transition: all 0.2s ease; border-left: 4px solid #1E2329; } .rep-card:hover { border-color: #FF6B00; border-left: 4px solid #FF6B00; box-shadow: 0 4px 12px rgba(230, 81, 0, 0.08); transform: translateX(4px); } .rep-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; } .rep-tkr { font-size: 20px; font-weight: 800; color: #1E2329; font-family: 'SF Mono', Consolas, monospace;} .rep-brk { font-size: 12px; color: #707A8A; font-weight: 700; background: #F8FAFC; padding: 4px 8px; border-radius: 4px; border: 1px solid #EAECEF;} .rep-mid { display: flex; gap: 24px; margin-bottom: 12px; flex-wrap: wrap;} .rep-lbl { font-size: 11px; color: #848E9C; text-transform: uppercase; font-weight: 700; margin-bottom: 4px; } .rep-val { font-size: 15px; font-weight: 700; color: #1E2329; } .act-badge { background: #F0F2F5; color: #474D57; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 800;} .act-mua { color: #0ECB81; background: #E6FFF3; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 800;} .act-ban { color: #F6465D; background: #FFF1F0; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 800;} .act-giu { color: #F39C12; background: #FEF5E7; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 800;} .sts-dat { color: #0ECB81; border: 1px solid #0ECB81; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; } .sts-cat { color: #F6465D; border: 1px solid #F6465D; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; } .sts-cho { color: #848E9C; border: 1px solid #848E9C; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; }</style>"
+                    reports_html = ""
+                    for _, r in paged_rep.iterrows():
+                        action = str(r.get('Action', '')).upper()
+                        if 'MUA' in action or 'TĂNG' in action or 'KHẢ QUAN' in action: act_class = 'act-mua'
+                        elif 'BÁN' in action or 'GIẢM' in action or 'KÉM' in action: act_class = 'act-ban'
+                        elif 'GIỮ' in action or 'TRUNG LẬP' in action: act_class = 'act-giu'
+                        else: act_class = 'act-badge'
+                        
+                        auto_sts = r['Auto_Status']
+                        if 'ĐẠT' in auto_sts: sts_class = 'sts-dat'
+                        elif 'CẮT' in auto_sts: sts_class = 'sts-cat'
+                        else: sts_class = 'sts-cho'
 
-                    reports_html += f"""<div class="rep-card"><div class="rep-top"><div style="display: flex; align-items: center; gap: 12px;"><span class="rep-tkr">{r.get('Ticker', 'N/A')}</span><span class="{act_class}">{action}</span><span class="{sts_class}">{auto_sts}</span></div><span class="rep-brk">🏢 {r.get('Broker', 'N/A')}</span></div><div class="rep-mid"><div><div class="rep-lbl">Giá Khuyến Nghị</div><div class="rep-val">{rec_price}</div></div><div><div class="rep-lbl">Giá Hiện Tại</div><div class="rep-val" style="color: #0052FF;">{realtime_price}</div></div><div><div class="rep-lbl">Giá Mục Tiêu</div><div class="rep-val" style="color: #FF6B00;">{target_price}</div></div><div><div class="rep-lbl">Ngày Phát Hành</div><div class="rep-val" style="color: #707A8A; font-weight: 600;">{r.get('Date', 'N/A')}</div></div></div><div style="font-size: 12px; text-align: right;"><a href="{r.get('Link', '#')}" target="_blank" style="color: #0052FF; font-weight: 600; text-decoration: none;">Xem chi tiết báo cáo ↗</a></div></div>"""
-                st.markdown(f"{css_rep}<div>{reports_html}</div>", unsafe_allow_html=True)
+                        try:
+                            target_price = f"{float(r.get('Target_Price', 0)):,.0f}"
+                            rec_price = f"{float(r.get('Current_Price_At_Date', 0)):,.0f}"
+                            realtime_price = f"{float(r.get('Realtime_Price', 0)):,.0f}" if r.get('Realtime_Price', 0) > 0 else "N/A"
+                        except: target_price, rec_price, realtime_price = 'N/A', 'N/A', 'N/A'
 
-            if total_pages > 1:
-                st.markdown("<br>", unsafe_allow_html=True)
-                pag_cols = st.columns([2, 1, 2, 1, 2]) 
-                with pag_cols[1]:
-                    if st.button("◀ Trước", disabled=(st.session_state.report_page <= 1), use_container_width=True, key="rep_prev"):
-                        st.session_state.report_page -= 1
-                with pag_cols[2]: 
-                    st.markdown(f"<div style='text-align: center; padding-top: 8px; font-weight: 600; color: #474D57;'>Trang {st.session_state.report_page} / {total_pages}</div>", unsafe_allow_html=True)
-                with pag_cols[3]:
-                    if st.button("Sau ▶", disabled=(st.session_state.report_page >= total_pages), use_container_width=True, key="rep_next"):
-                        st.session_state.report_page += 1
+                        reports_html += f"""<div class="rep-card"><div class="rep-top"><div style="display: flex; align-items: center; gap: 12px;"><span class="rep-tkr">{r.get('Ticker', 'N/A')}</span><span class="{act_class}">{action}</span><span class="{sts_class}">{auto_sts}</span></div><span class="rep-brk">🏢 {r.get('Broker', 'N/A')}</span></div><div class="rep-mid"><div><div class="rep-lbl">Giá Khuyến Nghị</div><div class="rep-val">{rec_price}</div></div><div><div class="rep-lbl">Giá Hiện Tại</div><div class="rep-val" style="color: #0052FF;">{realtime_price}</div></div><div><div class="rep-lbl">Giá Mục Tiêu</div><div class="rep-val" style="color: #FF6B00;">{target_price}</div></div><div><div class="rep-lbl">Ngày Phát Hành</div><div class="rep-val" style="color: #707A8A; font-weight: 600;">{r.get('Date', 'N/A')}</div></div></div><div style="font-size: 12px; text-align: right;"><a href="{r.get('Link', '#')}" target="_blank" style="color: #0052FF; font-weight: 600; text-decoration: none;">Xem chi tiết báo cáo ↗</a></div></div>"""
+                    st.markdown(f"{css_rep}<div>{reports_html}</div>", unsafe_allow_html=True)
+
+                if total_pages > 1:
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    pag_cols = st.columns([2, 1, 2, 1, 2]) 
+                    with pag_cols[1]:
+                        if st.button("◀ Trước", disabled=(st.session_state.report_page <= 1), use_container_width=True, key="rep_prev"):
+                            st.session_state.report_page -= 1
+                    with pag_cols[2]: 
+                        st.markdown(f"<div style='text-align: center; padding-top: 8px; font-weight: 600; color: #474D57;'>Trang {st.session_state.report_page} / {total_pages}</div>", unsafe_allow_html=True)
+                    with pag_cols[3]:
+                        if st.button("Sau ▶", disabled=(st.session_state.report_page >= total_pages), use_container_width=True, key="rep_next"):
+                            st.session_state.report_page += 1
+            
+            # Gọi cái lồng ra để Streamlit thực thi
+            render_report_list_with_pagination()
 
         with col_leaderboard:
             st.markdown("<div style='font-weight: 700; font-size: 16px; margin-bottom: 8px; color: #1E2329; text-transform: uppercase;'>BẢNG XẾP HẠNG</div>", unsafe_allow_html=True)
