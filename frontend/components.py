@@ -1314,24 +1314,31 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
 
         # ==========================================
         # ==========================================
-        # 2. VẼ GIAO DIỆN (FIX TẬN GỐC ATTRIBUTE ERROR VÀ TRẮNG TAB)
+        # 2. VẼ GIAO DIỆN (KÉO TRỰC TIẾP TỪ HÀM DATABASE GỐC)
         # ==========================================
-        # Thêm 2 dòng này để soi xem có những hộp data nào đang tồn tại:
-        st.error("🕵️ CÁC HỘP DATA ĐANG CÓ TRONG BỘ NHỚ LÀ:")
-        st.write(list(st.session_state.keys()))
-        # 1. KIỂM TRA BẢO MẬT KHO DỮ LIỆU ĐỂ CHỐNG LỖI VĂNG APP
-        if 'rep_cached_df' not in st.session_state:
-            st.info("Hệ thống đang đồng bộ dữ liệu. Vui lòng truy cập tab 'Tổng quan thị trường' để khởi tạo luồng dữ liệu báo cáo.")
-        elif st.session_state.rep_cached_df is None or st.session_state.rep_cached_df.empty:
-            st.info("Chưa có dữ liệu báo cáo LINANCE_DB. Vui lòng chờ hệ thống đồng bộ.")
+        import pandas as pd
+        import math
+        from datetime import datetime
+        import streamlit as st
+
+        # Dùng bùa cache của Streamlit để lưu tạm data 5 phút, chuyển tab không bị load lại Google Sheets
+        @st.cache_data(ttl=300)
+        def get_report_data_direct():
+            try:
+                # 🚀 GỌI THẲNG HÀM KÉO DATA CỦA SẾP Ở ĐÂY!
+                raw_data = fetch_reports_db() 
+                if raw_data:
+                    return pd.DataFrame(raw_data)
+                return pd.DataFrame()
+            except Exception as e:
+                return pd.DataFrame()
+
+        # Nạp data nóng hổi vào biến t4_df_rep
+        t4_df_rep = get_report_data_direct()
+
+        if t4_df_rep.empty:
+            st.info("⏳ Đang đồng bộ dữ liệu báo cáo từ Google Sheets LINANCE_DB...")
         else:
-            # 2. DATA ĐÃ SẴN SÀNG -> BẮT ĐẦU VẼ BẢNG VÀ MA TRẬN
-            import pandas as pd
-            import math
-            from datetime import datetime
-            
-            t4_df_rep = st.session_state.rep_cached_df.copy()
-            
             # --- BƯỚC A: ĐẶT BỘ LỌC Ở NGOÀI CÙNG ---
             st.markdown("<div style='background-color: #FAFAFA; padding: 16px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #EAECEF;'>", unsafe_allow_html=True)
             t4_col1, t4_col2 = st.columns(2)
@@ -1459,7 +1466,7 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
 
                 st.markdown(f"<div style='background: #FAFAFA; border: 1px solid #EAECEF; border-radius: 8px; padding: 20px; position: relative; margin-top: 10px;'>{t4_board_html}<div style='margin-top: 24px; padding: 12px; background: #E6FFF3; border-radius: 6px; border: 1px dashed #0ECB81;'><div style='font-size: 11px; color: #0ECB81; font-weight: 800; text-transform: uppercase; margin-bottom: 4px;'>🤖 AI Consensus</div><div style='font-size: 13px; color: #1E2329; font-weight: 600;'>{t4_ai_html}</div></div></div>", unsafe_allow_html=True)
 
-            # --- BƯỚC C: MA TRẬN ---
+            # --- BƯỚC C: MA TRẬN ĐỊNH VỊ ---
             if not t4_filtered_rep.empty:
                 st.markdown("<br><hr style='border-top: 1px dashed #EAECEF; margin-bottom: 24px;'>", unsafe_allow_html=True)
                 st.markdown("<div style='font-weight: 900; font-size: 18px; margin-bottom: 4px; color: #FF6B00; text-transform: uppercase;'>🎯 MA TRẬN ĐỊNH VỊ CỔ PHIẾU (CONFLUENCE MATRIX)</div>", unsafe_allow_html=True)
