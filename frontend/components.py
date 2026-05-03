@@ -1314,13 +1314,9 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
 
         # ==========================================
         # ==========================================
-        # 2. VẼ GIAO DIỆN (TRẢ LẠI 100% LOGIC DATA GỐC CỦA SẾP)
+        # 2. VẼ GIAO DIỆN (ĐÃ LOẠI BỎ TẤT CẢ IMPORT CỤC BỘ)
         # ==========================================
-        import pandas as pd
-        import math
-        from datetime import datetime
-        import streamlit as st
-
+        
         # --- ĐÂY LÀ ĐOẠN CODE GỐC CỦA SẾP - KHÔNG THÊM BẤT KỲ LỆNH KIỂM TRA RƯỜM RÀ NÀO ---
         cached_df = st.session_state.rep_cached_df
         
@@ -1473,6 +1469,7 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
             st.markdown("<div style='color: #707A8A; font-size: 13px; margin-bottom: 16px;'><b>Góc phải trên cùng (Ngôi Sao)</b> là các mã được định giá Rẻ + Dòng tiền đang vào mạnh nhất. Bong bóng càng to càng nhiều Tổ chức khuyến nghị. <br><i>💡 Tip: Quét chọn một vùng để phóng to (Zoom in), Click đúp chuột để thu phóng về ban đầu, Lăn chuột để cuộn.</i></div>", unsafe_allow_html=True)
             
             try:
+                # Import Plotly được phép cục bộ vì nó chỉ dùng trong khối try-except này
                 import plotly.express as px
                 
                 matrix_df = filtered_rep.copy()
