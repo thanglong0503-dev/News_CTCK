@@ -1313,10 +1313,9 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                         st.session_state.rep_cache_time = time.time()
 
         # ==========================================
-        # 2. VẼ GIAO DIỆN (BẢN SIÊU SẠCH - ĐÃ QUÉT SẠCH IMPORT)
+        # 2. VẼ GIAO DIỆN (BẢN FIX KEYERROR: TỰ ĐỘNG NHẬN DIỆN CỘT STATUS)
         # ==========================================
         
-        # Hàm kéo data (sử dụng thư viện pd đã khai báo ở đầu file)
         @st.cache_data(ttl=300)
         def get_report_data_direct():
             try:
@@ -1327,7 +1326,6 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
             except Exception:
                 return pd.DataFrame()
 
-        # Nạp data nóng hổi
         t4_df_rep = get_report_data_direct()
 
         if t4_df_rep.empty:
@@ -1382,7 +1380,9 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                             elif 'GIỮ' in t4_act or 'TRUNG LẬP' in t4_act: t4_cls = 'act-giu'
                             else: t4_cls = 'act-badge'
                             
-                            t4_sts = r['Auto_Status']
+                            # VŨ KHÍ CHỐNG KEYERROR: Tự tìm đúng tên cột Status hoặc Auto_Status, nếu không có gán bằng chữ rỗng
+                            t4_sts = str(r.get('Status', r.get('Auto_Status', 'Đang chờ'))).upper()
+                            
                             if 'ĐẠT' in t4_sts: t4_sts_cls = 'sts-dat'
                             elif 'CẮT' in t4_sts: t4_sts_cls = 'sts-cat'
                             else: t4_sts_cls = 'sts-cho'
@@ -1420,7 +1420,12 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                     if 'cắt lỗ' in s: return 'Loss'
                     return 'Pending'
                     
-                t4_filtered_rep['Result'] = t4_filtered_rep['Auto_Status'].apply(t4_get_win_loss)
+                # VŨ KHÍ CHỐNG KEYERROR: Tìm tự động tên cột
+                t4_status_col_name = 'Status' if 'Status' in t4_filtered_rep.columns else 'Auto_Status'
+                if t4_status_col_name in t4_filtered_rep.columns:
+                    t4_filtered_rep['Result'] = t4_filtered_rep[t4_status_col_name].apply(t4_get_win_loss)
+                else:
+                    t4_filtered_rep['Result'] = 'Pending'
                 
                 t4_stats = []
                 t4_brokers = t4_filtered_rep['Broker'].unique()
