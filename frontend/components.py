@@ -1314,17 +1314,11 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
 
         # ==========================================
         # ==========================================
-        # 2. VẼ GIAO DIỆN (BẢN CHỐNG ĐỤNG BIẾN - 100% UNIQUE)
+        # 2. VẼ GIAO DIỆN (SẠCH BÓNG IMPORT ĐỂ FIX UNBOUNDLOCALERROR)
         # ==========================================
-        import pandas as pd
-        import math
-        from datetime import datetime
-        import streamlit as st
+        t4_cached_df = st.session_state.get('rep_cached_df', None)
         
-        # Đã đổi toàn bộ tên biến thêm chữ "t4_" để không cắn nhau với các Tab khác!
-        t4_cached_df = st.session_state.get('rep_cached_df', pd.DataFrame())
-        
-        if t4_cached_df.empty:
+        if t4_cached_df is None or len(t4_cached_df) == 0:
             st.info("Hệ thống đang đồng bộ dữ liệu. Vui lòng truy cập tab 'Tổng quan thị trường' để khởi tạo luồng dữ liệu báo cáo.")
         else:
             t4_df_rep = t4_cached_df.copy()
@@ -1340,10 +1334,10 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
             t4_filtered_rep = t4_df_rep.copy()
             if t4_broker_flt != "Tất cả": t4_filtered_rep = t4_filtered_rep[t4_filtered_rep['Broker'] == t4_broker_flt]
             if t4_time_flt == "Hôm nay":
-                t4_today_str = datetime.now().strftime("%d/%m/%Y")
+                t4_today_str = pd.Timestamp.now().strftime("%d/%m/%Y")
                 t4_filtered_rep = t4_filtered_rep[t4_filtered_rep['Date'].astype(str).str.contains(t4_today_str)]
             elif t4_time_flt == "Tháng này":
-                t4_month_str = datetime.now().strftime("/%m/%Y")
+                t4_month_str = pd.Timestamp.now().strftime("/%m/%Y")
                 t4_filtered_rep = t4_filtered_rep[t4_filtered_rep['Date'].astype(str).str.contains(t4_month_str)]
 
             # --- BƯỚC B: CHIA CỘT ---
@@ -1354,7 +1348,7 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                 def render_t4_report_list():
                     T4_ITEMS_PER_PAGE = 5
                     t4_total_items = len(t4_filtered_rep)
-                    t4_total_pages = math.ceil(t4_total_items / T4_ITEMS_PER_PAGE) if t4_total_items > 0 else 1
+                    t4_total_pages = (t4_total_items + T4_ITEMS_PER_PAGE - 1) // T4_ITEMS_PER_PAGE if t4_total_items > 0 else 1
                     
                     if 't4_report_page' not in st.session_state: st.session_state.t4_report_page = 1
                     if st.session_state.t4_report_page > t4_total_pages: st.session_state.t4_report_page = t4_total_pages
