@@ -1313,19 +1313,18 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                         st.session_state.rep_cache_time = time.time()
 
         # ==========================================
-        # 2. VẼ GIAO DIỆN (ĐÃ FIX LỖI SCOPE + GIỮ FRAGMENT CHUYỂN TRANG MƯỢT)
+        # ==========================================
+        # 2. VẼ GIAO DIỆN 
         # ==========================================
         import pandas as pd
         
-        # Bùa an toàn mới: Nếu hệ thống bị mất trí nhớ, tạo ngay một kho rỗng cho nó khỏi báo lỗi đỏ
-        if 'rep_cached_df' not in st.session_state:
-            st.session_state.rep_cached_df = pd.DataFrame()
-            
-        cached_df = st.session_state.rep_cached_df
-        if cached_df.empty:
-            st.info("Dữ liệu báo cáo LINANCE_DB chưa được nạp.")
-            return
+        # Dùng .get() để gọi data cực kỳ an toàn, không tự ý tạo kho rỗng chặn luồng nữa!
+        cached_df = st.session_state.get('rep_cached_df', pd.DataFrame())
         
+        if cached_df.empty:
+            st.info("🔄 Đang đợi data... ")
+            return
+            
         df_rep = cached_df.copy()
         
         # --- BƯỚC A: ĐẶT BỘ LỌC Ở NGOÀI CÙNG ĐỂ TẤT CẢ ĐỀU XÀI CHUNG DATA ---
