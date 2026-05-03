@@ -1313,9 +1313,10 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                         st.session_state.rep_cache_time = time.time()
 
         # ==========================================
-        # 2. VẼ GIAO DIỆN (BẢN FIX KEYERROR: TỰ ĐỘNG NHẬN DIỆN CỘT STATUS)
+        # 2. VẼ GIAO DIỆN (BẢN TÍCH HỢP GIÁ HIỆN TẠI TỪ RS_DATA)
         # ==========================================
         
+        # 1. HÀM KÉO DATA BÁO CÁO (GIỮ NGUYÊN)
         @st.cache_data(ttl=300)
         def get_report_data_direct():
             try:
@@ -1326,7 +1327,28 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
             except Exception:
                 return pd.DataFrame()
 
+        # 2. VŨ KHÍ MỚI: KÉO CỘT "GIÁ" TỪ TAB RS_DATA ĐỂ BÙ ĐẮP
+        @st.cache_data(ttl=300)
+        def get_rs_price_mapping():
+            try:
+                # Gọi thẳng hàm kết nối Database của Sếp
+                from backend.database import get_db_connection
+                db = get_db_connection()
+                if db:
+                    sheet = db.worksheet("RS_DATA")
+                    df_rs = pd.DataFrame(sheet.get_all_records())
+                    if not df_rs.empty and 'Mã CK' in df_rs.columns and 'Giá' in df_rs.columns:
+                        # Làm sạch dữ liệu giá: Xóa dấu phẩy, dấu chấm (nếu có) và ép kiểu về số
+                        df_rs['Giá'] = pd.to_numeric(df_rs['Giá'].astype(str).str.replace(',', '').str.replace('.', '').str.strip(), errors='coerce')
+                        # Trả về cuốn từ điển { 'SSI': 27650, 'VHM': 146000 } để tra cứu siêu tốc độ
+                        return dict(zip(df_rs['Mã CK'].astype(str).str.strip().str.upper(), df_rs['Giá']))
+            except Exception as e:
+                print(f"Lỗi kéo giá RS_DATA: {e}")
+            return {}
+
+        # Nạp data nóng hổi
         t4_df_rep = get_report_data_direct()
+        t4_price_dict = get_rs_price_mapping() # <--- Cuốn từ điển giá lấy từ RS_DATA
 
         if t4_df_rep.empty:
             st.info("Hệ thống đang đồng bộ dữ liệu báo cáo từ Google Sheets LINANCE_DB...")
@@ -1380,18 +1402,22 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                             elif 'GIỮ' in t4_act or 'TRUNG LẬP' in t4_act: t4_cls = 'act-giu'
                             else: t4_cls = 'act-badge'
                             
-                            # VŨ KHÍ CHỐNG KEYERROR: Tự tìm đúng tên cột Status hoặc Auto_Status, nếu không có gán bằng chữ rỗng
                             t4_sts = str(r.get('Status', r.get('Auto_Status', 'Đang chờ'))).upper()
-                            
                             if 'ĐẠT' in t4_sts: t4_sts_cls = 'sts-dat'
                             elif 'CẮT' in t4_sts: t4_sts_cls = 'sts-cat'
                             else: t4_sts_cls = 'sts-cho'
 
+                            # 🎯 MAP GIÁ TỪ TỪ ĐIỂN RS_DATA 🎯
+                            t4_ticker_clean = str(r.get('Ticker', 'N/A')).strip().upper()
+                            t4_raw_realtime = t4_price_dict.get(t4_ticker_clean, r.get('Realtime_Price', 0))
+
                             try:
                                 t4_tp = f"{float(r.get('Target_Price', 0)):,.0f}"
                                 t4_cp = f"{float(r.get('Current_Price_At_Date', 0)):,.0f}"
-                                t4_rp = f"{float(r.get('Realtime_Price', 0)):,.0f}" if r.get('Realtime_Price', 0) > 0 else "N/A"
-                            except: t4_tp, t4_cp, t4_rp = 'N/A', 'N/A', 'N/A'
+                                # In giá trị vừa Map được ra thẻ UI
+                                t4_rp = f"{float(t4_raw_realtime):,.0f}" if pd.notnull(t4_raw_realtime) and float(t4_raw_realtime) > 0 else "N/A"
+                            except: 
+                                t4_tp, t4_cp, t4_rp = 'N/A', 'N/A', 'N/A'
 
                             t4_html += f"""<div class="rep-card"><div class="rep-top"><div style="display: flex; align-items: center; gap: 12px;"><span class="rep-tkr">{r.get('Ticker', 'N/A')}</span><span class="{t4_cls}">{t4_act}</span><span class="{t4_sts_cls}">{t4_sts}</span></div><span class="rep-brk">🏢 {r.get('Broker', 'N/A')}</span></div><div class="rep-mid"><div><div class="rep-lbl">Giá Khuyến Nghị</div><div class="rep-val">{t4_cp}</div></div><div><div class="rep-lbl">Giá Hiện Tại</div><div class="rep-val" style="color: #0052FF;">{t4_rp}</div></div><div><div class="rep-lbl">Giá Mục Tiêu</div><div class="rep-val" style="color: #FF6B00;">{t4_tp}</div></div><div><div class="rep-lbl">Ngày Phát Hành</div><div class="rep-val" style="color: #707A8A; font-weight: 600;">{r.get('Date', 'N/A')}</div></div></div><div style="font-size: 12px; text-align: right;"><a href="{r.get('Link', '#')}" target="_blank" style="color: #0052FF; font-weight: 600; text-decoration: none;">Xem chi tiết báo cáo ↗</a></div></div>"""
                         st.markdown(f"{t4_css}<div>{t4_html}</div>", unsafe_allow_html=True)
@@ -1420,7 +1446,6 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                     if 'cắt lỗ' in s: return 'Loss'
                     return 'Pending'
                     
-                # VŨ KHÍ CHỐNG KEYERROR: Tìm tự động tên cột
                 t4_status_col_name = 'Status' if 'Status' in t4_filtered_rep.columns else 'Auto_Status'
                 if t4_status_col_name in t4_filtered_rep.columns:
                     t4_filtered_rep['Result'] = t4_filtered_rep[t4_status_col_name].apply(t4_get_win_loss)
@@ -1472,6 +1497,13 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                 
                 try:
                     t4_mat_df = t4_filtered_rep.copy()
+                    
+                    # 🎯 MAP GIÁ LẠI VÀO MA TRẬN ĐỂ TÍNH TOÁN UPSIDE CHUẨN XÁC 🎯
+                    t4_mat_df['Ticker_Clean'] = t4_mat_df['Ticker'].astype(str).str.strip().str.upper()
+                    t4_mat_df['Realtime_Price'] = t4_mat_df.apply(
+                        lambda row: t4_price_dict.get(row['Ticker_Clean'], row.get('Realtime_Price', 0)), axis=1
+                    )
+                    
                     t4_mat_df['Realtime_Price'] = pd.to_numeric(t4_mat_df['Realtime_Price'], errors='coerce')
                     t4_mat_df['Target_Price'] = pd.to_numeric(t4_mat_df['Target_Price'], errors='coerce')
                     
