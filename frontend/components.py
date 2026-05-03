@@ -1313,15 +1313,13 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                         st.session_state.rep_cache_time = time.time()
 
         # ==========================================
-        # ==========================================
-        # 2. VẼ GIAO DIỆN (ĐÃ LOẠI BỎ IMPORT THỪA - FIX UNBOUNDLOCALERROR)
+        # 2. VẼ GIAO DIỆN (BẢN SIÊU SẠCH - ĐÃ QUÉT SẠCH IMPORT)
         # ==========================================
         
-        # Dùng bùa cache của Streamlit để lưu tạm data 5 phút
+        # Hàm kéo data (sử dụng thư viện pd đã khai báo ở đầu file)
         @st.cache_data(ttl=300)
         def get_report_data_direct():
             try:
-                # Gọi thẳng hàm kéo data của Sếp đã import ở trên
                 raw_data = fetch_reports_db() 
                 if raw_data:
                     return pd.DataFrame(raw_data)
@@ -1329,7 +1327,7 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
             except Exception:
                 return pd.DataFrame()
 
-        # Nạp data trực tiếp
+        # Nạp data nóng hổi
         t4_df_rep = get_report_data_direct()
 
         if t4_df_rep.empty:
@@ -1352,7 +1350,7 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                 t4_month_str = datetime.now().strftime("/%m/%Y")
                 t4_filtered_rep = t4_filtered_rep[t4_filtered_rep['Date'].astype(str).str.contains(t4_month_str)]
 
-            # --- BƯỚC B: CHIA CỘT ---
+            # --- BƯỚC B: CHIA CỘT CHÍNH ---
             t4_col_list, t4_col_board = st.columns([1.7, 1])
             
             with t4_col_list:
