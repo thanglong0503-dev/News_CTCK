@@ -1323,7 +1323,7 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
             
         cached_df = st.session_state.rep_cached_df
         if cached_df.empty:
-            st.info("Dữ liệu báo cáo LINANCE_DB chưa được nạp. Sếp F5 lại trang hoặc kiểm tra file chạy ngầm nhé!")
+            st.info("Dữ liệu báo cáo LINANCE_DB chưa được nạp.")
             return
         
         df_rep = cached_df.copy()
