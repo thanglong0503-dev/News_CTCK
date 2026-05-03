@@ -1313,10 +1313,11 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                         st.session_state.rep_cache_time = time.time()
 
         # ==========================================
-        # 2. VẼ GIAO DIỆN (BẢN TÍCH HỢP GIÁ HIỆN TẠI TỪ RS_DATA)
+        # ==========================================
+        # 2. VẼ GIAO DIỆN (BẢN HỒI SINH RADAR TÍNH TOÁN WIN/LOSS TỰ ĐỘNG)
         # ==========================================
         
-        # 1. HÀM KÉO DATA BÁO CÁO (GIỮ NGUYÊN)
+        # 1. HÀM KÉO DATA BÁO CÁO 
         @st.cache_data(ttl=300)
         def get_report_data_direct():
             try:
@@ -1327,28 +1328,25 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
             except Exception:
                 return pd.DataFrame()
 
-        # 2. VŨ KHÍ MỚI: KÉO CỘT "GIÁ" TỪ TAB RS_DATA ĐỂ BÙ ĐẮP
+        # 2. HÀM MƯỢN CỘT GIÁ TỪ RS_DATA 
         @st.cache_data(ttl=300)
         def get_rs_price_mapping():
             try:
-                # Gọi thẳng hàm kết nối Database của Sếp
                 from backend.database import get_db_connection
                 db = get_db_connection()
                 if db:
                     sheet = db.worksheet("RS_DATA")
                     df_rs = pd.DataFrame(sheet.get_all_records())
                     if not df_rs.empty and 'Mã CK' in df_rs.columns and 'Giá' in df_rs.columns:
-                        # Làm sạch dữ liệu giá: Xóa dấu phẩy, dấu chấm (nếu có) và ép kiểu về số
                         df_rs['Giá'] = pd.to_numeric(df_rs['Giá'].astype(str).str.replace(',', '').str.replace('.', '').str.strip(), errors='coerce')
-                        # Trả về cuốn từ điển { 'SSI': 27650, 'VHM': 146000 } để tra cứu siêu tốc độ
                         return dict(zip(df_rs['Mã CK'].astype(str).str.strip().str.upper(), df_rs['Giá']))
-            except Exception as e:
-                print(f"Lỗi kéo giá RS_DATA: {e}")
+            except Exception:
+                pass
             return {}
 
         # Nạp data nóng hổi
         t4_df_rep = get_report_data_direct()
-        t4_price_dict = get_rs_price_mapping() # <--- Cuốn từ điển giá lấy từ RS_DATA
+        t4_price_dict = get_rs_price_mapping()
 
         if t4_df_rep.empty:
             st.info("Hệ thống đang đồng bộ dữ liệu báo cáo từ Google Sheets LINANCE_DB...")
@@ -1369,6 +1367,33 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
             elif t4_time_flt == "Tháng này":
                 t4_month_str = datetime.now().strftime("/%m/%Y")
                 t4_filtered_rep = t4_filtered_rep[t4_filtered_rep['Date'].astype(str).str.contains(t4_month_str)]
+
+            # 🚀 VŨ KHÍ MỚI: TỰ ĐỘNG TÍNH TOÁN LẠI TRẠNG THÁI (CUT LOSS / TARGET) 🚀
+            def calculate_dynamic_status(row):
+                ticker = str(row.get('Ticker', '')).strip().upper()
+                entry_price = pd.to_numeric(row.get('Current_Price_At_Date', 0), errors='coerce')
+                target_price = pd.to_numeric(row.get('Target_Price', 0), errors='coerce')
+                
+                # Ưu tiên lấy giá realtime mới nhất từ kho RS_DATA
+                realtime_price = pd.to_numeric(t4_price_dict.get(ticker, row.get('Realtime_Price', 0)), errors='coerce')
+                
+                # Trạng thái gốc vớt từ Google Sheets
+                original_status = str(row.get('Status', row.get('Auto_Status', 'ĐANG THEO DÕI'))).upper()
+
+                if pd.isna(realtime_price) or realtime_price <= 0 or pd.isna(entry_price) or entry_price <= 0:
+                    return original_status
+
+                # LOGIC CHỐT LỜI / CẮT LỖ
+                if target_price > 0 and realtime_price >= target_price:
+                    return "ĐẠT TARGET"
+                # Ngưỡng cắt lỗ: Sếp có thể tự chỉnh 0.93 (-7%) thành 0.92 (-8%) tùy chiến lược nhé!
+                elif realtime_price <= entry_price * 0.93: 
+                    return "CẮT LỖ"
+                else:
+                    return "ĐANG THEO DÕI"
+
+            # Ép hệ thống cập nhật lại Trạng thái trước khi vẽ Giao diện
+            t4_filtered_rep['Dynamic_Status'] = t4_filtered_rep.apply(calculate_dynamic_status, axis=1)
 
             # --- BƯỚC B: CHIA CỘT CHÍNH ---
             t4_col_list, t4_col_board = st.columns([1.7, 1])
@@ -1402,19 +1427,19 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                             elif 'GIỮ' in t4_act or 'TRUNG LẬP' in t4_act: t4_cls = 'act-giu'
                             else: t4_cls = 'act-badge'
                             
-                            t4_sts = str(r.get('Status', r.get('Auto_Status', 'Đang chờ'))).upper()
+                            # Hiển thị Trạng thái ĐÃ TÍNH TOÁN LẠI
+                            t4_sts = r['Dynamic_Status']
                             if 'ĐẠT' in t4_sts: t4_sts_cls = 'sts-dat'
                             elif 'CẮT' in t4_sts: t4_sts_cls = 'sts-cat'
                             else: t4_sts_cls = 'sts-cho'
 
-                            # 🎯 MAP GIÁ TỪ TỪ ĐIỂN RS_DATA 🎯
+                            # Giá Realtime mới nhất
                             t4_ticker_clean = str(r.get('Ticker', 'N/A')).strip().upper()
                             t4_raw_realtime = t4_price_dict.get(t4_ticker_clean, r.get('Realtime_Price', 0))
 
                             try:
                                 t4_tp = f"{float(r.get('Target_Price', 0)):,.0f}"
                                 t4_cp = f"{float(r.get('Current_Price_At_Date', 0)):,.0f}"
-                                # In giá trị vừa Map được ra thẻ UI
                                 t4_rp = f"{float(t4_raw_realtime):,.0f}" if pd.notnull(t4_raw_realtime) and float(t4_raw_realtime) > 0 else "N/A"
                             except: 
                                 t4_tp, t4_cp, t4_rp = 'N/A', 'N/A', 'N/A'
@@ -1440,17 +1465,14 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                 st.markdown("<div style='font-weight: 700; font-size: 16px; margin-bottom: 8px; color: #1E2329; text-transform: uppercase;'>BẢNG XẾP HẠNG</div>", unsafe_allow_html=True)
                 st.markdown("<div style='color: #707A8A; font-size: 12px; margin-bottom: 16px;'>Tỷ lệ Win Rate tính trên các kèo đã đóng. Ưu tiên tổ chức có số lượng dự đoán ĐÚNG nhiều nhất.</div>", unsafe_allow_html=True)
                 
+                # Bảng xếp hạng đọc dữ liệu từ Dynamic_Status
                 def t4_get_win_loss(status):
                     s = str(status).strip().lower()
                     if 'đạt target' in s: return 'Win'
                     if 'cắt lỗ' in s: return 'Loss'
                     return 'Pending'
                     
-                t4_status_col_name = 'Status' if 'Status' in t4_filtered_rep.columns else 'Auto_Status'
-                if t4_status_col_name in t4_filtered_rep.columns:
-                    t4_filtered_rep['Result'] = t4_filtered_rep[t4_status_col_name].apply(t4_get_win_loss)
-                else:
-                    t4_filtered_rep['Result'] = 'Pending'
+                t4_filtered_rep['Result'] = t4_filtered_rep['Dynamic_Status'].apply(t4_get_win_loss)
                 
                 t4_stats = []
                 t4_brokers = t4_filtered_rep['Broker'].unique()
@@ -1471,7 +1493,7 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                 t4_board_html = ""
                 
                 if t4_df_stats.empty: 
-                    t4_board_html = "<div style='font-size: 13px; color: #707A8A; text-align: center; padding: 20px; border-bottom: 1px dashed #EAECEF; margin-bottom: 12px;'>Chưa có dữ liệu tính toán xếp hạng.</div>"
+                    t4_board_html = "<div style='font-size: 13px; color: #707A8A; text-align: center; padding: 20px; border-bottom: 1px dashed #EAECEF; margin-bottom: 12px;'>Chưa có dữ liệu tính toán xếp hạng (Chưa có mã Đạt Target hoặc Cắt Lỗ).</div>"
                 else:
                     t4_df_stats = t4_df_stats.sort_values(by='Score', ascending=False).reset_index(drop=True)
                     t4_medals = ["🥇", "🥈", "🥉"]
@@ -1498,7 +1520,6 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                 try:
                     t4_mat_df = t4_filtered_rep.copy()
                     
-                    # 🎯 MAP GIÁ LẠI VÀO MA TRẬN ĐỂ TÍNH TOÁN UPSIDE CHUẨN XÁC 🎯
                     t4_mat_df['Ticker_Clean'] = t4_mat_df['Ticker'].astype(str).str.strip().str.upper()
                     t4_mat_df['Realtime_Price'] = t4_mat_df.apply(
                         lambda row: t4_price_dict.get(row['Ticker_Clean'], row.get('Realtime_Price', 0)), axis=1
