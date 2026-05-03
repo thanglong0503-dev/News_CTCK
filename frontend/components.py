@@ -1313,16 +1313,17 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                         st.session_state.rep_cache_time = time.time()
 
         # ==========================================
-        # ==========================================
         # 2. VẼ GIAO DIỆN 
         # ==========================================
         import pandas as pd
+        import math
+        from datetime import datetime
         
         # Dùng .get() để gọi data cực kỳ an toàn, không tự ý tạo kho rỗng chặn luồng nữa!
         cached_df = st.session_state.get('rep_cached_df', pd.DataFrame())
         
         if cached_df.empty:
-            st.info("🔄 Đang đợi data... ")
+            st.info("Hệ thống đang đồng bộ dữ liệu. Vui lòng truy cập tab 'Tổng quan thị trường' để khởi tạo luồng dữ liệu báo cáo.")
             return
             
         df_rep = cached_df.copy()
@@ -1355,6 +1356,8 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                 total_items = len(filtered_rep)
                 total_pages = math.ceil(total_items / ITEMS_PER_PAGE) if total_items > 0 else 1
                 
+                if 'report_page' not in st.session_state:
+                    st.session_state.report_page = 1
                 if st.session_state.report_page > total_pages: st.session_state.report_page = total_pages
                 if st.session_state.report_page < 1: st.session_state.report_page = 1
                     
@@ -1365,7 +1368,7 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                 st.markdown("<div style='font-weight: 700; font-size: 16px; margin-bottom: 16px; color: #1E2329;'>Dòng thời gian Khuyến nghị</div>", unsafe_allow_html=True)
                 
                 if paged_rep.empty: 
-                    st.warning("Không tìm thấy báo cáo nào khớp với bộ lọc!")
+                    st.warning("Không tìm thấy báo cáo nào khớp với điều kiện lọc.")
                 else:
                     css_rep = "<style>.rep-card { background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 16px; margin-bottom: 16px; transition: all 0.2s ease; border-left: 4px solid #1E2329; } .rep-card:hover { border-color: #FF6B00; border-left: 4px solid #FF6B00; box-shadow: 0 4px 12px rgba(230, 81, 0, 0.08); transform: translateX(4px); } .rep-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; } .rep-tkr { font-size: 20px; font-weight: 800; color: #1E2329; font-family: 'SF Mono', Consolas, monospace;} .rep-brk { font-size: 12px; color: #707A8A; font-weight: 700; background: #F8FAFC; padding: 4px 8px; border-radius: 4px; border: 1px solid #EAECEF;} .rep-mid { display: flex; gap: 24px; margin-bottom: 12px; flex-wrap: wrap;} .rep-lbl { font-size: 11px; color: #848E9C; text-transform: uppercase; font-weight: 700; margin-bottom: 4px; } .rep-val { font-size: 15px; font-weight: 700; color: #1E2329; } .act-badge { background: #F0F2F5; color: #474D57; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 800;} .act-mua { color: #0ECB81; background: #E6FFF3; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 800;} .act-ban { color: #F6465D; background: #FFF1F0; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 800;} .act-giu { color: #F39C12; background: #FEF5E7; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 800;} .sts-dat { color: #0ECB81; border: 1px solid #0ECB81; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; } .sts-cat { color: #F6465D; border: 1px solid #F6465D; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; } .sts-cho { color: #848E9C; border: 1px solid #848E9C; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; }</style>"
                     reports_html = ""
@@ -1540,7 +1543,7 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                     # IN BIỂU ĐỒ VÀ BẬT CHẾ ĐỘ LĂN CHUỘT
                     st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True})
             except Exception as e:
-                st.info("Đang tích hợp biểu đồ Plotly... ")
+                st.warning("Hệ thống đang khởi tạo biểu đồ Ma trận Định vị. Vui lòng thử lại sau.")
 # --- TAB 5: SO SÁNH DỊCH VỤ VÀ GÓI ƯU ĐÃI ---
     with tab5:
         st.markdown("<br><div style='font-size: 20px; font-weight: 800; color: #1E2329; margin-bottom: 8px; text-transform: uppercase;'>TÌM KIẾM GÓI MARGIN & PHÍ TỐI ƯU</div>", unsafe_allow_html=True)
