@@ -1314,32 +1314,28 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
 
         # ==========================================
         # ==========================================
-        # 2. VẼ GIAO DIỆN (KÉO TRỰC TIẾP TỪ HÀM DATABASE GỐC)
+        # 2. VẼ GIAO DIỆN (ĐÃ LOẠI BỎ IMPORT THỪA - FIX UNBOUNDLOCALERROR)
         # ==========================================
-        import pandas as pd
-        import math
-        from datetime import datetime
-        import streamlit as st
-
-        # Dùng bùa cache của Streamlit để lưu tạm data 5 phút, chuyển tab không bị load lại Google Sheets
+        
+        # Dùng bùa cache của Streamlit để lưu tạm data 5 phút
         @st.cache_data(ttl=300)
         def get_report_data_direct():
             try:
-                # 🚀 GỌI THẲNG HÀM KÉO DATA CỦA SẾP Ở ĐÂY!
+                # Gọi thẳng hàm kéo data của Sếp đã import ở trên
                 raw_data = fetch_reports_db() 
                 if raw_data:
                     return pd.DataFrame(raw_data)
                 return pd.DataFrame()
-            except Exception as e:
+            except Exception:
                 return pd.DataFrame()
 
-        # Nạp data nóng hổi vào biến t4_df_rep
+        # Nạp data trực tiếp
         t4_df_rep = get_report_data_direct()
 
         if t4_df_rep.empty:
-            st.info("⏳ Đang đồng bộ dữ liệu báo cáo từ Google Sheets LINANCE_DB...")
+            st.info("Hệ thống đang đồng bộ dữ liệu báo cáo từ Google Sheets LINANCE_DB...")
         else:
-            # --- BƯỚC A: ĐẶT BỘ LỌC Ở NGOÀI CÙNG ---
+            # --- BƯỚC A: ĐẶT BỘ LỌC ---
             st.markdown("<div style='background-color: #FAFAFA; padding: 16px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #EAECEF;'>", unsafe_allow_html=True)
             t4_col1, t4_col2 = st.columns(2)
             t4_all_brokers = ["Tất cả"] + t4_df_rep['Broker'].dropna().unique().tolist()
@@ -1356,7 +1352,7 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                 t4_month_str = datetime.now().strftime("/%m/%Y")
                 t4_filtered_rep = t4_filtered_rep[t4_filtered_rep['Date'].astype(str).str.contains(t4_month_str)]
 
-            # --- BƯỚC B: CHIA CỘT CHÍNH ---
+            # --- BƯỚC B: CHIA CỘT ---
             t4_col_list, t4_col_board = st.columns([1.7, 1])
             
             with t4_col_list:
@@ -1470,11 +1466,8 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
             if not t4_filtered_rep.empty:
                 st.markdown("<br><hr style='border-top: 1px dashed #EAECEF; margin-bottom: 24px;'>", unsafe_allow_html=True)
                 st.markdown("<div style='font-weight: 900; font-size: 18px; margin-bottom: 4px; color: #FF6B00; text-transform: uppercase;'>🎯 MA TRẬN ĐỊNH VỊ CỔ PHIẾU (CONFLUENCE MATRIX)</div>", unsafe_allow_html=True)
-                st.markdown("<div style='color: #707A8A; font-size: 13px; margin-bottom: 16px;'><b>Góc phải trên cùng (Ngôi Sao)</b> là các mã được định giá Rẻ + Dòng tiền đang vào mạnh nhất. Bong bóng càng to càng nhiều Tổ chức khuyến nghị. <br><i>💡 Tip: Quét chọn một vùng để phóng to (Zoom in), Click đúp chuột để thu phóng về ban đầu, Lăn chuột để cuộn.</i></div>", unsafe_allow_html=True)
                 
                 try:
-                    import plotly.express as px
-                    
                     t4_mat_df = t4_filtered_rep.copy()
                     t4_mat_df['Realtime_Price'] = pd.to_numeric(t4_mat_df['Realtime_Price'], errors='coerce')
                     t4_mat_df['Target_Price'] = pd.to_numeric(t4_mat_df['Target_Price'], errors='coerce')
@@ -1489,12 +1482,10 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                         
                         t4_fig = px.scatter(t4_agg, x='RS', y='Upside', size='Count', color='Upside', text='Ticker', color_continuous_scale=[[0, '#F6465D'], [0.5, '#F39C12'], [1.0, '#0ECB81']], hover_data={'RS': True, 'Upside': ':.1f', 'Count': True})
                         t4_fig.update_traces(textposition='top center', textfont=dict(size=12, color='#1E2329', family='Arial Black'), marker=dict(line=dict(width=1, color='#FFFFFF'), opacity=0.85))
-                        t4_fig.add_hline(y=15, line_dash="dash", line_color="#EAECEF", annotation_text="Upside >15%", annotation_position="top right")
-                        t4_fig.add_vline(x=70, line_dash="dash", line_color="#EAECEF", annotation_text="RS >70", annotation_position="top right")
                         t4_fig.update_layout(plot_bgcolor='#FAFAFA', paper_bgcolor='rgba(0,0,0,0)', margin=dict(l=20, r=20, t=20, b=20), coloraxis_showscale=False, xaxis=dict(title="Dòng tiền (Sức mạnh RS)", range=[30, 100], gridcolor='#F0F2F5', zeroline=False), yaxis=dict(title="Dư địa tăng (Upside %)", gridcolor='#F0F2F5', zeroline=False), height=550)
                         
                         st.plotly_chart(t4_fig, use_container_width=True, config={'scrollZoom': True})
-                except Exception as e:
+                except Exception:
                     st.warning("Hệ thống đang khởi tạo biểu đồ Ma trận Định vị. Vui lòng thử lại sau.")
 # --- TAB 5: SO SÁNH DỊCH VỤ VÀ GÓI ƯU ĐÃI ---
     with tab5:
