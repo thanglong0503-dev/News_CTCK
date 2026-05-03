@@ -1313,8 +1313,7 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                         st.session_state.rep_cache_time = time.time()
 
         # ==========================================
-        # ==========================================
-        # 2. VẼ GIAO DIỆN (BẢN HỒI SINH RADAR TÍNH TOÁN WIN/LOSS TỰ ĐỘNG)
+        # 2. VẼ GIAO DIỆN (BẢN NÂNG CẤP LOGIC LABEL "THẸO" & MA TRẬN TRADINGVIEW)
         # ==========================================
         
         # 1. HÀM KÉO DATA BÁO CÁO 
@@ -1368,31 +1367,38 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                 t4_month_str = datetime.now().strftime("/%m/%Y")
                 t4_filtered_rep = t4_filtered_rep[t4_filtered_rep['Date'].astype(str).str.contains(t4_month_str)]
 
-            # 🚀 VŨ KHÍ MỚI: TỰ ĐỘNG TÍNH TOÁN LẠI TRẠNG THÁI (CUT LOSS / TARGET) 🚀
+            # 🚀 SIÊU LOGIC TÍNH TOÁN DYNAMIC STATUS THEO YÊU CẦU SẾP 🚀
             def calculate_dynamic_status(row):
                 ticker = str(row.get('Ticker', '')).strip().upper()
                 entry_price = pd.to_numeric(row.get('Current_Price_At_Date', 0), errors='coerce')
                 target_price = pd.to_numeric(row.get('Target_Price', 0), errors='coerce')
-                
-                # Ưu tiên lấy giá realtime mới nhất từ kho RS_DATA
                 realtime_price = pd.to_numeric(t4_price_dict.get(ticker, row.get('Realtime_Price', 0)), errors='coerce')
                 
-                # Trạng thái gốc vớt từ Google Sheets
                 original_status = str(row.get('Status', row.get('Auto_Status', 'ĐANG THEO DÕI'))).upper()
 
                 if pd.isna(realtime_price) or realtime_price <= 0 or pd.isna(entry_price) or entry_price <= 0:
                     return original_status
 
-                # LOGIC CHỐT LỜI / CẮT LỖ
+                cutloss_threshold = entry_price * 0.93 # Ngưỡng cắt lỗ -7% (Sếp có thể thay số này)
+
+                # Trường hợp 1: Trong quá khứ đã từng bị dán nhãn Cắt Lỗ, nhưng nay lại bò lên cắn Target
+                if "CẮT LỖ" in original_status:
+                    if target_price > 0 and realtime_price >= target_price:
+                        return "ĐẠT TARGET ⚠️ (Từng vi phạm)"
+                    return "CẮT LỖ"
+                
+                # Trường hợp 2: Gốc đã là Đạt Target thì lưu vĩnh viễn không xét lại
+                if "ĐẠT TARGET" in original_status:
+                    return original_status
+
+                # Trường hợp 3: Đang theo dõi (Chưa có nhãn)
                 if target_price > 0 and realtime_price >= target_price:
                     return "ĐẠT TARGET"
-                # Ngưỡng cắt lỗ: Sếp có thể tự chỉnh 0.93 (-7%) thành 0.92 (-8%) tùy chiến lược nhé!
-                elif realtime_price <= entry_price * 0.93: 
+                elif realtime_price <= cutloss_threshold:
                     return "CẮT LỖ"
                 else:
                     return "ĐANG THEO DÕI"
 
-            # Ép hệ thống cập nhật lại Trạng thái trước khi vẽ Giao diện
             t4_filtered_rep['Dynamic_Status'] = t4_filtered_rep.apply(calculate_dynamic_status, axis=1)
 
             # --- BƯỚC B: CHIA CỘT CHÍNH ---
@@ -1418,7 +1424,7 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                     if t4_paged_rep.empty: 
                         st.warning("Không tìm thấy báo cáo nào khớp với điều kiện lọc.")
                     else:
-                        t4_css = "<style>.rep-card { background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 16px; margin-bottom: 16px; transition: all 0.2s ease; border-left: 4px solid #1E2329; } .rep-card:hover { border-color: #FF6B00; border-left: 4px solid #FF6B00; box-shadow: 0 4px 12px rgba(230, 81, 0, 0.08); transform: translateX(4px); } .rep-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; } .rep-tkr { font-size: 20px; font-weight: 800; color: #1E2329; font-family: 'SF Mono', Consolas, monospace;} .rep-brk { font-size: 12px; color: #707A8A; font-weight: 700; background: #F8FAFC; padding: 4px 8px; border-radius: 4px; border: 1px solid #EAECEF;} .rep-mid { display: flex; gap: 24px; margin-bottom: 12px; flex-wrap: wrap;} .rep-lbl { font-size: 11px; color: #848E9C; text-transform: uppercase; font-weight: 700; margin-bottom: 4px; } .rep-val { font-size: 15px; font-weight: 700; color: #1E2329; } .act-badge { background: #F0F2F5; color: #474D57; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 800;} .act-mua { color: #0ECB81; background: #E6FFF3; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 800;} .act-ban { color: #F6465D; background: #FFF1F0; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 800;} .act-giu { color: #F39C12; background: #FEF5E7; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 800;} .sts-dat { color: #0ECB81; border: 1px solid #0ECB81; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; } .sts-cat { color: #F6465D; border: 1px solid #F6465D; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; } .sts-cho { color: #848E9C; border: 1px solid #848E9C; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; }</style>"
+                        t4_css = "<style>.rep-card { background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 16px; margin-bottom: 16px; transition: all 0.2s ease; border-left: 4px solid #1E2329; } .rep-card:hover { border-color: #FF6B00; border-left: 4px solid #FF6B00; box-shadow: 0 4px 12px rgba(230, 81, 0, 0.08); transform: translateX(4px); } .rep-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; } .rep-tkr { font-size: 20px; font-weight: 800; color: #1E2329; font-family: 'SF Mono', Consolas, monospace;} .rep-brk { font-size: 12px; color: #707A8A; font-weight: 700; background: #F8FAFC; padding: 4px 8px; border-radius: 4px; border: 1px solid #EAECEF;} .rep-mid { display: flex; gap: 24px; margin-bottom: 12px; flex-wrap: wrap;} .rep-lbl { font-size: 11px; color: #848E9C; text-transform: uppercase; font-weight: 700; margin-bottom: 4px; } .rep-val { font-size: 15px; font-weight: 700; color: #1E2329; } .act-badge { background: #F0F2F5; color: #474D57; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 800;} .act-mua { color: #0ECB81; background: #E6FFF3; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 800;} .act-ban { color: #F6465D; background: #FFF1F0; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 800;} .act-giu { color: #F39C12; background: #FEF5E7; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 800;} .sts-dat { color: #0ECB81; border: 1px solid #0ECB81; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; } .sts-dat-warn { color: #F39C12; border: 1px solid #F39C12; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; } .sts-cat { color: #F6465D; border: 1px solid #F6465D; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; } .sts-cho { color: #848E9C; border: 1px solid #848E9C; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; }</style>"
                         t4_html = ""
                         for _, r in t4_paged_rep.iterrows():
                             t4_act = str(r.get('Action', '')).upper()
@@ -1427,13 +1433,12 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                             elif 'GIỮ' in t4_act or 'TRUNG LẬP' in t4_act: t4_cls = 'act-giu'
                             else: t4_cls = 'act-badge'
                             
-                            # Hiển thị Trạng thái ĐÃ TÍNH TOÁN LẠI
                             t4_sts = r['Dynamic_Status']
-                            if 'ĐẠT' in t4_sts: t4_sts_cls = 'sts-dat'
+                            if '⚠️' in t4_sts: t4_sts_cls = 'sts-dat-warn'
+                            elif 'ĐẠT' in t4_sts: t4_sts_cls = 'sts-dat'
                             elif 'CẮT' in t4_sts: t4_sts_cls = 'sts-cat'
                             else: t4_sts_cls = 'sts-cho'
 
-                            # Giá Realtime mới nhất
                             t4_ticker_clean = str(r.get('Ticker', 'N/A')).strip().upper()
                             t4_raw_realtime = t4_price_dict.get(t4_ticker_clean, r.get('Realtime_Price', 0))
 
@@ -1465,7 +1470,7 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                 st.markdown("<div style='font-weight: 700; font-size: 16px; margin-bottom: 8px; color: #1E2329; text-transform: uppercase;'>BẢNG XẾP HẠNG</div>", unsafe_allow_html=True)
                 st.markdown("<div style='color: #707A8A; font-size: 12px; margin-bottom: 16px;'>Tỷ lệ Win Rate tính trên các kèo đã đóng. Ưu tiên tổ chức có số lượng dự đoán ĐÚNG nhiều nhất.</div>", unsafe_allow_html=True)
                 
-                # Bảng xếp hạng đọc dữ liệu từ Dynamic_Status
+                # Bảng xếp hạng đọc dữ liệu từ Dynamic_Status. Kèo "có thẹo" vẫn được tính là Win, nhưng Sếp đã cho User thấy ở list bên kia rồi.
                 def t4_get_win_loss(status):
                     s = str(status).strip().lower()
                     if 'đạt target' in s: return 'Win'
@@ -1512,18 +1517,18 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
 
                 st.markdown(f"<div style='background: #FAFAFA; border: 1px solid #EAECEF; border-radius: 8px; padding: 20px; position: relative; margin-top: 10px;'>{t4_board_html}<div style='margin-top: 24px; padding: 12px; background: #E6FFF3; border-radius: 6px; border: 1px dashed #0ECB81;'><div style='font-size: 11px; color: #0ECB81; font-weight: 800; text-transform: uppercase; margin-bottom: 4px;'>🤖 AI Consensus</div><div style='font-size: 13px; color: #1E2329; font-weight: 600;'>{t4_ai_html}</div></div></div>", unsafe_allow_html=True)
 
-            # --- BƯỚC C: MA TRẬN ĐỊNH VỊ ---
+            # --- BƯỚC C: MA TRẬN ĐỊNH VỊ NÂNG CẤP TRADINGVIEW ---
             if not t4_filtered_rep.empty:
                 st.markdown("<br><hr style='border-top: 1px dashed #EAECEF; margin-bottom: 24px;'>", unsafe_allow_html=True)
                 st.markdown("<div style='font-weight: 900; font-size: 18px; margin-bottom: 4px; color: #FF6B00; text-transform: uppercase;'>🎯 MA TRẬN ĐỊNH VỊ CỔ PHIẾU (CONFLUENCE MATRIX)</div>", unsafe_allow_html=True)
+                st.markdown("<div style='color: #707A8A; font-size: 13px; margin-bottom: 16px;'><b>Góc phải trên cùng (Ngôi Sao)</b> là các mã được định giá Rẻ + Dòng tiền đang vào mạnh nhất. Bong bóng càng to càng nhiều Tổ chức khuyến nghị. <br><i>💡 Tip: Click đúp chuột để thu phóng về ban đầu. Kéo thả tự do bằng chuột trái, lăn chuột để Zoom (Chuẩn TradingView).</i></div>", unsafe_allow_html=True)
                 
                 try:
-                    t4_mat_df = t4_filtered_rep.copy()
+                    import plotly.express as px
                     
+                    t4_mat_df = t4_filtered_rep.copy()
                     t4_mat_df['Ticker_Clean'] = t4_mat_df['Ticker'].astype(str).str.strip().str.upper()
-                    t4_mat_df['Realtime_Price'] = t4_mat_df.apply(
-                        lambda row: t4_price_dict.get(row['Ticker_Clean'], row.get('Realtime_Price', 0)), axis=1
-                    )
+                    t4_mat_df['Realtime_Price'] = t4_mat_df.apply(lambda row: t4_price_dict.get(row['Ticker_Clean'], row.get('Realtime_Price', 0)), axis=1)
                     
                     t4_mat_df['Realtime_Price'] = pd.to_numeric(t4_mat_df['Realtime_Price'], errors='coerce')
                     t4_mat_df['Target_Price'] = pd.to_numeric(t4_mat_df['Target_Price'], errors='coerce')
@@ -1538,9 +1543,22 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
                         
                         t4_fig = px.scatter(t4_agg, x='RS', y='Upside', size='Count', color='Upside', text='Ticker', color_continuous_scale=[[0, '#F6465D'], [0.5, '#F39C12'], [1.0, '#0ECB81']], hover_data={'RS': True, 'Upside': ':.1f', 'Count': True})
                         t4_fig.update_traces(textposition='top center', textfont=dict(size=12, color='#1E2329', family='Arial Black'), marker=dict(line=dict(width=1, color='#FFFFFF'), opacity=0.85))
-                        t4_fig.update_layout(plot_bgcolor='#FAFAFA', paper_bgcolor='rgba(0,0,0,0)', margin=dict(l=20, r=20, t=20, b=20), coloraxis_showscale=False, xaxis=dict(title="Dòng tiền (Sức mạnh RS)", range=[30, 100], gridcolor='#F0F2F5', zeroline=False), yaxis=dict(title="Dư địa tăng (Upside %)", gridcolor='#F0F2F5', zeroline=False), height=550)
                         
-                        st.plotly_chart(t4_fig, use_container_width=True, config={'scrollZoom': True})
+                        # VẼ 2 ĐƯỜNG TRUNG BÌNH CHIA CẮT MA TRẬN
+                        avg_rs = t4_agg['RS'].mean()
+                        avg_upside = t4_agg['Upside'].mean()
+                        t4_fig.add_hline(y=avg_upside, line_dash="dot", line_color="#FF6B00", line_width=2, annotation_text="Upside TB", annotation_position="top right", annotation_font_color="#FF6B00")
+                        t4_fig.add_vline(x=avg_rs, line_dash="dot", line_color="#0052FF", line_width=2, annotation_text="RS TB", annotation_position="top right", annotation_font_color="#0052FF")
+                        
+                        # LÀM ĐẬM TRỤC TUNG HOÀNH
+                        t4_fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='#F0F2F5', zeroline=True, zerolinewidth=2, zerolinecolor='#1E2329', showline=True, linewidth=2, linecolor='#1E2329', title=dict(text="Dòng tiền (Sức mạnh RS)", font=dict(size=13, weight='bold', color='#474D57')))
+                        t4_fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='#F0F2F5', zeroline=True, zerolinewidth=2, zerolinecolor='#1E2329', showline=True, linewidth=2, linecolor='#1E2329', title=dict(text="Dư địa tăng (Upside %)", font=dict(size=13, weight='bold', color='#474D57')))
+                        
+                        # CHẾ ĐỘ KÉO THẢ NHƯ TRADINGVIEW (dragmode='pan')
+                        t4_fig.update_layout(dragmode='pan', plot_bgcolor='#FAFAFA', paper_bgcolor='rgba(0,0,0,0)', margin=dict(l=20, r=20, t=20, b=20), coloraxis_showscale=False, height=550)
+                        
+                        # BẬT SCROLL CHUỘT
+                        st.plotly_chart(t4_fig, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True, 'modeBarButtonsToRemove': ['lasso2d', 'select2d']})
                 except Exception:
                     st.warning("Hệ thống đang khởi tạo biểu đồ Ma trận Định vị. Vui lòng thử lại sau.")
 # --- TAB 5: SO SÁNH DỊCH VỤ VÀ GÓI ƯU ĐÃI ---
