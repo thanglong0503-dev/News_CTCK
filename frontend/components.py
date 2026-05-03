@@ -1318,7 +1318,12 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
         import pandas as pd
         import math
         from datetime import datetime
-        
+        # --- NÚT CỨU HỘ: ÉP XÓA BÓNG MA BỘ NHỚ ĐỂ NẠP LẠI DATA TỪ ĐẦU ---
+        if st.button("🛠️ Mở khóa luồng Data (Click 1 lần rồi F5)"):
+            if 'rep_cached_df' in st.session_state:
+                del st.session_state['rep_cached_df']
+            st.cache_data.clear() # Quét sạch bộ nhớ đệm cứng đầu
+            st.rerun() # Ép tải lại trang ngay lập tức
         cached_df = st.session_state.get('rep_cached_df', pd.DataFrame())
         
         if cached_df.empty:
