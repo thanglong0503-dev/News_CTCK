@@ -1316,7 +1316,9 @@ Dữ liệu được rà soát tự động. Mức độ "Hưng phấn" áp đ�
         # ==========================================
         # 2. VẼ GIAO DIỆN (FIX TẬN GỐC ATTRIBUTE ERROR VÀ TRẮNG TAB)
         # ==========================================
-        
+        # Thêm 2 dòng này để soi xem có những hộp data nào đang tồn tại:
+        st.error("🕵️ CÁC HỘP DATA ĐANG CÓ TRONG BỘ NHỚ LÀ:")
+        st.write(list(st.session_state.keys()))
         # 1. KIỂM TRA BẢO MẬT KHO DỮ LIỆU ĐỂ CHỐNG LỖI VĂNG APP
         if 'rep_cached_df' not in st.session_state:
             st.info("Hệ thống đang đồng bộ dữ liệu. Vui lòng truy cập tab 'Tổng quan thị trường' để khởi tạo luồng dữ liệu báo cáo.")
