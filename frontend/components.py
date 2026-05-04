@@ -161,15 +161,16 @@ def render_header():
         """
         st.markdown(ticker_html, unsafe_allow_html=True)
 # ==========================================
-# KHỐI 1.5: HÀM PHỤC HỒI BẢN ĐỒ NHIỆT (XANH ĐỎ TỰ ĐỘNG 100%)
+# ==========================================
+# KHỐI 1.5: HÀM KÉO DỮ LIỆU BẢN ĐỒ NHIỆT (CHỈ THAY GIÁ RS_DATA - GIỮ NGUYÊN GỐC)
 # ==========================================
 import yfinance as yf
+import plotly.express as px
 import pandas as pd
 import streamlit as st
 
 @st.cache_data(ttl=300, show_spinner=False)
 def get_market_heatmap_data():
-    # Giữ nguyên rổ danh mục chuẩn của Sếp
     sectors = {
         'Ngân hàng': ['VCB', 'BID', 'CTG', 'MBB', 'TCB', 'VPB', 'ACB', 'STB', 'SHB', 'HDB', 'TPB', 'MSB', 'LPB', 'VIB', 'EIB', 'OCB', 'SSB'],
         'Bất động sản & KCN': ['VHM', 'VIC', 'VRE', 'NVL', 'DIG', 'DXG', 'KDH', 'NLG', 'PDR', 'KBC', 'IDC', 'SZC', 'HDG', 'TCH', 'CEO'],
@@ -180,7 +181,17 @@ def get_market_heatmap_data():
         'Công nghệ & Năng lượng': ['FPT', 'GAS', 'PLX', 'POW', 'BSR', 'REE', 'NT2', 'GEG', 'VGI', 'FOX']
     }
     
-    # Kéo giá từ Sheet để làm "lưới bảo hiểm" (Nếu Yahoo tèo vẫn có giá hiện lên)
+    vn_tickers = []
+    ticker_to_sector = {}
+    ticker_to_raw = {}
+    for sector, stocks in sectors.items():
+        for stock in stocks:
+            yf_ticker = f"{stock}.VN"
+            vn_tickers.append(yf_ticker)
+            ticker_to_sector[yf_ticker] = sector
+            ticker_to_raw[yf_ticker] = stock
+
+    # --- CHỈ THÊM ĐÚNG KHỐI NÀY ĐỂ LẤY GIÁ TỪ SHEET ---
     t4_price_dict = {}
     try:
         from backend.database import get_db_connection
@@ -189,43 +200,59 @@ def get_market_heatmap_data():
             sheet = db.worksheet("RS_DATA")
             df_rs = pd.DataFrame(sheet.get_all_records())
             if not df_rs.empty:
-                df_rs['Giá'] = pd.to_numeric(df_rs['Giá'].astype(str).str.replace(',', '').str.replace('.', ''), errors='coerce')
+                df_rs['Giá'] = pd.to_numeric(df_rs['Giá'].astype(str).str.replace(',', '').str.replace('.', '').str.strip(), errors='coerce')
                 t4_price_dict = dict(zip(df_rs['Mã CK'].str.strip().str.upper(), df_rs['Giá']))
     except: pass
 
-    heat_data = []
-    
-    # 🎯 CHIẾN THUẬT BẮN TỈA: Duyệt từng mã để lấy data chuẩn nhất
-    for sector, stocks in sectors.items():
-        for stock in stocks:
-            try:
-                # 1. Thử lấy data từ Yahoo Finance (ưu tiên hàng đầu)
-                # Dùng Ticker(stock).history sẽ ổn định hơn download hàng loạt lúc này
-                tk = yf.Ticker(f"{stock}.VN")
-                df = tk.history(period="2d")
-                
-                if not df.empty and len(df) >= 2:
-                    curr_p = df['Close'].iloc[-1]
-                    prev_p = df['Close'].iloc[-2]
-                    vol = df['Volume'].iloc[-1]
-                    change = ((curr_p - prev_p) / prev_p) * 100
-                else:
-                    # 2. Nếu Yahoo lỗi (vàng khè) -> Lấy giá từ Sheet bù vào
-                    curr_p = t4_price_dict.get(stock, 0)
-                    change = 0.0 # Không có data cũ nên để 0% (vàng)
-                    vol = 1000000 # Vol ảo để giữ khung
-                
-                if curr_p > 0:
-                    heat_data.append({
-                        'Ngành': sector,
-                        'Mã CK': stock,
-                        'Biến động (%)': change,
-                        'Khối lượng': vol,
-                        'Giá (VNĐ)': curr_p
-                    })
-            except: continue
+    try:
+        data = yf.download(vn_tickers, period="2d", progress=False)
+        if data.empty:
+            return pd.DataFrame()
 
-    return pd.DataFrame(heat_data)
+        if len(data) >= 2:
+            current_data = data.iloc[-1]
+            prev_data = data.iloc[-2]
+        else:
+            current_data = data.iloc[-1]
+            prev_data = current_data
+
+        heat_data = []
+        for yf_ticker in vn_tickers:
+            raw_ticker = ticker_to_raw[yf_ticker]
+            sector = ticker_to_sector[yf_ticker]
+
+            try:
+                # ƯU TIÊN LẤY GIÁ TỪ RS_DATA (THAY THẾ current_data['Close'])
+                current_price = t4_price_dict.get(raw_ticker)
+                
+                # Nếu RS_DATA không có mới lấy Yahoo làm dự phòng (fallback)
+                if current_price is None or pd.isna(current_price):
+                    current_price = float(current_data['Close'][yf_ticker])
+                
+                prev_close = float(prev_data['Close'][yf_ticker])
+                volume = float(current_data['Volume'][yf_ticker])
+
+                if pd.isna(current_price) or pd.isna(prev_close):
+                    continue
+
+                volume = max(volume, 1) 
+                pct_change = ((current_price - prev_close) / prev_close) * 100 if prev_close > 0 else 0
+
+                heat_data.append({
+                    'Ngành': sector,
+                    'Mã CK': raw_ticker,
+                    'Biến động (%)': pct_change,
+                    'Khối lượng': volume,
+                    'Giá (VNĐ)': current_price
+                })
+            except Exception:
+                continue
+
+        return pd.DataFrame(heat_data)
+        
+    except Exception as e:
+        print(f"Lỗi kết nối Yahoo Finance: {e}")
+        return pd.DataFrame()
 
 # ==========================================
 # KHU VỰC HIỂN THỊ CỦA TAB 2 (BẢN ĐỒ NHIỆT - MÀU CHUẨN SSI)
