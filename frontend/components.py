@@ -161,87 +161,63 @@ def render_header():
         """
         st.markdown(ticker_html, unsafe_allow_html=True)
 # ==========================================
-# KHỐI 1.5: HÀM KÉO DỮ LIỆU BẢN ĐỒ NHIỆT (BẢN FULL KHÔNG CẮT XÉN)
 # ==========================================
-import yfinance as yf
-import plotly.express as px
+# KHỐI 1.5: HÀM KÉO DỮ LIỆU BẢN ĐỒ NHIỆT (DÙNG 100% RS_DATA)
+# ==========================================
 import pandas as pd
 import streamlit as st
 
 @st.cache_data(ttl=300, show_spinner=False)
 def get_market_heatmap_data():
-    # GIỮ NGUYÊN RỔ VN100 CỦA SẾP
-    sectors = {
-        'Ngân hàng': ['VCB', 'BID', 'CTG', 'MBB', 'TCB', 'VPB', 'ACB', 'STB', 'SHB', 'HDB', 'TPB', 'MSB', 'LPB', 'VIB', 'EIB', 'OCB', 'SSB'],
-        'Bất động sản & KCN': ['VHM', 'VIC', 'VRE', 'NVL', 'DIG', 'DXG', 'KDH', 'NLG', 'PDR', 'KBC', 'IDC', 'SZC', 'HDG', 'TCH', 'CEO'],
-        'Chứng khoán': ['SSI', 'VND', 'VCI', 'HCM', 'SHS', 'MBS', 'FTS', 'VIX', 'BSI', 'CTS', 'AGR'],
-        'Tài nguyên & Vật liệu': ['HPG', 'HSG', 'NKG', 'DGC', 'DCM', 'DPM', 'GVR', 'PHR', 'CSV'],
-        'Xây dựng & Hạ tầng': ['VCG', 'PC1', 'CTD', 'CII', 'HHV', 'LCG', 'FCN', 'HUT', 'HBC'],
-        'Bán lẻ & Tiêu dùng': ['MWG', 'PNJ', 'FRT', 'VNM', 'MSN', 'SAB', 'DGW', 'SBT', 'KDC', 'PET', 'HAH', 'GMD', 'VJC', 'HVN'],
-        'Công nghệ & Năng lượng': ['FPT', 'GAS', 'PLX', 'POW', 'BSR', 'REE', 'NT2', 'GEG', 'VGI', 'FOX']
-    }
-    
-    vn_tickers = []
-    ticker_to_sector = {}
-    ticker_to_raw = {}
-    for sector, stocks in sectors.items():
-        for stock in stocks:
-            yf_ticker = f"{stock}.VN"
-            vn_tickers.append(yf_ticker)
-            ticker_to_sector[yf_ticker] = sector
-            ticker_to_raw[yf_ticker] = stock
-
-    # --- LỚP BẢO HIỂM 1: LẤY GIÁ TỪ RS_DATA PHÒNG KHI YAHOO CHẾT ---
-    backup_prices = {}
+    # 1. KẾT NỐI VÀ LẤY DỮ LIỆU TỪ SHEET RS_DATA
     try:
         from backend.database import get_db_connection
         db = get_db_connection()
-        if db:
-            sheet = db.worksheet("RS_DATA")
-            df_rs = pd.DataFrame(sheet.get_all_records())
-            if not df_rs.empty:
-                backup_prices = dict(zip(df_rs['Mã CK'].astype(str).str.strip().upper(), 
-                                         pd.to_numeric(df_rs['Giá'].astype(str).str.replace(',', '').str.replace('.', ''), errors='coerce')))
-    except: pass
-
-    try:
-        # Tải dữ liệu 2 ngày để tính % biến động
-        data = yf.download(vn_tickers, period="2d", progress=False)
+        if not db:
+            return pd.DataFrame()
+            
+        sheet = db.worksheet("RS_DATA")
+        data_rs = sheet.get_all_records()
+        if not data_rs:
+            return pd.DataFrame()
+            
+        df_rs = pd.DataFrame(data_rs)
+        
+        # 2. LÀM SẠCH DỮ LIỆU SẾP ĐANG CÓ TRONG SHEET
+        # Chuyển đổi Giá và Thanh Khoản về dạng số chuẩn
+        df_rs['Giá'] = pd.to_numeric(df_rs['Giá'].astype(str).str.replace(',', '').str.replace('.', '').str.strip(), errors='coerce')
+        df_rs['Thanh_Khoản_Tỷ'] = pd.to_numeric(df_rs['Thanh_Khoản_Tỷ'].astype(str).str.replace(',', '').str.replace('.', '').str.strip(), errors='coerce')
+        
+        # 3. TỔ CHỨC LẠI DỮ LIỆU CHO HEATMAP
+        # Vì Sheet của Sếp chỉ có giá hiện tại, Emo giả định biến động là 0% 
+        # (Sếp có thể thêm cột '% Thay đổi' vào Sheet RS_DATA nếu muốn có màu xanh/đỏ)
         
         heat_data = []
-        for yf_ticker in vn_tickers:
-            raw_ticker = ticker_to_raw[yf_ticker]
-            sector = ticker_to_sector[yf_ticker]
-
-            try:
-                # Lấy giá đóng cửa hiện tại và hôm trước từ Yahoo
-                current_price = data['Close'][yf_ticker].iloc[-1] if not data.empty and yf_ticker in data['Close'] else None
-                prev_close = data['Close'][yf_ticker].iloc[-2] if not data.empty and len(data) >= 2 and yf_ticker in data['Close'] else current_price
-                volume = data['Volume'][yf_ticker].iloc[-1] if not data.empty and yf_ticker in data['Volume'] else 1000000
-
-                # --- LỚP BẢO HIỂM 2: NẾU YAHOO TRẢ VỀ NaN -> DÙNG GIÁ RS_DATA ---
-                if pd.isna(current_price) or current_price == 0:
-                    current_price = backup_prices.get(raw_ticker, 0)
-                    prev_close = current_price # Giả định biến động 0% nếu không có giá cũ
-
-                if current_price > 0:
-                    volume = max(float(volume), 1)
-                    pct_change = ((float(current_price) - float(prev_close)) / float(prev_close)) * 100 if prev_close > 0 else 0
-
-                    heat_data.append({
-                        'Ngành': sector,
-                        'Mã CK': raw_ticker,
-                        'Biến động (%)': pct_change,
-                        'Khối lượng': volume,
-                        'Giá (VNĐ)': current_price
-                    })
-            except:
-                continue
-
+        for _, row in df_rs.iterrows():
+            ticker = str(row.get('Mã CK', '')).strip().upper()
+            if not ticker: continue
+            
+            # Lấy thông tin từ các cột Sếp đã có (image_65f95c.png)
+            sector = row.get('Ngành', 'Khác')
+            current_p = row.get('Giá', 0)
+            liquidity = row.get('Thanh_Khoản_Tỷ', 1) # Dùng làm kích thước ô
+            
+            # Giả định biến động (Nếu Sếp thêm cột % vào Sheet thì thay vào đây)
+            pct_change = 0.0 
+            
+            if current_p > 0:
+                heat_data.append({
+                    'Ngành': sector,
+                    'Mã CK': ticker,
+                    'Biến động (%)': pct_change,
+                    'Khối lượng': liquidity, # Ô to hay nhỏ tùy thuộc vào Thanh Khoản Tỷ
+                    'Giá (VNĐ)': current_p
+                })
+                
         return pd.DataFrame(heat_data)
         
     except Exception as e:
-        print(f"Lỗi kết nối Yahoo Finance: {e}")
+        st.error(f"❌ Lỗi khi đọc dữ liệu RS_DATA: {e}")
         return pd.DataFrame()
 
 # ==========================================
