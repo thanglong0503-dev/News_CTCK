@@ -193,40 +193,42 @@ def get_market_heatmap_data():
                 # Làm sạch giá: xóa dấu phẩy/chấm và chuyển về số
                 df_rs['Giá'] = pd.to_numeric(df_rs['Giá'].astype(str).str.replace(',', '').str.replace('.', '').str.strip(), errors='coerce')
                 t4_price_dict = dict(zip(df_rs['Mã CK'].astype(str).str.strip().str.upper(), df_rs['Giá']))
-    except:
-        pass
+    except Exception as e:
+        print(f"Lỗi database: {e}")
 
-    heat_data = []
-    for sector, stocks in sectors.items():
-        for stock in stocks:
-            try:
-                # Thử lấy từ Yahoo trước
-                ticker_obj = yf.Ticker(f"{stock}.VN")
-                hist = ticker_obj.history(period="2d")
-                
-                if not hist.empty and len(hist) >= 2:
-                    current_p = hist['Close'].iloc[-1]
-                    prev_p = hist['Close'].iloc[-2]
-                    vol = hist['Volume'].iloc[-1]
-                else:
-                    # Lấy giá cứu hộ từ RS_DATA nếu Yahoo lỗi
-                    current_p = t4_price_dict.get(stock, 0)
-                    prev_p = current_p
-                    vol = 1000000
+    try:
+        heat_data = []
+        for sector, stocks in sectors.items():
+            for stock in stocks:
+                try:
+                    # Thử lấy từ Yahoo trước
+                    ticker_obj = yf.Ticker(f"{stock}.VN")
+                    hist = ticker_obj.history(period="2d")
+                    
+                    if not hist.empty and len(hist) >= 2:
+                        current_p = hist['Close'].iloc[-1]
+                        prev_p = hist['Close'].iloc[-2]
+                        vol = hist['Volume'].iloc[-1]
+                    else:
+                        # Lấy giá cứu hộ từ RS_DATA nếu Yahoo lỗi
+                        current_p = t4_price_dict.get(stock, 0)
+                        prev_p = current_p
+                        vol = 1000000
 
-                if current_p > 0:
-                    change = ((current_p - prev_p) / prev_p * 100) if prev_p > 0 else 0
-                    heat_data.append({
-                        'Ngành': sector,
-                        'Mã CK': stock,
-                        'Biến động (%)': change,
-                        'Khối lượng': vol,
-                        'Giá (VNĐ)': current_p
-                    })
-            except:
-                continue
-                
-    return pd.DataFrame(heat_data)
+                    if current_p > 0:
+                        change = ((current_p - prev_p) / prev_p * 100) if prev_p > 0 else 0
+                        heat_data.append({
+                            'Ngành': sector,
+                            'Mã CK': stock,
+                            'Biến động (%)': change,
+                            'Khối lượng': vol,
+                            'Giá (VNĐ)': current_p
+                        })
+                except:
+                    continue
+        
+        return pd.DataFrame(heat_data)
+
     except Exception as e:
         print(f"Lỗi kết nối Yahoo Finance: {e}")
         return pd.DataFrame()
