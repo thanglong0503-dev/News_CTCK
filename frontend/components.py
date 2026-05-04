@@ -162,7 +162,7 @@ def render_header():
         st.markdown(ticker_html, unsafe_allow_html=True)
 # ==========================================
 # ==========================================
-# KHỐI 1.5: HÀM KÉO DỮ LIỆU BẢN ĐỒ NHIỆT (CHỈ THAY GIÁ RS_DATA - GIỮ NGUYÊN GỐC)
+# KHỐI 1.5: HÀM KÉO DỮ LIỆU BẢN ĐỒ NHIỆT (VN100 - TAB 2) - NGUYÊN BẢN GỐC
 # ==========================================
 import yfinance as yf
 import plotly.express as px
@@ -171,6 +171,7 @@ import streamlit as st
 
 @st.cache_data(ttl=300, show_spinner=False)
 def get_market_heatmap_data():
+    # NÂNG CẤP LÊN RỔ VN100 (Bao phủ >85% thanh khoản thị trường)
     sectors = {
         'Ngân hàng': ['VCB', 'BID', 'CTG', 'MBB', 'TCB', 'VPB', 'ACB', 'STB', 'SHB', 'HDB', 'TPB', 'MSB', 'LPB', 'VIB', 'EIB', 'OCB', 'SSB'],
         'Bất động sản & KCN': ['VHM', 'VIC', 'VRE', 'NVL', 'DIG', 'DXG', 'KDH', 'NLG', 'PDR', 'KBC', 'IDC', 'SZC', 'HDG', 'TCH', 'CEO'],
@@ -191,19 +192,6 @@ def get_market_heatmap_data():
             ticker_to_sector[yf_ticker] = sector
             ticker_to_raw[yf_ticker] = stock
 
-    # --- CHỈ THÊM ĐÚNG KHỐI NÀY ĐỂ LẤY GIÁ TỪ SHEET ---
-    t4_price_dict = {}
-    try:
-        from backend.database import get_db_connection
-        db = get_db_connection()
-        if db:
-            sheet = db.worksheet("RS_DATA")
-            df_rs = pd.DataFrame(sheet.get_all_records())
-            if not df_rs.empty:
-                df_rs['Giá'] = pd.to_numeric(df_rs['Giá'].astype(str).str.replace(',', '').str.replace('.', '').str.strip(), errors='coerce')
-                t4_price_dict = dict(zip(df_rs['Mã CK'].str.strip().str.upper(), df_rs['Giá']))
-    except: pass
-
     try:
         data = yf.download(vn_tickers, period="2d", progress=False)
         if data.empty:
@@ -222,13 +210,7 @@ def get_market_heatmap_data():
             sector = ticker_to_sector[yf_ticker]
 
             try:
-                # ƯU TIÊN LẤY GIÁ TỪ RS_DATA (THAY THẾ current_data['Close'])
-                current_price = t4_price_dict.get(raw_ticker)
-                
-                # Nếu RS_DATA không có mới lấy Yahoo làm dự phòng (fallback)
-                if current_price is None or pd.isna(current_price):
-                    current_price = float(current_data['Close'][yf_ticker])
-                
+                current_price = float(current_data['Close'][yf_ticker])
                 prev_close = float(prev_data['Close'][yf_ticker])
                 volume = float(current_data['Volume'][yf_ticker])
 
@@ -249,7 +231,6 @@ def get_market_heatmap_data():
                 continue
 
         return pd.DataFrame(heat_data)
-        
     except Exception as e:
         print(f"Lỗi kết nối Yahoo Finance: {e}")
         return pd.DataFrame()
