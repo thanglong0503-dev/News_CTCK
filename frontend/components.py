@@ -161,7 +161,7 @@ def render_header():
         """
         st.markdown(ticker_html, unsafe_allow_html=True)
 # ==========================================
-# KHỐI 1.5: HÀM KÉO DỮ LIỆU BẢN ĐỒ NHIỆT (VN100 - TAB 2)
+# KHỐI 1.5: HÀM KÉO DỮ LIỆU BẢN ĐỒ NHIỆT (FIX VOLUME 1TR)
 # ==========================================
 import yfinance as yf
 import plotly.express as px
@@ -181,8 +181,9 @@ def get_market_heatmap_data():
     }
     
     t4_price_dict = {}
+    t4_vol_dict = {} # Thêm từ điển lưu volume/thanh khoản
+    
     try:
-        # Sử dụng đúng đường dẫn hàm database của Sếp
         from backend.database import get_db_connection
         db = get_db_connection()
         if db:
@@ -190,9 +191,14 @@ def get_market_heatmap_data():
             data_rs = sheet.get_all_records()
             if data_rs:
                 df_rs = pd.DataFrame(data_rs)
-                # Làm sạch giá: xóa dấu phẩy/chấm và chuyển về số
+                # Map giá
                 df_rs['Giá'] = pd.to_numeric(df_rs['Giá'].astype(str).str.replace(',', '').str.replace('.', '').str.strip(), errors='coerce')
                 t4_price_dict = dict(zip(df_rs['Mã CK'].astype(str).str.strip().str.upper(), df_rs['Giá']))
+                
+                # Map thanh khoản (mượn cột Thanh_Khoản_Tỷ để làm kích thước ô nếu Yahoo tèo)
+                if 'Thanh_Khoản_Tỷ' in df_rs.columns:
+                    df_rs['Vol_Tỷ'] = pd.to_numeric(df_rs['Thanh_Khoản_Tỷ'].astype(str).str.replace(',', '').str.replace('.', '').str.strip(), errors='coerce')
+                    t4_vol_dict = dict(zip(df_rs['Mã CK'].astype(str).str.strip().str.upper(), df_rs['Vol_Tỷ']))
     except Exception as e:
         print(f"Lỗi database: {e}")
 
@@ -210,10 +216,11 @@ def get_market_heatmap_data():
                         prev_p = hist['Close'].iloc[-2]
                         vol = hist['Volume'].iloc[-1]
                     else:
-                        # Lấy giá cứu hộ từ RS_DATA nếu Yahoo lỗi
+                        # Lấy giá cứu hộ
                         current_p = t4_price_dict.get(stock, 0)
                         prev_p = current_p
-                        vol = 1000000
+                        # Lấy volume cứu hộ từ thanh khoản tỷ, không chơi 1tr đều nữa dcm Emo
+                        vol = t4_vol_dict.get(stock, 100) # Mặc định nhỏ thôi để không chiếm chỗ mã xịn
 
                     if current_p > 0:
                         change = ((current_p - prev_p) / prev_p * 100) if prev_p > 0 else 0
