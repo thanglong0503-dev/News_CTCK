@@ -180,30 +180,31 @@ def get_market_heatmap_data():
         'Công nghệ & Năng lượng': ['FPT', 'GAS', 'PLX', 'POW', 'BSR', 'REE', 'NT2', 'GEG', 'VGI', 'FOX']
     }
     
-    # 1. LẤY GIÁ BACKUP TỪ RS_DATA (Hàm Sếp đã viết ở Tab Báo cáo)
     t4_price_dict = {}
     try:
         from backend.database import get_db_connection
         db = get_db_connection()
         if db:
             sheet = db.worksheet("RS_DATA")
+            # Sử dụng get_all_records() từ để lấy data theo cột
             df_rs = pd.DataFrame(sheet.get_all_records())
             if not df_rs.empty:
                 t4_price_dict = dict(zip(df_rs['Mã CK'].astype(str).str.strip().str.upper(), 
                                          pd.to_numeric(df_rs['Giá'].astype(str).str.replace(',', '').str.replace('.', ''), errors='coerce')))
-    except: pass
+    except Exception as e:
+        print(f"Lỗi database: {e}")
 
     heat_data = []
     
-    # 2. DUYỆT TỪNG NGÀNH ĐỂ LẤY DỮ LIỆU
     for sector, stocks in sectors.items():
         for stock in stocks:
             try:
+                # Mặc định thanh khoản ảo để vẽ khung
                 current_price = 0
                 prev_close = 0
-                volume = 1000000 # Mặc định khối lượng để vẽ ô (Sếp có thể lấy từ RS_DATA nếu có)
+                volume = 1000000 
 
-                # THỬ LẤY TỪ YAHOO
+                # Thử lấy từ Yahoo Finance với Ticker obj để ổn định hơn
                 yf_ticker = f"{stock}.VN"
                 ticker_obj = yf.Ticker(yf_ticker)
                 hist = ticker_obj.history(period="2d")
@@ -213,9 +214,8 @@ def get_market_heatmap_data():
                     prev_close = hist['Close'].iloc[-2]
                     volume = hist['Volume'].iloc[-1]
                 else:
-                    # NẾU YAHOO LỖI -> DÙNG GIÁ TỪ RS_DATA
+                    # NẾU YAHOO LỖI -> DÙNG GIÁ TỪ RS_DATA CỦA SẾP
                     current_price = t4_price_dict.get(stock, 0)
-                    # Giả định biến động 0% nếu không có giá ngày hôm trước để tránh lỗi Heatmap
                     prev_close = current_price 
 
                 if current_price > 0:
@@ -227,7 +227,8 @@ def get_market_heatmap_data():
                         'Khối lượng': volume,
                         'Giá (VNĐ)': current_price
                     })
-            except: continue
+            except Exception:
+                continue
 
     return pd.DataFrame(heat_data)
     except Exception as e:
