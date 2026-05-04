@@ -182,54 +182,50 @@ def get_market_heatmap_data():
     
     t4_price_dict = {}
     try:
+        # Sử dụng đúng đường dẫn hàm database của Sếp
         from backend.database import get_db_connection
         db = get_db_connection()
         if db:
             sheet = db.worksheet("RS_DATA")
-            # Sử dụng get_all_records() từ để lấy data theo cột
-            df_rs = pd.DataFrame(sheet.get_all_records())
-            if not df_rs.empty:
-                t4_price_dict = dict(zip(df_rs['Mã CK'].astype(str).str.strip().str.upper(), 
-                                         pd.to_numeric(df_rs['Giá'].astype(str).str.replace(',', '').str.replace('.', ''), errors='coerce')))
-    except Exception as e:
-        print(f"Lỗi database: {e}")
+            data_rs = sheet.get_all_records()
+            if data_rs:
+                df_rs = pd.DataFrame(data_rs)
+                # Làm sạch giá: xóa dấu phẩy/chấm và chuyển về số
+                df_rs['Giá'] = pd.to_numeric(df_rs['Giá'].astype(str).str.replace(',', '').str.replace('.', '').str.strip(), errors='coerce')
+                t4_price_dict = dict(zip(df_rs['Mã CK'].astype(str).str.strip().str.upper(), df_rs['Giá']))
+    except:
+        pass
 
     heat_data = []
-    
     for sector, stocks in sectors.items():
         for stock in stocks:
             try:
-                # Mặc định thanh khoản ảo để vẽ khung
-                current_price = 0
-                prev_close = 0
-                volume = 1000000 
-
-                # Thử lấy từ Yahoo Finance với Ticker obj để ổn định hơn
-                yf_ticker = f"{stock}.VN"
-                ticker_obj = yf.Ticker(yf_ticker)
+                # Thử lấy từ Yahoo trước
+                ticker_obj = yf.Ticker(f"{stock}.VN")
                 hist = ticker_obj.history(period="2d")
                 
                 if not hist.empty and len(hist) >= 2:
-                    current_price = hist['Close'].iloc[-1]
-                    prev_close = hist['Close'].iloc[-2]
-                    volume = hist['Volume'].iloc[-1]
+                    current_p = hist['Close'].iloc[-1]
+                    prev_p = hist['Close'].iloc[-2]
+                    vol = hist['Volume'].iloc[-1]
                 else:
-                    # NẾU YAHOO LỖI -> DÙNG GIÁ TỪ RS_DATA CỦA SẾP
-                    current_price = t4_price_dict.get(stock, 0)
-                    prev_close = current_price 
+                    # Lấy giá cứu hộ từ RS_DATA nếu Yahoo lỗi
+                    current_p = t4_price_dict.get(stock, 0)
+                    prev_p = current_p
+                    vol = 1000000
 
-                if current_price > 0:
-                    pct_change = ((current_price - prev_close) / prev_close) * 100 if prev_close > 0 else 0
+                if current_p > 0:
+                    change = ((current_p - prev_p) / prev_p * 100) if prev_p > 0 else 0
                     heat_data.append({
                         'Ngành': sector,
                         'Mã CK': stock,
-                        'Biến động (%)': pct_change,
-                        'Khối lượng': volume,
-                        'Giá (VNĐ)': current_price
+                        'Biến động (%)': change,
+                        'Khối lượng': vol,
+                        'Giá (VNĐ)': current_p
                     })
-            except Exception:
+            except:
                 continue
-
+                
     return pd.DataFrame(heat_data)
     except Exception as e:
         print(f"Lỗi kết nối Yahoo Finance: {e}")
