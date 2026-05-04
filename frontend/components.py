@@ -161,64 +161,82 @@ def render_header():
         """
         st.markdown(ticker_html, unsafe_allow_html=True)
 # ==========================================
+# KHỐI 1.5: HÀM KÉO DỮ LIỆU BẢN ĐỒ NHIỆT (HYBRID: GIÁ SHEET + VOL YAHOO)
 # ==========================================
-# KHỐI 1.5: HÀM KÉO DỮ LIỆU BẢN ĐỒ NHIỆT (DÙNG 100% RS_DATA)
-# ==========================================
+import yfinance as yf
 import pandas as pd
 import streamlit as st
 
 @st.cache_data(ttl=300, show_spinner=False)
 def get_market_heatmap_data():
-    # 1. KẾT NỐI VÀ LẤY DỮ LIỆU TỪ SHEET RS_DATA
+    # 1. LẤY TOÀN BỘ DATA TỪ RS_DATA CỦA SẾP TRƯỚC (image_65f19e.png)
+    t4_price_dict = {}
+    t4_sector_dict = {}
+    t4_vol_backup = {}
+    
     try:
         from backend.database import get_db_connection
         db = get_db_connection()
-        if not db:
-            return pd.DataFrame()
-            
-        sheet = db.worksheet("RS_DATA")
-        data_rs = sheet.get_all_records()
-        if not data_rs:
-            return pd.DataFrame()
-            
-        df_rs = pd.DataFrame(data_rs)
-        
-        # 2. LÀM SẠCH DỮ LIỆU SẾP ĐANG CÓ TRONG SHEET
-        # Chuyển đổi Giá và Thanh Khoản về dạng số chuẩn
-        df_rs['Giá'] = pd.to_numeric(df_rs['Giá'].astype(str).str.replace(',', '').str.replace('.', '').str.strip(), errors='coerce')
-        df_rs['Thanh_Khoản_Tỷ'] = pd.to_numeric(df_rs['Thanh_Khoản_Tỷ'].astype(str).str.replace(',', '').str.replace('.', '').str.strip(), errors='coerce')
-        
-        # 3. TỔ CHỨC LẠI DỮ LIỆU CHO HEATMAP
-        # Vì Sheet của Sếp chỉ có giá hiện tại, Emo giả định biến động là 0% 
-        # (Sếp có thể thêm cột '% Thay đổi' vào Sheet RS_DATA nếu muốn có màu xanh/đỏ)
+        if db:
+            sheet = db.worksheet("RS_DATA")
+            df_rs = pd.DataFrame(sheet.get_all_records())
+            if not df_rs.empty:
+                # Làm sạch dữ liệu số
+                df_rs['Giá'] = pd.to_numeric(df_rs['Giá'].astype(str).str.replace(',', '').str.replace('.', '').str.strip(), errors='coerce')
+                df_rs['Thanh_Khoản_Tỷ'] = pd.to_numeric(df_rs['Thanh_Khoản_Tỷ'].astype(str).str.replace(',', '').str.replace('.', '').str.strip(), errors='coerce')
+                
+                # Tạo từ điển tra cứu
+                t4_price_dict = dict(zip(df_rs['Mã CK'].str.strip().str.upper(), df_rs['Giá']))
+                t4_sector_dict = dict(zip(df_rs['Mã CK'].str.strip().str.upper(), df_rs['Ngành']))
+                t4_vol_backup = dict(zip(df_rs['Mã CK'].str.strip().str.upper(), df_rs['Thanh_Khoản_Tỷ']))
+    except: pass
+
+    # 2. CHUẨN BỊ DANH SÁCH MÃ ĐỂ HỎI YAHOO VOLUME
+    vn_tickers = [f"{tk}.VN" for tk in t4_price_dict.keys()]
+    
+    try:
+        # Tải dữ liệu Yahoo để lấy Volume Real-time
+        data = yf.download(vn_tickers, period="1d", progress=False)
         
         heat_data = []
-        for _, row in df_rs.iterrows():
-            ticker = str(row.get('Mã CK', '')).strip().upper()
-            if not ticker: continue
+        for ticker_raw, current_p in t4_price_dict.items():
+            yf_tk = f"{ticker_raw}.VN"
             
-            # Lấy thông tin từ các cột Sếp đã có (image_65f95c.png)
-            sector = row.get('Ngành', 'Khác')
-            current_p = row.get('Giá', 0)
-            liquidity = row.get('Thanh_Khoản_Tỷ', 1) # Dùng làm kích thước ô
-            
-            # Giả định biến động (Nếu Sếp thêm cột % vào Sheet thì thay vào đây)
+            # Lấy Volume từ Yahoo, nếu Yahoo "tịt" thì lấy Thanh_Khoản_Tỷ từ Sheet
+            realtime_vol = 1000000
+            if not data.empty and yf_tk in data['Volume']:
+                realtime_vol = data['Volume'][yf_tk].iloc[-1]
+                if pd.isna(realtime_vol) or realtime_vol == 0:
+                    realtime_vol = t4_vol_backup.get(ticker_raw, 100) * 1000000 # Quy đổi tỷ sang đơn vị vol
+            else:
+                realtime_vol = t4_vol_backup.get(ticker_raw, 100) * 1000000
+
+            # Giả định biến động (Sếp thêm cột % vào Sheet RS_DATA nếu muốn màu xanh đỏ)
             pct_change = 0.0 
             
             if current_p > 0:
                 heat_data.append({
-                    'Ngành': sector,
-                    'Mã CK': ticker,
+                    'Ngành': t4_sector_dict.get(ticker_raw, 'Khác'),
+                    'Mã CK': ticker_raw,
                     'Biến động (%)': pct_change,
-                    'Khối lượng': liquidity, # Ô to hay nhỏ tùy thuộc vào Thanh Khoản Tỷ
+                    'Khối lượng': realtime_vol,
                     'Giá (VNĐ)': current_p
                 })
                 
         return pd.DataFrame(heat_data)
         
     except Exception as e:
-        st.error(f"❌ Lỗi khi đọc dữ liệu RS_DATA: {e}")
-        return pd.DataFrame()
+        # Nếu Yahoo lỗi hoàn toàn, vẫn trả về data từ Sheet để Heatmap không chết
+        fallback_data = []
+        for tk, p in t4_price_dict.items():
+            fallback_data.append({
+                'Ngành': t4_sector_dict.get(tk, 'Khác'),
+                'Mã CK': tk,
+                'Biến động (%)': 0.0,
+                'Khối lượng': t4_vol_backup.get(tk, 1) * 1000000,
+                'Giá (VNĐ)': p
+            })
+        return pd.DataFrame(fallback_data)
 
 # ==========================================
 # KHU VỰC HIỂN THỊ CỦA TAB 2 (BẢN ĐỒ NHIỆT - MÀU CHUẨN SSI)
