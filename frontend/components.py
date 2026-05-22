@@ -8,6 +8,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import plotly.express as px
 import plotly.graph_objects as go
+import linance_ai
 
 # --- IMPORT CÁC HÀM TỪ BACKEND ---
 from backend.database import fetch_broker_services, fetch_reports_db, fetch_portfolio_db, fetch_manual_price_db, fetch_vndiamond_db
@@ -451,7 +452,15 @@ def render_vnindex_chart():
 # ==========================================
 def render_hero_section():
     market_data, groups = fetch_realtime_data()
-
+# --- ĐOẠN CẦN THÊM VÀO ---
+    # Tổng hợp toàn bộ dữ liệu thị trường thành một DataFrame tổng để AI có cái nhìn toàn cảnh
+    # Ngài hãy tạo một biến 'df_tong' chứa tất cả các nguồn dữ liệu Ngài muốn AI đọc
+    # Ví dụ: gộp market_data vào một DataFrame
+    df_tong = pd.DataFrame.from_dict(market_data, orient='index')
+    
+    # Gọi 'Viên nang' AI mà chúng ta đã tạo ở bước trước
+    linance_ai.render_ai_sidebar(df_tong)
+    # --------------------------
     st.markdown("""<style>
 [data-testid="stTabs"] [data-testid="stMarkdownContainer"] { border-bottom: none !important; }
 [data-testid="stTabs"] [data-testid="stTab"] { 
