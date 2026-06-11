@@ -1957,7 +1957,7 @@ import streamlit as st
 # BONG BÓNG CHAT BẤT TỬ - BẢN NATIVE STREAMLIT
 # ==========================================
 
-URL_APP_CHAT = "http://localhost:8501" # Thay bằng URL khi deploy thật
+URL_APP_CHAT = "https://jtkbj9wk5udrrxvrrwpr8j.streamlit.app/" # Thay bằng URL khi deploy thật
 
 # 1. Dùng CSS bế cụm nút Popover thả xuống góc phải màn hình
 st.markdown("""
