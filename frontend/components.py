@@ -1953,59 +1953,80 @@ def render_news_section():
                 st.rerun(scope="fragment")
 
 import streamlit as st
+
 # ==========================================
-# BONG BÓNG CHAT BẤT TỬ - BẢN NATIVE STREAMLIT
+# BONG BÓNG CHAT - BẢN THIẾT KẾ iOS ORANGE
 # ==========================================
 
 URL_APP_CHAT = "https://jtkbj9wk5udrrxvrrwpr8j.streamlit.app/" # Thay bằng URL khi deploy thật
 
-# 1. Dùng CSS bế cụm nút Popover thả xuống góc phải màn hình
+# Tiêm CSS thiết kế UI/UX siêu mượt
 st.markdown("""
 <style>
-    /* Bốc toàn bộ khối Popover ra khỏi luồng trang và ghim xuống góc */
+    /* 1. Ép khuôn hộp chứa, không cho nó tự động kéo dài thành hàng ngang */
     div[data-testid="stPopover"] {
         position: fixed !important;
         bottom: 30px !important;
         right: 30px !important;
+        width: 65px !important; /* Khóa chặt chiều ngang */
+        height: 65px !important; /* Khóa chặt chiều dọc */
         z-index: 999999 !important;
     }
     
-    /* Biến nút bấm hình chữ nhật mặc định thành hình tròn bong bóng */
+    /* 2. Thiết kế Nút bấm Bong bóng màu Cam chuẩn iOS */
     div[data-testid="stPopover"] > button {
-        width: 60px !important;
-        height: 60px !important;
+        width: 100% !important;
+        height: 100% !important;
         border-radius: 50% !important;
-        background-color: #0A84FF !important;
+        /* Màu cam gradient mượt mà kiểu nút bấm iPhone */
+        background: linear-gradient(135deg, #FF9500, #FF5E3A) !important; 
         border: none !important;
-        box-shadow: 0 4px 20px rgba(10, 132, 255, 0.4) !important;
+        box-shadow: 0 8px 24px rgba(255, 149, 0, 0.4) !important;
         padding: 0 !important;
-        transition: transform 0.2s ease !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
     }
     
-    /* Hiệu ứng nảy lên khi di chuột */
+    /* Hiệu ứng nảy lên mềm mại khi di chuột vào */
     div[data-testid="stPopover"] > button:hover {
-        transform: scale(1.1) !important;
-        background-color: #0070DF !important;
+        transform: scale(1.08) translateY(-4px) !important;
+        box-shadow: 0 12px 28px rgba(255, 149, 0, 0.5) !important;
     }
     
-    /* Phóng to icon chữ 💬 bên trong nút */
+    /* Phóng to icon chat */
     div[data-testid="stPopover"] > button p {
-        font-size: 28px !important;
+        font-size: 30px !important;
         line-height: 1 !important;
         margin: 0 !important;
+        color: white !important;
     }
     
     /* Xóa viền đỏ mặc định của Streamlit khi click */
     div[data-testid="stPopover"] > button:focus {
         outline: none !important;
-        box-shadow: 0 4px 20px rgba(10, 132, 255, 0.4) !important;
+        box-shadow: 0 4px 20px rgba(255, 149, 0, 0.4) !important;
+    }
+
+    /* 3. Tút tát lại Cửa sổ mở ra (Popover Body) cho sang trọng */
+    div[data-testid="stPopoverBody"] {
+        border-radius: 24px !important; /* Bo góc cong mạnh kiểu Apple */
+        border: 1px solid rgba(255, 255, 255, 0.3) !important;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15) !important;
+        padding: 0 !important; /* Xóa khoảng viền thừa */
+        overflow: hidden !important;
+        /* Hiệu ứng kính mờ (Backdrop Filter) */
+        background: rgba(255, 255, 255, 0.8) !important;
+        backdrop-filter: blur(20px) !important; 
+        -webkit-backdrop-filter: blur(20px) !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # 2. GỌI TÍNH NĂNG CHÍNH CHỦ CỦA STREAMLIT
 with st.popover("💬"):
-    # Nhúng nguyên con AI vào cửa sổ nổi
+    # Nhúng nguyên con AI vào cửa sổ nổi, không để lại viền
     st.components.v1.iframe(f"{URL_APP_CHAT}/?embed=true", width=380, height=550)
 # ==========================================
 # ==========================================
