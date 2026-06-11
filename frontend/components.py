@@ -21,7 +21,15 @@ from backend.ai_analysis import (
     fetch_cafef_reports, 
     generate_ai_report_scoring
 )
+import streamlit as st
 
+# ---- BẮT ĐẦU ĐOẠN TEST ----
+st.warning("⚠️ Nếu Ngài thấy dòng màu vàng này, nghĩa là code mới đã được cập nhật!")
+with st.popover("💬 NÚT TEST BONG BÓNG", use_container_width=False):
+    st.write("Tuyệt vời! Lệnh popover hoạt động bình thường!")
+# ---- KẾT THÚC ĐOẠN TEST ----
+
+# ... (Code giao diện cũ của Ngài ở bên dưới) ...
 # ==========================================
 # KHỐI 0: ĐỒNG HỒ REAL-TIME (TOP BAR)
 # ==========================================
