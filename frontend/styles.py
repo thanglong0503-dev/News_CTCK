@@ -68,8 +68,8 @@ def apply_custom_css(is_dark=False):
         """
         st.markdown(dark_css, unsafe_allow_html=True)
 
-    # ==========================================
-    # 3. CSS ĐỘC QUYỀN CHO NÚT "LINANCE AI BOT" (Giao diện Viên Thuốc)
+    ## ==========================================
+    # 3. CSS ĐỘC QUYỀN CHO NÚT "LINANCE AI BOT" (Giao diện Hình Chữ Nhật)
     # ==========================================
     chat_bubble_css = """
     <style>
@@ -81,43 +81,46 @@ def apply_custom_css(is_dark=False):
             z-index: 999999 !important;
         }
         
-        /* 2. Ép hình dáng nút thành Viên Thuốc (Pill Shape) */
+        /* 2. Ép hình dáng nút thành HÌNH CHỮ NHẬT vuông vức, chuyên nghiệp */
         div[data-testid="stPopover"] > button {
-            border-radius: 40px !important; /* Bo cong tròn 2 đầu */
-            background: linear-gradient(135deg, #FF9500, #FF5E3A) !important; /* Cam Gradient */
-            border: 2px solid rgba(255, 255, 255, 0.2) !important; /* Viền trắng mờ tạo độ sang */
-            padding: 14px 28px !important; /* Khoảng cách chữ đến viền */
-            box-shadow: 0 10px 30px rgba(255, 94, 58, 0.4) !important; /* Bóng đổ màu cam */
-            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+            border-radius: 8px !important; /* Bo góc cực nhẹ, tạo thành hình chữ nhật */
+            background: linear-gradient(135deg, #FF9500, #FF5E3A) !important; /* Cam Gradient quyền lực */
+            border: 1px solid rgba(255, 255, 255, 0.3) !important; /* Viền trắng siêu mỏng */
+            padding: 12px 24px !important; /* Khoảng cách chữ đến viền, vừa vặn */
+            box-shadow: 0 6px 16px rgba(255, 94, 58, 0.3) !important; /* Bóng đổ nhẹ nhàng, không lố */
+            transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1) !important; /* Đổi hiệu ứng chuyển động dứt khoát hơn */
+            min-width: 180px !important; /* Đảm bảo đủ rộng để chứa hết chữ */
         }
         
-        /* 3. Hiệu ứng nảy lên khi đưa chuột vào */
+        /* 3. Hiệu ứng nảy lên nhẹ và đổ bóng sâu hơn khi đưa chuột vào */
         div[data-testid="stPopover"] > button:hover {
-            transform: translateY(-5px) scale(1.02) !important;
-            box-shadow: 0 15px 35px rgba(255, 94, 58, 0.6) !important;
+            transform: translateY(-3px) !important; /* Nảy lên dứt khoát */
+            box-shadow: 0 10px 24px rgba(255, 94, 58, 0.5) !important;
         }
         
-        /* 4. Định dạng chữ bên trong nút (To, rõ, màu trắng) */
+        /* 4. Định dạng chữ bên trong nút (Chuyên nghiệp, hiện đại) */
         div[data-testid="stPopover"] > button p {
-            font-size: 16px !important;
-            font-weight: 800 !important;
-            letter-spacing: 0.5px !important;
+            font-size: 15px !important; /* Kích thước chuẩn */
+            font-weight: 700 !important; /* Đậm vừa đủ */
+            letter-spacing: 0.8px !important; /* Giãn chữ ra một chút cho sang */
             color: #FFFFFF !important;
             margin: 0 !important;
+            text-transform: uppercase !important; /* VIẾT HOA TẤT CẢ CHO QUYỀN LỰC */
+            font-family: 'SF Mono', Consolas, monospace !important; /* Dùng font máy tính xịn xò */
         }
         
-        /* 5. Tắt cái viền đỏ lè xấu xí khi click vào nút */
+        /* 5. Tắt viền đỏ báo lỗi khi click chuột (Đặc sản của Streamlit) */
         div[data-testid="stPopover"] > button:focus {
             outline: none !important;
             color: white !important;
         }
 
-        /* 6. Bo tròn và đổ bóng cho Khung chat khi mở ra */
+        /* 6. Khung chat hiển thị cũng phải hình chữ nhật cho đồng bộ */
         div[data-testid="stPopoverBody"] {
-            border-radius: 20px !important; 
+            border-radius: 12px !important; /* Bo góc khung chat vuông vức hơn */
             border: 1px solid rgba(0, 0, 0, 0.1) !important;
-            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2) !important;
-            padding: 0 !important; /* Ép sát lề cho iframe */
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2) !important;
+            padding: 0 !important; 
             overflow: hidden !important;
             width: 380px !important; 
         }
