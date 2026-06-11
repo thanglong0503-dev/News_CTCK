@@ -2,7 +2,7 @@ import streamlit as st
 
 def apply_custom_css(is_dark=False):
     # ==========================================
-    # 1. CODE GỐC CỦA NGÀI (Bảo toàn 100%)
+    # 1. CODE GỐC CỦA NGÀI (Giữ nguyên UI của Dashboard)
     # ==========================================
     custom_css = """
     <style>
@@ -14,9 +14,8 @@ def apply_custom_css(is_dark=False):
             color: #1E2329;
         }
 
-        /* TẠM THỜI MỞ KHÓA HEADER ĐỂ HIỆN THỊ MENU SIDEBAR */
-        /* header {visibility: hidden;} */
-        footer {visibility: hidden;} /* Cứ giữ ẩn footer nếu Ngài muốn */
+        /* Ẩn footer mặc định của Streamlit */
+        footer {visibility: hidden;} 
         
         /* Chỉnh màu nền chính */
         .stApp { background-color: #FAFAFA; }
@@ -55,7 +54,7 @@ def apply_custom_css(is_dark=False):
     st.markdown(custom_css, unsafe_allow_html=True)
 
     # ==========================================
-    # 2. XỬ LÝ GHI ĐÈ DARK MODE (Khi cần thiết)
+    # 2. XỬ LÝ GHI ĐÈ DARK MODE
     # ==========================================
     if is_dark:
         dark_css = """
@@ -70,11 +69,11 @@ def apply_custom_css(is_dark=False):
         st.markdown(dark_css, unsafe_allow_html=True)
 
     # ==========================================
-    # 3. ĐẮP THÊM CSS ĐỊNH DẠNG BONG BÓNG CHAT iOS (Đã làm to & thêm chữ)
+    # 3. CSS ĐỘC QUYỀN CHO NÚT "LINANCE AI BOT" (Giao diện Viên Thuốc)
     # ==========================================
     chat_bubble_css = """
     <style>
-        /* Ghim cố định cụm nút bấm xuống góc phải màn hình */
+        /* 1. Ghim nút xuống góc phải dưới cùng */
         div[data-testid="stPopover"] {
             position: fixed !important;
             bottom: 30px !important;
@@ -82,83 +81,46 @@ def apply_custom_css(is_dark=False):
             z-index: 999999 !important;
         }
         
-        /* Gọt nút bấm mặc định thành hình dạng mong muốn */
-        div[data-testid="stPopover"] button {
-            width: 80px !important; /* Tăng chiều rộng để chứa chữ */
-            height: 80px !important; /* Tăng chiều cao để bong bóng to hơn */
-            border-radius: 50% !important; /* Vẫn giữ hình tròn xoe */
-            background: linear-gradient(135deg, #FF9500, #FF5E3A) !important;
-            border: none !important;
-            padding: 0 !important;
-            display: flex !important;
-            flex-direction: column !important; /* Xếp icon và chữ theo chiều dọc */
-            align-items: center !important;
-            justify-content: center !important;
-            box-shadow: 0 8px 24px rgba(255, 149, 0, 0.4) !important;
-            transition: transform 0.2s ease !important;
+        /* 2. Ép hình dáng nút thành Viên Thuốc (Pill Shape) */
+        div[data-testid="stPopover"] > button {
+            border-radius: 40px !important; /* Bo cong tròn 2 đầu */
+            background: linear-gradient(135deg, #FF9500, #FF5E3A) !important; /* Cam Gradient */
+            border: 2px solid rgba(255, 255, 255, 0.2) !important; /* Viền trắng mờ tạo độ sang */
+            padding: 14px 28px !important; /* Khoảng cách chữ đến viền */
+            box-shadow: 0 10px 30px rgba(255, 94, 58, 0.4) !important; /* Bóng đổ màu cam */
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
         }
         
-        /* Hiệu ứng nảy nhẹ khi di chuột vào */
-        div[data-testid="stPopover"] button:hover {
-            transform: scale(1.08) !important;
-            box-shadow: 0 12px 28px rgba(255, 149, 0, 0.6) !important;
+        /* 3. Hiệu ứng nảy lên khi đưa chuột vào */
+        div[data-testid="stPopover"] > button:hover {
+            transform: translateY(-5px) scale(1.02) !important;
+            box-shadow: 0 15px 35px rgba(255, 94, 58, 0.6) !important;
         }
         
-        /* Định dạng nội dung bên trong nút (Chèn Icon và Text qua CSS) */
-        /* Giấu nội dung cũ mặc định đi */
-        div[data-testid="stPopover"] button p {
-            display: none !important; 
-        }
-
-        /* Dùng pseudo-element ::before để vẽ Icon to */
-        div[data-testid="stPopover"] button::before {
-            content: "💬";
-            font-size: 32px !important; /* Icon to rõ */
-            color: white !important;
-            line-height: 1 !important;
-            margin-bottom: 2px !important;
-        }
-
-        /* Dùng pseudo-element ::after để vẽ chữ LINANCE AI BOT */
-        div[data-testid="stPopover"] button::after {
-            content: "LINANCE\\A AI BOT"; /* \\A tạo dòng mới nếu cần, nhưng set width to thì ko cần */
-            white-space: pre-wrap; /* Cho phép xuống dòng nếu cần */
-            font-size: 9px !important; /* Chữ nhỏ xinh vừa vặn */
+        /* 4. Định dạng chữ bên trong nút (To, rõ, màu trắng) */
+        div[data-testid="stPopover"] > button p {
+            font-size: 16px !important;
             font-weight: 800 !important;
-            color: white !important;
-            text-align: center !important;
-            line-height: 1.1 !important;
+            letter-spacing: 0.5px !important;
+            color: #FFFFFF !important;
+            margin: 0 !important;
         }
         
-        /* Xóa viền tập trung mặc định */
-        div[data-testid="stPopover"] button:focus {
+        /* 5. Tắt cái viền đỏ lè xấu xí khi click vào nút */
+        div[data-testid="stPopover"] > button:focus {
             outline: none !important;
+            color: white !important;
         }
 
-        /* Bo tròn góc cửa sổ Chat khi mở ra */
+        /* 6. Bo tròn và đổ bóng cho Khung chat khi mở ra */
         div[data-testid="stPopoverBody"] {
-            border-radius: 24px !important; 
-            border: 1px solid rgba(255, 255, 255, 0.3) !important;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15) !important;
-            padding: 0 !important; 
+            border-radius: 20px !important; 
+            border: 1px solid rgba(0, 0, 0, 0.1) !important;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2) !important;
+            padding: 0 !important; /* Ép sát lề cho iframe */
             overflow: hidden !important;
-            width: 380px !important; /* Cố định độ rộng khung Chat */
+            width: 380px !important; 
         }
     </style>
     """
     st.markdown(chat_bubble_css, unsafe_allow_html=True)
-
-
-# ==========================================
-# GỌI PHẦN HIỂN THỊ (Ngài đặt ở cuối file Dashboard)
-# ==========================================
-
-# Gọi hàm CSS (Mặc định truyền False cho Light Mode, True cho Dark Mode)
-apply_custom_css(is_dark=False)
-
-# Đường link con Bot AI chạy độc lập của Ngài
-URL_APP_CHAT = "https://jtkbj9wk5udrrxvrrwpr8j.streamlit.app"
-
-# Nút bấm mở cửa sổ chat nổi (use_container_width=False để không bị kéo giãn bậy bạ)
-with st.popover("💬", use_container_width=False):
-    st.components.v1.iframe(f"{URL_APP_CHAT}/?embed=true", width=380, height=550)
