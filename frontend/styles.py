@@ -70,7 +70,7 @@ def apply_custom_css(is_dark=False):
         st.markdown(dark_css, unsafe_allow_html=True)
 
     # ==========================================
-    # 3. ĐẮP THÊM CSS ĐỊNH DẠNG BONG BÓNG CHAT iOS (Độc lập hoàn toàn)
+    # 3. ĐẮP THÊM CSS ĐỊNH DẠNG BONG BÓNG CHAT iOS (Đã làm to & thêm chữ)
     # ==========================================
     chat_bubble_css = """
     <style>
@@ -82,15 +82,16 @@ def apply_custom_css(is_dark=False):
             z-index: 999999 !important;
         }
         
-        /* Gọt nút bấm mặc định thành hình tròn nhỏ gọn màu Cam iOS */
+        /* Gọt nút bấm mặc định thành hình dạng mong muốn */
         div[data-testid="stPopover"] button {
-            width: 65px !important;
-            height: 65px !important;
-            border-radius: 50% !important;
+            width: 80px !important; /* Tăng chiều rộng để chứa chữ */
+            height: 80px !important; /* Tăng chiều cao để bong bóng to hơn */
+            border-radius: 50% !important; /* Vẫn giữ hình tròn xoe */
             background: linear-gradient(135deg, #FF9500, #FF5E3A) !important;
             border: none !important;
             padding: 0 !important;
             display: flex !important;
+            flex-direction: column !important; /* Xếp icon và chữ theo chiều dọc */
             align-items: center !important;
             justify-content: center !important;
             box-shadow: 0 8px 24px rgba(255, 149, 0, 0.4) !important;
@@ -103,11 +104,30 @@ def apply_custom_css(is_dark=False):
             box-shadow: 0 12px 28px rgba(255, 149, 0, 0.6) !important;
         }
         
-        /* Định dạng icon biểu tượng bên trong nút */
+        /* Định dạng nội dung bên trong nút (Chèn Icon và Text qua CSS) */
+        /* Giấu nội dung cũ mặc định đi */
         div[data-testid="stPopover"] button p {
-            font-size: 32px !important;
+            display: none !important; 
+        }
+
+        /* Dùng pseudo-element ::before để vẽ Icon to */
+        div[data-testid="stPopover"] button::before {
+            content: "💬";
+            font-size: 32px !important; /* Icon to rõ */
             color: white !important;
-            margin: 0 !important;
+            line-height: 1 !important;
+            margin-bottom: 2px !important;
+        }
+
+        /* Dùng pseudo-element ::after để vẽ chữ LINANCE AI BOT */
+        div[data-testid="stPopover"] button::after {
+            content: "LINANCE\\A AI BOT"; /* \\A tạo dòng mới nếu cần, nhưng set width to thì ko cần */
+            white-space: pre-wrap; /* Cho phép xuống dòng nếu cần */
+            font-size: 9px !important; /* Chữ nhỏ xinh vừa vặn */
+            font-weight: 800 !important;
+            color: white !important;
+            text-align: center !important;
+            line-height: 1.1 !important;
         }
         
         /* Xóa viền tập trung mặc định */
