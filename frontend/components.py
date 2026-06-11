@@ -1958,7 +1958,7 @@ def render_news_section():
 import streamlit as st
 
 # Đường dẫn App AI của Ngài (Thay đổi nếu chạy thực tế trên web)
-URL_APP_CHAT = "http://localhost:8501" 
+URL_APP_CHAT = "https://jtkbj9wk5udrrxvrrwpr8j.streamlit.app/" 
 
 st.markdown(f"""
 <style>
