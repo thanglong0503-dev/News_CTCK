@@ -1,81 +1,86 @@
 import streamlit as st
 
 def apply_custom_css(is_dark=False):
-    # Khai báo 2 bộ màu (Sáng và Tối)
-    if is_dark:
-        theme_vars = """
-            --bg-main: #0B0E11;
-            --text-main: #EAECEF;
-            --text-sub: #848E9C;
-            --card-bg: #181A20;
-            --card-border: #2B3139;
-            --tag-bg: #2B3139;
-            --hover-border: #FCD535;
-        """
-    else:
-        theme_vars = """
-            --bg-main: #FAFAFA;
-            --text-main: #1E2329;
-            --text-sub: #474D57;
-            --card-bg: #FFFFFF;
-            --card-border: #EAECEF;
-            --tag-bg: #F5F5F5;
-            --hover-border: #FCD535;
-        """
-
-    # Do dùng f-string nên các dấu ngoặc nhọn của CSS phải viết gấp đôi {{ }}
-    custom_css = f"""
+    # ==========================================
+    # 1. CODE GỐC CỦA NGÀI (Giữ nguyên 100%)
+    # Chỉ bọc dấu /* */ vào dòng header để mở khóa Menu.
+    # ==========================================
+    custom_css = """
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-        /* Nạp bộ màu vào giao diện */
-        :root {{
-            {theme_vars}
-        }}
-
         /* Áp dụng font chữ toàn hệ thống */
-        html, body, [class*="css"] {{
+        html, body, [class*="css"] {
             font-family: 'Inter', sans-serif !important;
-            color: var(--text-main);
-            transition: background-color 0.3s, color 0.3s;
-        }}
+            color: #1E2329;
+        }
 
-        /* ĐÃ TẮT LỆNH KHÓA HEADER ĐỂ BONG BÓNG VÀ MENU KHÔNG BỊ NUỐT */
-        /* header {{visibility: hidden;}} */ 
-        footer {{visibility: hidden;}} /* Cứ giữ ẩn footer nếu Ngài muốn */
+        /* TẠM THỜI MỞ KHÓA HEADER ĐỂ HIỆN THỊ MENU SIDEBAR */
+        /* header {visibility: hidden;} */
+        footer {visibility: hidden;} /* Cứ giữ ẩn footer nếu Ngài muốn */
         
         /* Chỉnh màu nền chính */
-        .stApp {{ background-color: var(--bg-main); transition: background-color 0.3s; }}
+        .stApp { background-color: #FAFAFA; }
 
-        /* Định dạng các component UI (Giữ nguyên 100% logic của Ngài) */
-        .category-tag {{ background-color: var(--tag-bg); color: var(--text-sub); padding: 4px 12px; border-radius: 4px; font-size: 14px; font-weight: 500; display: inline-block; margin-bottom: 16px; transition: 0.3s; }}
-        .hero-title {{ font-size: 40px; font-weight: 700; line-height: 1.2; color: var(--text-main); margin-bottom: 16px; transition: 0.3s; }}
-        .hero-desc {{ font-size: 16px; color: var(--text-sub); line-height: 1.5; margin-bottom: 24px; transition: 0.3s; }}
-        .hero-meta {{ font-size: 14px; color: var(--text-main); font-weight: 600; transition: 0.3s; }}
-        .hero-hashtag {{ font-size: 14px; color: var(--text-sub); font-weight: 400; margin-left: 12px; transition: 0.3s; }}
+        /* Định dạng các component UI */
+        .category-tag { background-color: #F5F5F5; color: #474D57; padding: 4px 12px; border-radius: 4px; font-size: 14px; font-weight: 500; display: inline-block; margin-bottom: 16px; }
+        .hero-title { font-size: 40px; font-weight: 700; line-height: 1.2; color: #1E2329; margin-bottom: 16px; }
+        .hero-desc { font-size: 16px; color: #474D57; line-height: 1.5; margin-bottom: 24px; }
+        .hero-meta { font-size: 14px; color: #1E2329; font-weight: 600; }
+        .hero-hashtag { font-size: 14px; color: #474D57; font-weight: 400; margin-left: 12px; }
 
         /* CSS cho thanh tiêu đề danh sách */
-        .section-title {{ font-size: 24px; font-weight: 700; color: var(--text-main); margin-top: 48px; margin-bottom: 24px; transition: 0.3s; }}
+        .section-title { font-size: 24px; font-weight: 700; color: #1E2329; margin-top: 48px; margin-bottom: 24px; }
 
         /* CSS cho các thẻ bài viết (Cards) */
-        .news-card {{
-            background-color: var(--card-bg);
-            border: 1px solid var(--card-border);
+        .news-card {
+            background-color: #FFFFFF;
+            border: 1px solid #EAECEF;
             border-radius: 8px;
             padding: 24px;
             margin-bottom: 16px;
             transition: all 0.2s ease-in-out;
             cursor: pointer;
             height: 100%;
-        }}
-        .news-card:hover {{
-            border-color: var(--hover-border);
+        }
+        .news-card:hover {
+            border-color: #FCD535;
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
             transform: translateY(-2px);
-        }}
-        .card-tag {{ font-size: 12px; font-weight: 500; color: #848E9C; text-transform: uppercase; margin-bottom: 12px; transition: 0.3s; }}
-        .card-title {{ font-size: 18px; font-weight: 600; color: var(--text-main); margin-bottom: 12px; line-height: 1.4; transition: 0.3s; }}
-        .card-date {{ font-size: 14px; color: #848E9C; transition: 0.3s; }}
+        }
+        .card-tag { font-size: 12px; font-weight: 500; color: #848E9C; text-transform: uppercase; margin-bottom: 12px; }
+        .card-title { font-size: 18px; font-weight: 600; color: #1E2329; margin-bottom: 12px; line-height: 1.4; }
+        .card-date { font-size: 14px; color: #848E9C; }
     </style>
     """
     st.markdown(custom_css, unsafe_allow_html=True)
+
+    # ==========================================
+    # 2. XỬ LÝ DARK MODE BẰNG GHI ĐÈ
+    # Kích hoạt khi is_dark=True, không làm thay đổi logic CSS gốc.
+    # ==========================================
+    if is_dark:
+        dark_css = """
+        <style>
+            /* Ghi đè màu nền và chữ tổng thể */
+            html, body, [class*="css"], .stApp {
+                background-color: #0B0E11 !important;
+                color: #EAECEF !important;
+            }
+            
+            /* Ghi đè màu các class chữ của Ngài */
+            .hero-title, .section-title, .card-title, .hero-meta { color: #EAECEF !important; }
+            .hero-desc, .hero-hashtag { color: #848E9C !important; }
+            
+            /* Ghi đè màu thẻ Card và Tag */
+            .news-card {
+                background-color: #181A20 !important;
+                border-color: #2B3139 !important;
+            }
+            .category-tag { 
+                background-color: #2B3139 !important; 
+                color: #848E9C !important; 
+            }
+        </style>
+        """
+        st.markdown(dark_css, unsafe_allow_html=True)
