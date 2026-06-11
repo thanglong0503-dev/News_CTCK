@@ -21,19 +21,7 @@ from backend.ai_analysis import (
     fetch_cafef_reports, 
     generate_ai_report_scoring
 )
-import streamlit as st
 
-# ==========================================
-# LINANCE AI DESK - BẢN SIDEBAR CHUYÊN NGHIỆP
-# ==========================================
-URL_APP_CHAT = "https://jtkbj9wk5udrrxvrrwpr8j.streamlit.app"
-
-# Đưa thẳng con Bot AI vào cột Menu bên trái
-with st.sidebar:
-    st.markdown("### Trợ lý LINANCE AI")
-    st.markdown("---")
-    # Nhúng AI với chiều cao 600px, tự động khít với cột
-    st.components.v1.iframe(f"{URL_APP_CHAT}/?embed=true", height=650)
 # ==========================================
 # KHỐI 0: ĐỒNG HỒ REAL-TIME (TOP BAR)
 # ==========================================
