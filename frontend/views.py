@@ -14,8 +14,10 @@ def render_home_page():
     render_footer()       # 5. Footer bản quyền (ThangLong)
 
     # ==========================================
+    # ==========================================
     # 6. KÍCH HOẠT BONG BÓNG CHAT AI (Ghim góc phải)
     # ==========================================
     URL_APP_CHAT = "https://jtkbj9wk5udrrxvrrwpr8j.streamlit.app"
-    with st.popover("💬", use_container_width=False):
+    # Để trống chuỗi ký tự, CSS sẽ lo phần hiển thị
+    with st.popover("", use_container_width=False):
         st.components.v1.iframe(f"{URL_APP_CHAT}/?embed=true", width=380, height=550)
