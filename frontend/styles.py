@@ -68,9 +68,8 @@ def apply_custom_css(is_dark=False):
         """
         st.markdown(dark_css, unsafe_allow_html=True)
 
-    ## ==========================================
-  # ==========================================
-    # 3. CSS ĐỘC QUYỀN CHO NÚT "LINANCE AI BOT" (Khóa chặt kích thước)
+    # ==========================================
+    # 3. CSS ĐỘC QUYỀN CHO NÚT "LINANCE AI BOT" (Màu Cam Thuần Thương Hiệu)
     # ==========================================
     chat_bubble_css = """
     <style>
@@ -80,28 +79,29 @@ def apply_custom_css(is_dark=False):
             bottom: 30px !important;
             right: 30px !important;
             z-index: 999999 !important;
-            width: max-content !important; /* CHÌA KHÓA: Ép khung chỉ to bằng nội dung */
+            width: max-content !important; 
         }
         
-        /* 2. Thiết kế khối chữ nhật nhỏ nhắn, thanh lịch */
+        /* 2. Thiết kế khối chữ nhật nhỏ nhắn, MÀU CAM THUẦN */
         div[data-testid="stPopover"] > button {
             border-radius: 6px !important; 
-            background: linear-gradient(135deg, #FF9500, #FF5E3A) !important; 
+            /* MÀU CAM MỚI: Từ cam tươi (#FF9800) vuốt nhẹ sang cam đậm thương hiệu (#FF6B00) */
+            background: linear-gradient(135deg, #FF9800, #FF6B00) !important; 
             border: 1px solid rgba(255, 255, 255, 0.4) !important; 
             padding: 8px 16px !important; 
-            box-shadow: 0 4px 12px rgba(255, 94, 58, 0.25) !important; 
+            box-shadow: 0 4px 12px rgba(255, 107, 0, 0.3) !important; /* Bóng đổ cũng chuyển sang tone cam */
             transition: all 0.2s ease !important;
-            width: max-content !important; /* LỚP KHÓA THỨ 2: Ép nút bấm không được phình to */
+            width: max-content !important; 
             height: auto !important;
         }
         
-        /* 3. Hiệu ứng nảy lên từ tốn */
+        /* 3. Hiệu ứng nảy lên */
         div[data-testid="stPopover"] > button:hover {
             transform: translateY(-2px) !important;
-            box-shadow: 0 6px 16px rgba(255, 94, 58, 0.4) !important;
+            box-shadow: 0 6px 16px rgba(255, 107, 0, 0.5) !important;
         }
         
-        /* 4. Định dạng chữ: Hiện đại, nhỏ xinh */
+        /* 4. Định dạng chữ */
         div[data-testid="stPopover"] > button p {
             font-size: 13px !important; 
             font-weight: 600 !important; 
@@ -109,7 +109,7 @@ def apply_custom_css(is_dark=False):
             color: #FFFFFF !important;
             margin: 0 !important;
             font-family: 'Inter', sans-serif !important; 
-            white-space: nowrap !important; /* KHÓA THỨ 3: Cấm chữ rớt dòng làm bể khung */
+            white-space: nowrap !important; 
         }
         
         /* 5. Tắt viền đỏ báo lỗi khi click chuột */
@@ -130,4 +130,4 @@ def apply_custom_css(is_dark=False):
     </style>
     """
     st.markdown(chat_bubble_css, unsafe_allow_html=True)
-    st.markdown(chat_bubble_css, unsafe_allow_html=True)
+    
