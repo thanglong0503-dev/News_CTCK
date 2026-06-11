@@ -1974,79 +1974,147 @@ def render_footer():
         </div>
     """, unsafe_allow_html=True)
 
-import streamlit as st
+import streamlit.components.v1 as components
+
 # ==========================================
-# BONG BÓNG CHAT BẤT TỬ - BẢN NGUYÊN THỦY HTML
+# BONG BÓNG CHAT iOS - BẢN TROJAN HORSE (BẤT TỬ)
 # ==========================================
 
-URL_APP_CHAT = "https://jtkbj9wk5udrrxvrrwpr8j.streamlit.app/" # Thay bằng URL khi deploy thật
+URL_APP_CHAT = "https://jtkbj9wk5udrrxvrrwpr8j.streamlit.app"
 
-st.markdown(f"""
+# Bọc toàn bộ giao diện, CSS và JS vào bên trong một iframe hoàn toàn độc lập
+html_code = f"""
+<!DOCTYPE html>
+<html>
+<head>
 <style>
-    /* 1. Đặt toàn bộ cụm bong bóng cố định ở góc */
-    .linance-native-chat {{
-        position: fixed;
-        bottom: 30px;
-        right: 30px;
-        z-index: 9999999;
+    body {{ margin: 0; padding: 0; background: transparent; font-family: sans-serif; }}
+    
+    .chat-container {{
+        position: absolute;
+        bottom: 20px;
+        right: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
     }}
     
-    /* 2. Giấu cái mũi tên tam giác mặc định của thẻ details */
-    .linance-native-chat summary::-webkit-details-marker {{
+    /* Giao diện khung Chat mượt mà */
+    .chat-window {{
         display: none;
+        width: 380px;
+        height: 550px;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-radius: 24px;
+        box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+        overflow: hidden;
+        margin-bottom: 15px;
+        border: 1px solid rgba(128, 128, 128, 0.2);
+        opacity: 0;
+        transition: opacity 0.3s ease;
     }}
-    .linance-native-chat summary {{
-        list-style: none;
-        outline: none; /* Bỏ viền khi click */
-    }}
-
-    /* 3. Nút bấm bong bóng (Biến thẻ summary thành nút tròn) */
-    .chat-bubble-btn {{
-        width: 60px;
-        height: 60px;
-        background-color: #0A84FF;
-        color: white;
+    
+    /* Nút bấm Cam iOS */
+    .chat-btn {{
+        width: 65px;
+        height: 65px;
         border-radius: 50%;
+        background: linear-gradient(135deg, #FF9500, #FF5E3A);
+        color: white;
+        border: none;
+        font-size: 32px;
+        cursor: pointer;
+        box-shadow: 0 8px 24px rgba(255, 149, 0, 0.4);
+        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 28px;
-        cursor: pointer;
-        box-shadow: 0 4px 20px rgba(10, 132, 255, 0.4);
-        transition: transform 0.2s ease;
-        float: right; /* Ép nút luôn nằm bên phải */
-    }}
-
-    .chat-bubble-btn:hover {{
-        transform: scale(1.1);
-    }}
-
-    /* 4. Khung chứa Iframe (Mặc định bị giấu, click vào tự mở) */
-    .chat-iframe-box {{
-        position: absolute;
-        bottom: 80px; /* Nằm cách nút bấm 20px phía trên */
-        right: 0;
-        width: 380px;
-        height: 600px;
-        background: white;
-        border-radius: 18px;
-        box-shadow: 0 12px 40px rgba(0,0,0,0.25);
-        border: 1px solid rgba(128, 128, 128, 0.2);
-        overflow: hidden;
-        animation: popUp 0.3s ease-out;
+        outline: none;
     }}
     
-    @keyframes popUp {{
-        from {{ opacity: 0; transform: translateY(20px); }}
-        to {{ opacity: 1; transform: translateY(0); }}
+    .chat-btn:hover {{ 
+        transform: scale(1.08) translateY(-4px); 
+        box-shadow: 0 12px 28px rgba(255, 149, 0, 0.6); 
     }}
 </style>
+</head>
+<body>
 
-<details class="linance-native-chat">
-    <summary class="chat-bubble-btn">💬</summary>
-    
-    <div class="chat-iframe-box">
-        <iframe src="{URL_APP_CHAT}/?embed=true" style="width: 100%; height: 100%; border: none;"></iframe>
+<div class="chat-container">
+    <div class="chat-window" id="chat-window">
+        <iframe src="{URL_APP_CHAT}/?embed=true" style="width:100%; height:100%; border:none;"></iframe>
     </div>
-</details>
-""", unsafe_allow_html=True)
+    <button class="chat-btn" id="chat-btn" onclick="toggleChat()">💬</button>
+</div>
+
+<script>
+    // CHIÊU THỨC HACK IFRAME TỪ BÊN TRONG
+    // Trực tiếp lấy cái hộp iframe đang chứa mình và ép nó trôi nổi lên màn hình
+    const frame = window.frameElement;
+    if (frame) {{
+        frame.style.position = 'fixed';
+        frame.style.bottom = '0px';
+        frame.style.right = '0px';
+        frame.style.zIndex = '9999999';
+        frame.style.border = 'none';
+        frame.style.background = 'transparent';
+        frame.style.width = '105px';  // Khung ban đầu chỉ vừa đủ chứa cái nút
+        frame.style.height = '105px';
+        
+        // Vô hiệu hóa lớp bảo vệ bên ngoài của Streamlit
+        const parentDiv = frame.parentElement;
+        if (parentDiv) {{
+            parentDiv.style.position = 'fixed';
+            parentDiv.style.bottom = '0';
+            parentDiv.style.right = '0';
+            parentDiv.style.zIndex = '9999999';
+            parentDiv.style.overflow = 'visible';
+            parentDiv.style.background = 'transparent';
+        }}
+    }}
+    
+    let isOpen = false;
+    function toggleChat() {{
+        isOpen = !isOpen;
+        const win = document.getElementById('chat-window');
+        const btn = document.getElementById('chat-btn');
+        
+        if (isOpen) {{
+            // Khi mở: Phóng to khung iframe mẹ ra để chứa cửa sổ chat
+            if(frame) {{
+                frame.style.width = '420px';
+                frame.style.height = '680px';
+            }}
+            win.style.display = 'block';
+            setTimeout(() => {{ win.style.opacity = '1'; }}, 10);
+            
+            // Đổi nút thành dấu X và màu xám
+            btn.innerHTML = '✖';
+            btn.style.background = '#8E8E93'; 
+            btn.style.boxShadow = '0 8px 24px rgba(142, 142, 147, 0.4)';
+        }} else {{
+            // Khi đóng: Thu nhỏ lại ngay lập tức để không che màn hình
+            win.style.opacity = '0';
+            setTimeout(() => {{ 
+                win.style.display = 'none'; 
+                if(frame) {{
+                    frame.style.width = '105px';
+                    frame.style.height = '105px';
+                }}
+            }}, 300);
+            
+            // Đổi lại màu cam iOS
+            btn.innerHTML = '💬';
+            btn.style.background = 'linear-gradient(135deg, #FF9500, #FF5E3A)'; 
+            btn.style.boxShadow = '0 8px 24px rgba(255, 149, 0, 0.4)';
+        }}
+    }}
+</script>
+</body>
+</html>
+"""
+
+# Truyền đoạn mã vào, Streamlit sẽ không thể quét rác phần này được
+components.html(html_code, height=0)
