@@ -1952,73 +1952,6 @@ def render_news_section():
                 st.session_state.current_page += 1
                 st.rerun(scope="fragment")
 
-import streamlit as st
-
-# ==========================================
-# BONG BÓNG CHAT iOS ORANGE - BẢN FIX DỨT ĐIỂM CSS
-# ==========================================
-
-URL_APP_CHAT = "https://jtkbj9wk5udrrxvrrwpr8j.streamlit.app/" # Thay bằng URL khi deploy thật
-
-st.markdown("""
-<style>
-    /* 1. Bốc toàn bộ khối Popover ra khỏi luồng trang và ghim xuống góc */
-    div[data-testid="stPopover"] {
-        position: fixed !important;
-        bottom: 30px !important;
-        right: 30px !important;
-        z-index: 999999 !important;
-    }
-    
-    /* 2. Nhắm thẳng vào NÚT BẤM (Xuyên qua mọi lớp vỏ) để ép nó thành hình tròn nhỏ */
-    div[data-testid="stPopover"] button {
-        width: 65px !important;
-        height: 65px !important;
-        border-radius: 50% !important; /* Bo tròn hoàn hảo */
-        background: linear-gradient(135deg, #FF9500, #FF5E3A) !important; /* Cam iOS */
-        border: none !important;
-        padding: 0 !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        box-shadow: 0 8px 24px rgba(255, 149, 0, 0.4) !important;
-        transition: all 0.3s ease !important;
-    }
-    
-    /* Hiệu ứng nảy lên khi di chuột */
-    div[data-testid="stPopover"] button:hover {
-        transform: scale(1.1) !important;
-        box-shadow: 0 12px 28px rgba(255, 149, 0, 0.6) !important;
-    }
-    
-    /* Phóng to Icon Chat bên trong nút */
-    div[data-testid="stPopover"] button p {
-        font-size: 32px !important;
-        line-height: 1 !important;
-        margin: 0 !important;
-        color: white !important;
-    }
-    
-    /* Xóa viền báo lỗi mặc định khi click */
-    div[data-testid="stPopover"] button:focus {
-        outline: none !important;
-    }
-
-    /* 3. Bo góc cửa sổ chat mở ra (Popover Body) cho sang trọng */
-    div[data-testid="stPopoverBody"] {
-        border-radius: 24px !important; 
-        border: 1px solid rgba(255, 255, 255, 0.3) !important;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15) !important;
-        padding: 0 !important; 
-        overflow: hidden !important;
-        width: 380px !important; /* Khóa kích thước cửa sổ mở ra */
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# Gọi hàm nguyên bản (Không thêm lệnh thừa)
-with st.popover("💬"):
-    st.components.v1.iframe(f"{URL_APP_CHAT}/?embed=true", width=380, height=550)
 # ==========================================
 # ==========================================
 # KHỐI 4: FOOTER BẢN QUYỀN
@@ -2040,3 +1973,70 @@ def render_footer():
             </div>
         </div>
     """, unsafe_allow_html=True)
+import streamlit as st
+
+# ==========================================
+# BONG BÓNG CHAT iOS - BẢN ĐÓNG ĐINH VĨNH VIỄN
+# ==========================================
+
+URL_APP_CHAT = "https://jtkbj9wk5udrrxvrrwpr8j.streamlit.app" 
+
+# Tạo một khối bảo vệ chống bốc hơi
+linance_chat_container = st.container()
+
+with linance_chat_container:
+    st.markdown("""
+    <style>
+        /* Nhắm mục tiêu chuẩn xác vào popover, ghim chết nó ở góc phải */
+        div[data-testid="stPopover"] {
+            position: fixed !important;
+            bottom: 30px !important;
+            right: 30px !important;
+            z-index: 999999 !important;
+        }
+        
+        /* Gọt Nút bấm thành bong bóng Cam chuẩn iOS */
+        div[data-testid="stPopover"] button {
+            width: 65px !important;
+            height: 65px !important;
+            border-radius: 50% !important;
+            background: linear-gradient(135deg, #FF9500, #FF5E3A) !important;
+            border: none !important;
+            padding: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            box-shadow: 0 8px 24px rgba(255, 149, 0, 0.4) !important;
+            transition: all 0.3s ease !important;
+        }
+        
+        /* Nảy lên khi chuột chạm vào */
+        div[data-testid="stPopover"] button:hover {
+            transform: scale(1.1) !important;
+            box-shadow: 0 12px 28px rgba(255, 149, 0, 0.6) !important;
+        }
+        
+        /* Icon Chat màu trắng */
+        div[data-testid="stPopover"] button p {
+            font-size: 32px !important;
+            line-height: 1 !important;
+            margin: 0 !important;
+            color: white !important;
+        }
+
+        /* Bo góc khung hiển thị AI bên trong */
+        div[data-testid="stPopoverBody"] {
+            border-radius: 20px !important; 
+            border: 1px solid rgba(255, 255, 255, 0.3) !important;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2) !important;
+            padding: 0 !important; 
+            overflow: hidden !important;
+            width: 380px !important; 
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # Nút bấm nằm trong khối bảo vệ
+    with st.popover("💬", use_container_width=False):
+        # Ép đuôi /?embed=true để xóa bỏ viền mặc định của Streamlit Cloud
+        st.components.v1.iframe(f"{URL_APP_CHAT}/?embed=true", width=380, height=550)
