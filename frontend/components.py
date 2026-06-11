@@ -1951,93 +1951,95 @@ def render_news_section():
             if st.button("Sau ▶", disabled=(st.session_state.current_page >= total_pages), use_container_width=True, key="next_btn"):
                 st.session_state.current_page += 1
                 st.rerun(scope="fragment")
+import streamlit.components.v1 as components
+
 # ==========================================
-# GẮN BONG BÓNG CHAT VÀO DASHBOARD CHÍNH (BẢN PURE CSS)
+# GẮN BONG BÓNG CHAT VÀO DASHBOARD CHÍNH (BẢN VƯỢT RÀO COMPONENTS)
 # ==========================================
 
-import streamlit as st
+URL_APP_CHAT = "https://jtkbj9wk5udrrxvrrwpr8j.streamlit.app/" # Nhớ đổi link này khi Ngài đẩy lên mạng
 
-# Đường dẫn App AI của Ngài (Thay đổi nếu chạy thực tế trên web)
-URL_APP_CHAT = "https://jtkbj9wk5udrrxvrrwpr8j.streamlit.app/" 
+# Đoạn Javascript tiêm trực tiếp vào giao diện mẹ
+js_code = """
+<script>
+    // Lấy quyền điều khiển toàn bộ trang web mẹ của Streamlit
+    const doc = window.parent.document;
 
-st.markdown(f"""
-<style>
-    /* 1. Ẩn công tắc đi, chỉ dùng nó để nhận tín hiệu click */
-    #linance-chat-toggle {{
-        display: none;
-    }}
-    
-    /* 2. Thiết kế nút bấm bong bóng nổi ở góc phải */
-    .linance-chat-btn {{
-        position: fixed;
-        bottom: 30px;
-        right: 30px;
-        width: 60px;
-        height: 60px;
-        background-color: #0A84FF;
-        color: white;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        box-shadow: 0 4px 20px rgba(10, 132, 255, 0.4);
-        z-index: 999999;
-        transition: transform 0.2s;
-    }}
-    
-    .linance-chat-btn:hover {{
-        transform: scale(1.1);
-    }}
+    // Kiểm tra xem bong bóng đã được tạo chưa (tránh tạo trùng lặp khi app tự tải lại)
+    if (!doc.getElementById("linance-bot-container")) {
+        
+        // 1. Tạo hộp chứa cố định ở góc phải
+        const container = doc.createElement("div");
+        container.id = "linance-bot-container";
+        container.style.position = "fixed";
+        container.style.bottom = "30px";
+        container.style.right = "30px";
+        container.style.zIndex = "999999";
+        
+        // 2. Tạo cửa sổ Chat (Bọc iframe của App AI)
+        const chatWindow = doc.createElement("div");
+        chatWindow.style.display = "none";
+        chatWindow.style.width = "380px";
+        chatWindow.style.height = "600px";
+        chatWindow.style.backgroundColor = "#fff";
+        chatWindow.style.borderRadius = "18px";
+        chatWindow.style.boxShadow = "0 12px 40px rgba(0,0,0,0.25)";
+        chatWindow.style.border = "1px solid rgba(128, 128, 128, 0.2)";
+        chatWindow.style.marginBottom = "15px";
+        chatWindow.style.overflow = "hidden";
+        chatWindow.style.transition = "all 0.3s ease";
+        
+        const iframe = doc.createElement("iframe");
+        iframe.src = "URL_PLACEHOLDER/?embed=true";
+        iframe.style.width = "100%";
+        iframe.style.height = "100%";
+        iframe.style.border = "none";
+        chatWindow.appendChild(iframe);
+        
+        // 3. Tạo nút bấm Bong bóng
+        const btn = doc.createElement("button");
+        btn.style.float = "right";
+        btn.style.width = "60px";
+        btn.style.height = "60px";
+        btn.style.borderRadius = "50%";
+        btn.style.backgroundColor = "#0A84FF";
+        btn.style.color = "white";
+        btn.style.border = "none";
+        btn.style.fontSize = "26px";
+        btn.style.cursor = "pointer";
+        btn.style.boxShadow = "0 4px 20px rgba(10, 132, 255, 0.4)";
+        btn.style.display = "flex";
+        btn.style.alignItems = "center";
+        btn.style.justifyContent = "center";
+        btn.innerHTML = "💬";
+        
+        // Hiệu ứng di chuột
+        btn.onmouseover = function() { this.style.transform = 'scale(1.1)'; };
+        btn.onmouseout = function() { this.style.transform = 'scale(1)'; };
+        
+        // Lệnh đóng/mở
+        btn.onclick = function() {
+            if (chatWindow.style.display === "none") {
+                chatWindow.style.display = "block";
+                btn.innerHTML = "✖";
+            } else {
+                chatWindow.style.display = "none";
+                btn.innerHTML = "💬";
+            }
+        };
+        
+        // Lắp ráp các bộ phận
+        container.appendChild(chatWindow);
+        container.appendChild(btn);
+        
+        // Tiêm vào trang web chính
+        doc.body.appendChild(container);
+    }
+</script>
+"""
 
-    /* 3. Thiết kế khung Chat (Mặc định được giấu đi) */
-    .linance-chat-window {{
-        position: fixed;
-        bottom: 100px;
-        right: 30px;
-        width: 380px;
-        height: 600px;
-        background: white;
-        border-radius: 18px;
-        box-shadow: 0 12px 40px rgba(0,0,0,0.25);
-        z-index: 999998;
-        overflow: hidden;
-        border: 1px solid rgba(128, 128, 128, 0.2);
-        opacity: 0;
-        visibility: hidden;
-        transform: translateY(20px);
-        transition: all 0.3s ease;
-    }}
-
-    /* 4. LOGIC KHÔNG CẦN JS: Khi công tắc được click, hiện khung chat */
-    #linance-chat-toggle:checked ~ .linance-chat-window {{
-        opacity: 1;
-        visibility: visible;
-        transform: translateY(0);
-    }}
-    
-    /* Khi mở chat thì đổi icon thành dấu X, khi đóng thì để icon tin nhắn */
-    #linance-chat-toggle:checked ~ .linance-chat-btn::after {{
-        content: "✖";
-        font-size: 22px;
-        font-weight: bold;
-    }}
-    #linance-chat-toggle:not(:checked) ~ .linance-chat-btn::after {{
-        content: "💬";
-        font-size: 26px;
-    }}
-</style>
-
-<div style="position: relative; z-index: 999999;">
-    <input type="checkbox" id="linance-chat-toggle" />
-    
-    <label for="linance-chat-toggle" class="linance-chat-btn"></label>
-    
-    <div class="linance-chat-window">
-        <iframe src="{URL_APP_CHAT}/?embed=true" style="width: 100%; height: 100%; border: none; background: white;"></iframe>
-    </div>
-</div>
-""", unsafe_allow_html=True)
+# Truyền đoạn mã vào Streamlit với kích thước tàng hình (width=0, height=0)
+components.html(js_code.replace("URL_PLACEHOLDER", URL_APP_CHAT), height=0, width=0)
 # ==========================================
 # ==========================================
 # KHỐI 4: FOOTER BẢN QUYỀN
