@@ -1951,7 +1951,64 @@ def render_news_section():
             if st.button("Sau ▶", disabled=(st.session_state.current_page >= total_pages), use_container_width=True, key="next_btn"):
                 st.session_state.current_page += 1
                 st.rerun(scope="fragment")
+# ==========================================
+# THÊM ĐOẠN NÀY VÀO CUỐI FILE DASHBOARD CHÍNH CỦA NGÀI
+# ==========================================
 
+# Đường dẫn URL của App Chat (Khi Ngài deploy App Chat lên Streamlit Cloud hoặc chạy local)
+# Ví dụ nếu chạy local mặc định sẽ là "http://localhost:8501"
+# Khi Ngài đẩy App Chat lên mạng, hãy thay link đó vào đây.
+URL_APP_CHAT = "https://jtkbj9wk5udrrxvrrwpr8j.streamlit.app/" 
+
+st.markdown(f"""
+<div id="linance-floating-container" style="position: fixed; bottom: 30px; right: 30px; z-index: 999999;">
+    
+    <div id="linance-chat-window" style="
+        display: none; 
+        width: 380px; 
+        height: 600px; 
+        background: transparent; 
+        border-radius: 18px; 
+        box-shadow: 0 12px 40px rgba(0,0,0,0.25); 
+        overflow: hidden; 
+        margin-bottom: 15px; 
+        border: 1px solid rgba(128, 128, 128, 0.2);
+        transition: all 0.3s ease;
+    ">
+        <iframe src="{URL_APP_CHAT}/?embed=true" style="width: 100%; height: 100%; border: none;"></iframe>
+    </div>
+    
+    <button onclick="toggleLinanceChat()" style="
+        float: right;
+        background-color: #0A84FF; 
+        color: white; 
+        border: none; 
+        border-radius: 50%; 
+        width: 60px; 
+        height: 60px; 
+        font-size: 26px; 
+        cursor: pointer; 
+        box-shadow: 0 4px 20px rgba(10, 132, 255, 0.4); 
+        transition: transform 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    " onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+        💬
+    </button>
+</div>
+
+<script>
+    function toggleLinanceChat() {{
+        var chatWindow = document.getElementById('linance-chat-window');
+        if (chatWindow.style.display === 'none' || chatWindow.style.display === '') {{
+            chatWindow.style.display = 'block';
+        }} else {{
+            chatWindow.style.display = 'none';
+        }}
+    }}
+</script>
+""", unsafe_allow_html=True)
 # ==========================================
 # ==========================================
 # KHỐI 4: FOOTER BẢN QUYỀN
