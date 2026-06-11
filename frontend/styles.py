@@ -11,9 +11,10 @@ def apply_custom_css():
             color: #1E2329;
         }
 
-        /* TẠM THỜI MỞ KHÓA HEADER ĐỂ HIỆN THỊ MENU SIDEBAR */
-        header {visibility: hidden;} 
-        footer {visibility: hidden;} /* Cứ giữ ẩn footer nếu Ngài muốn */
+        /* ĐÃ XÓA BỎ LỆNH KHÓA HEADER - GIẢI PHÓNG TOÀN BỘ KHÔNG GIAN GIAO DIỆN */
+        
+        /* Chỉ ẩn Footer mặc định của Streamlit cho chuyên nghiệp */
+        footer {visibility: hidden;} 
         
         /* Chỉnh màu nền chính */
         .stApp { background-color: #FAFAFA; }
