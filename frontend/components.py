@@ -1952,54 +1952,10 @@ def render_news_section():
                 st.session_state.current_page += 1
                 st.rerun(scope="fragment")
 import streamlit as st
-# ==========================================
-# BẢN ST.POPOVER GỐC - HOẠT ĐỘNG 100% (GIAO DIỆN VIÊN THUỐC iOS)
-# ==========================================
 
-URL_APP_CHAT = "https://jtkbj9wk5udrrxvrrwpr8j.streamlit.app"
-
-# CSS Tối giản: Chỉ can thiệp màu sắc và vị trí, KHÔNG ép kích thước để tránh lỗi tàng hình
-st.markdown("""
-<style>
-    /* Ghim cụm nút bấm xuống góc phải màn hình */
-    div[data-testid="stPopover"] {
-        position: fixed !important;
-        bottom: 30px !important;
-        right: 30px !important;
-        z-index: 999999 !important;
-    }
-    
-    /* Thiết kế nút thành hình Viên thuốc (Pill Shape) màu Cam iOS */
-    div[data-testid="stPopover"] > button {
-        background: linear-gradient(135deg, #FF9500, #FF5E3A) !important;
-        color: white !important;
-        border: none !important;
-        border-radius: 30px !important; /* Bo cong hai đầu */
-        padding: 10px 24px !important;
-        box-shadow: 0 8px 24px rgba(255, 149, 0, 0.4) !important;
-        transition: transform 0.2s ease !important;
-    }
-    
-    /* Hiệu ứng nảy nhẹ khi đưa chuột vào */
-    div[data-testid="stPopover"] > button:hover {
-        transform: scale(1.05) !important;
-        box-shadow: 0 12px 28px rgba(255, 149, 0, 0.6) !important;
-    }
-    
-    /* Chỉnh chữ và icon bên trong nút */
-    div[data-testid="stPopover"] > button p {
-        font-size: 18px !important;
-        font-weight: bold !important;
-        color: white !important;
-        margin: 0 !important;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# Lệnh use_container_width=False là CHÌA KHÓA để nút không bị kéo dài dãn ngang ra toàn màn hình
+st.write("--- Khám bệnh Bong Bóng ---") # Dòng này để xác nhận code có chạy tới đây
 with st.popover("💬 Trợ Lý AI", use_container_width=False):
-    # Nhúng AI từ Cloud vào
-    st.components.v1.iframe(f"{URL_APP_CHAT}/?embed=true", width=380, height=550)
+    st.components.v1.iframe("https://jtkbj9wk5udrrxvrrwpr8j.streamlit.app/?embed=true", width=380, height=550)
 # ==========================================
 # ==========================================
 # KHỐI 4: FOOTER BẢN QUYỀN
