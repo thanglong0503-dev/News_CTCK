@@ -14,10 +14,8 @@ def render_home_page():
     render_footer()       # 5. Footer bản quyền (ThangLong)
 
     # ==========================================
-    # ==========================================
-    # 6. KÍCH HOẠT BONG BÓNG CHAT AI (Ghim góc phải)
-    # ==========================================
+    # BONG BÓNG CHAT
     URL_APP_CHAT = "https://jtkbj9wk5udrrxvrrwpr8j.streamlit.app"
-    # Để trống chuỗi ký tự, CSS sẽ lo phần hiển thị
-    with st.popover("", use_container_width=False):
+    # TRUYỀN THẲNG CHỮ VÀO ĐÂY, CSS SẼ LO VIỆC BIẾN NÓ THÀNH VIÊN THUỐC
+    with st.popover("💬 LINANCE AI BOT", use_container_width=False):
         st.components.v1.iframe(f"{URL_APP_CHAT}/?embed=true", width=380, height=550)
