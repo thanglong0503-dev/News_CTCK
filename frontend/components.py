@@ -21,7 +21,19 @@ from backend.ai_analysis import (
     fetch_cafef_reports, 
     generate_ai_report_scoring
 )
+import streamlit as st
 
+# ==========================================
+# LINANCE AI DESK - BẢN SIDEBAR CHUYÊN NGHIỆP
+# ==========================================
+URL_APP_CHAT = "https://jtkbj9wk5udrrxvrrwpr8j.streamlit.app"
+
+# Đưa thẳng con Bot AI vào cột Menu bên trái
+with st.sidebar:
+    st.markdown("### Trợ lý LINANCE AI")
+    st.markdown("---")
+    # Nhúng AI với chiều cao 600px, tự động khít với cột
+    st.components.v1.iframe(f"{URL_APP_CHAT}/?embed=true", height=650)
 # ==========================================
 # KHỐI 0: ĐỒNG HỒ REAL-TIME (TOP BAR)
 # ==========================================
@@ -1951,11 +1963,7 @@ def render_news_section():
             if st.button("Sau ▶", disabled=(st.session_state.current_page >= total_pages), use_container_width=True, key="next_btn"):
                 st.session_state.current_page += 1
                 st.rerun(scope="fragment")
-import streamlit as st
 
-st.write("--- Khám bệnh Bong Bóng ---") # Dòng này để xác nhận code có chạy tới đây
-with st.popover("💬 Trợ Lý AI", use_container_width=False):
-    st.components.v1.iframe("https://jtkbj9wk5udrrxvrrwpr8j.streamlit.app/?embed=true", width=380, height=550)
 # ==========================================
 # ==========================================
 # KHỐI 4: FOOTER BẢN QUYỀN
