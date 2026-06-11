@@ -69,45 +69,47 @@ def apply_custom_css(is_dark=False):
         st.markdown(dark_css, unsafe_allow_html=True)
 
     ## ==========================================
-    # ==========================================
-    # 3. CSS ĐỘC QUYỀN CHO NÚT "LINANCE AI BOT" (Nhỏ nhắn, Tinh tế, Chuyên nghiệp)
+  # ==========================================
+    # 3. CSS ĐỘC QUYỀN CHO NÚT "LINANCE AI BOT" (Khóa chặt kích thước)
     # ==========================================
     chat_bubble_css = """
     <style>
-        /* 1. Ghim nút xuống góc phải dưới cùng */
+        /* 1. Ghim nút xuống góc và KHÓA CHẶT CHIỀU RỘNG TỔNG THỂ */
         div[data-testid="stPopover"] {
             position: fixed !important;
             bottom: 30px !important;
             right: 30px !important;
             z-index: 999999 !important;
+            width: max-content !important; /* CHÌA KHÓA: Ép khung chỉ to bằng nội dung */
         }
         
         /* 2. Thiết kế khối chữ nhật nhỏ nhắn, thanh lịch */
         div[data-testid="stPopover"] > button {
-            border-radius: 6px !important; /* Bo góc cực nhẹ, mượt mà */
+            border-radius: 6px !important; 
             background: linear-gradient(135deg, #FF9500, #FF5E3A) !important; 
-            border: 1px solid rgba(255, 255, 255, 0.4) !important; /* Viền trắng mờ tạo độ sang */
-            padding: 8px 16px !important; /* Thu gọn khoảng cách cho nút nhỏ lại */
-            box-shadow: 0 4px 12px rgba(255, 94, 58, 0.25) !important; /* Bóng đổ nhẹ nhàng, không gắt */
+            border: 1px solid rgba(255, 255, 255, 0.4) !important; 
+            padding: 8px 16px !important; 
+            box-shadow: 0 4px 12px rgba(255, 94, 58, 0.25) !important; 
             transition: all 0.2s ease !important;
-            min-width: auto !important; /* Cho phép nút ôm sát vừa vặn với chữ */
+            width: max-content !important; /* LỚP KHÓA THỨ 2: Ép nút bấm không được phình to */
             height: auto !important;
         }
         
-        /* 3. Hiệu ứng nảy lên từ tốn, điềm đạm */
+        /* 3. Hiệu ứng nảy lên từ tốn */
         div[data-testid="stPopover"] > button:hover {
             transform: translateY(-2px) !important;
             box-shadow: 0 6px 16px rgba(255, 94, 58, 0.4) !important;
         }
         
-        /* 4. Định dạng chữ: Hiện đại, nhỏ xinh, dễ nhìn */
+        /* 4. Định dạng chữ: Hiện đại, nhỏ xinh */
         div[data-testid="stPopover"] > button p {
-            font-size: 13px !important; /* Chữ nhỏ gọn, tinh tế */
-            font-weight: 600 !important; /* Đậm vừa phải */
+            font-size: 13px !important; 
+            font-weight: 600 !important; 
             letter-spacing: 0.3px !important;
             color: #FFFFFF !important;
             margin: 0 !important;
-            font-family: 'Inter', sans-serif !important; /* Trả về font Inter mượt mà */
+            font-family: 'Inter', sans-serif !important; 
+            white-space: nowrap !important; /* KHÓA THỨ 3: Cấm chữ rớt dòng làm bể khung */
         }
         
         /* 5. Tắt viền đỏ báo lỗi khi click chuột */
@@ -116,15 +118,16 @@ def apply_custom_css(is_dark=False):
             color: white !important;
         }
 
-        /* 6. Khung chat hiển thị cũng được tinh chỉnh lại cho gọn */
+        /* 6. Khung chat hiển thị */
         div[data-testid="stPopoverBody"] {
             border-radius: 12px !important;
             border: 1px solid rgba(0, 0, 0, 0.08) !important;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15) !important;
             padding: 0 !important; 
             overflow: hidden !important;
-            width: 360px !important; /* Khung chat ôm gọn gàng hơn */
+            width: 360px !important; 
         }
     </style>
     """
+    st.markdown(chat_bubble_css, unsafe_allow_html=True)
     st.markdown(chat_bubble_css, unsafe_allow_html=True)
