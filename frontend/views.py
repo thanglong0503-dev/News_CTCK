@@ -12,3 +12,10 @@ def render_home_page():
     render_hero_section() # 3. Tổng quan 4 cột & Tin nóng
     render_news_section() # 4. Lưới tin tức
     render_footer()       # 5. Footer bản quyền (ThangLong)
+
+    # ==========================================
+    # 6. KÍCH HOẠT BONG BÓNG CHAT AI (Ghim góc phải)
+    # ==========================================
+    URL_APP_CHAT = "https://jtkbj9wk5udrrxvrrwpr8j.streamlit.app"
+    with st.popover("💬", use_container_width=False):
+        st.components.v1.iframe(f"{URL_APP_CHAT}/?embed=true", width=380, height=550)
