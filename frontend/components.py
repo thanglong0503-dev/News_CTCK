@@ -1974,147 +1974,53 @@ def render_footer():
         </div>
     """, unsafe_allow_html=True)
 
-import streamlit.components.v1 as components
+import streamlit as st
 
 # ==========================================
-# BONG BÓNG CHAT iOS - BẢN TROJAN HORSE (BẤT TỬ)
+# BẢN ST.POPOVER GỐC - HOẠT ĐỘNG 100% (GIAO DIỆN VIÊN THUỐC iOS)
 # ==========================================
 
 URL_APP_CHAT = "https://jtkbj9wk5udrrxvrrwpr8j.streamlit.app"
 
-# Bọc toàn bộ giao diện, CSS và JS vào bên trong một iframe hoàn toàn độc lập
-html_code = f"""
-<!DOCTYPE html>
-<html>
-<head>
+# CSS Tối giản: Chỉ can thiệp màu sắc và vị trí, KHÔNG ép kích thước để tránh lỗi tàng hình
+st.markdown("""
 <style>
-    body {{ margin: 0; padding: 0; background: transparent; font-family: sans-serif; }}
+    /* Ghim cụm nút bấm xuống góc phải màn hình */
+    div[data-testid="stPopover"] {
+        position: fixed !important;
+        bottom: 30px !important;
+        right: 30px !important;
+        z-index: 999999 !important;
+    }
     
-    .chat-container {{
-        position: absolute;
-        bottom: 20px;
-        right: 20px;
-        display: flex;
-        flex-direction: column;
-        align-items: flex-end;
-    }}
+    /* Thiết kế nút thành hình Viên thuốc (Pill Shape) màu Cam iOS */
+    div[data-testid="stPopover"] > button {
+        background: linear-gradient(135deg, #FF9500, #FF5E3A) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 30px !important; /* Bo cong hai đầu */
+        padding: 10px 24px !important;
+        box-shadow: 0 8px 24px rgba(255, 149, 0, 0.4) !important;
+        transition: transform 0.2s ease !important;
+    }
     
-    /* Giao diện khung Chat mượt mà */
-    .chat-window {{
-        display: none;
-        width: 380px;
-        height: 550px;
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        border-radius: 24px;
-        box-shadow: 0 15px 35px rgba(0,0,0,0.2);
-        overflow: hidden;
-        margin-bottom: 15px;
-        border: 1px solid rgba(128, 128, 128, 0.2);
-        opacity: 0;
-        transition: opacity 0.3s ease;
-    }}
+    /* Hiệu ứng nảy nhẹ khi đưa chuột vào */
+    div[data-testid="stPopover"] > button:hover {
+        transform: scale(1.05) !important;
+        box-shadow: 0 12px 28px rgba(255, 149, 0, 0.6) !important;
+    }
     
-    /* Nút bấm Cam iOS */
-    .chat-btn {{
-        width: 65px;
-        height: 65px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, #FF9500, #FF5E3A);
-        color: white;
-        border: none;
-        font-size: 32px;
-        cursor: pointer;
-        box-shadow: 0 8px 24px rgba(255, 149, 0, 0.4);
-        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        outline: none;
-    }}
-    
-    .chat-btn:hover {{ 
-        transform: scale(1.08) translateY(-4px); 
-        box-shadow: 0 12px 28px rgba(255, 149, 0, 0.6); 
-    }}
+    /* Chỉnh chữ và icon bên trong nút */
+    div[data-testid="stPopover"] > button p {
+        font-size: 18px !important;
+        font-weight: bold !important;
+        color: white !important;
+        margin: 0 !important;
+    }
 </style>
-</head>
-<body>
+""", unsafe_allow_html=True)
 
-<div class="chat-container">
-    <div class="chat-window" id="chat-window">
-        <iframe src="{URL_APP_CHAT}/?embed=true" style="width:100%; height:100%; border:none;"></iframe>
-    </div>
-    <button class="chat-btn" id="chat-btn" onclick="toggleChat()">💬</button>
-</div>
-
-<script>
-    // CHIÊU THỨC HACK IFRAME TỪ BÊN TRONG
-    // Trực tiếp lấy cái hộp iframe đang chứa mình và ép nó trôi nổi lên màn hình
-    const frame = window.frameElement;
-    if (frame) {{
-        frame.style.position = 'fixed';
-        frame.style.bottom = '0px';
-        frame.style.right = '0px';
-        frame.style.zIndex = '9999999';
-        frame.style.border = 'none';
-        frame.style.background = 'transparent';
-        frame.style.width = '105px';  // Khung ban đầu chỉ vừa đủ chứa cái nút
-        frame.style.height = '105px';
-        
-        // Vô hiệu hóa lớp bảo vệ bên ngoài của Streamlit
-        const parentDiv = frame.parentElement;
-        if (parentDiv) {{
-            parentDiv.style.position = 'fixed';
-            parentDiv.style.bottom = '0';
-            parentDiv.style.right = '0';
-            parentDiv.style.zIndex = '9999999';
-            parentDiv.style.overflow = 'visible';
-            parentDiv.style.background = 'transparent';
-        }}
-    }}
-    
-    let isOpen = false;
-    function toggleChat() {{
-        isOpen = !isOpen;
-        const win = document.getElementById('chat-window');
-        const btn = document.getElementById('chat-btn');
-        
-        if (isOpen) {{
-            // Khi mở: Phóng to khung iframe mẹ ra để chứa cửa sổ chat
-            if(frame) {{
-                frame.style.width = '420px';
-                frame.style.height = '680px';
-            }}
-            win.style.display = 'block';
-            setTimeout(() => {{ win.style.opacity = '1'; }}, 10);
-            
-            // Đổi nút thành dấu X và màu xám
-            btn.innerHTML = '✖';
-            btn.style.background = '#8E8E93'; 
-            btn.style.boxShadow = '0 8px 24px rgba(142, 142, 147, 0.4)';
-        }} else {{
-            // Khi đóng: Thu nhỏ lại ngay lập tức để không che màn hình
-            win.style.opacity = '0';
-            setTimeout(() => {{ 
-                win.style.display = 'none'; 
-                if(frame) {{
-                    frame.style.width = '105px';
-                    frame.style.height = '105px';
-                }}
-            }}, 300);
-            
-            // Đổi lại màu cam iOS
-            btn.innerHTML = '💬';
-            btn.style.background = 'linear-gradient(135deg, #FF9500, #FF5E3A)'; 
-            btn.style.boxShadow = '0 8px 24px rgba(255, 149, 0, 0.4)';
-        }}
-    }}
-</script>
-</body>
-</html>
-"""
-
-# Truyền đoạn mã vào, Streamlit sẽ không thể quét rác phần này được
-components.html(html_code, height=0)
+# Lệnh use_container_width=False là CHÌA KHÓA để nút không bị kéo dài dãn ngang ra toàn màn hình
+with st.popover("💬 Trợ Lý AI", use_container_width=False):
+    # Nhúng AI từ Cloud vào
+    st.components.v1.iframe(f"{URL_APP_CHAT}/?embed=true", width=380, height=550)
