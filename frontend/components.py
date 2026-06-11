@@ -1955,95 +1955,83 @@ import streamlit.components.v1 as components
 
 import streamlit as st
 
+import streamlit as st
+
 # ==========================================
-# BONG BÓNG CHAT - BẢN KHẮC PHỤC LỖI CLICK (IMAGE ONLOAD HACK)
+# BONG BÓNG CHAT BẤT TỬ - BẢN NGUYÊN THỦY HTML
 # ==========================================
 
 URL_APP_CHAT = "https://jtkbj9wk5udrrxvrrwpr8j.streamlit.app/" # Thay bằng URL khi deploy thật
 
-# Kỹ thuật: Dùng sự kiện onload của một hình ảnh tàng hình để kích hoạt JS 
-# Streamlit lọc <script> nhưng lại "quên" lọc thuộc tính onload của thẻ <img>!
-js_code = f"""
-    // Lấy quyền điều khiển toàn trang
-    const doc = window.parent.document;
-
-    // Tránh tạo trùng lặp khi làm mới trang
-    if (!doc.getElementById("linance-bot-container")) {{
-        
-        // 1. Tạo hộp chứa
-        const container = doc.createElement("div");
-        container.id = "linance-bot-container";
-        container.style.position = "fixed";
-        container.style.bottom = "30px";
-        container.style.right = "30px";
-        container.style.zIndex = "99999999"; // Đẩy lên lớp cao nhất
-        container.style.pointerEvents = "auto"; // Đảm bảo nhận được cú click
-        
-        // 2. Tạo cửa sổ Chat ẩn
-        const chatWindow = doc.createElement("div");
-        chatWindow.style.display = "none";
-        chatWindow.style.width = "380px";
-        chatWindow.style.height = "600px";
-        chatWindow.style.backgroundColor = "#fff";
-        chatWindow.style.borderRadius = "18px";
-        chatWindow.style.boxShadow = "0 12px 40px rgba(0,0,0,0.25)";
-        chatWindow.style.border = "1px solid rgba(128, 128, 128, 0.2)";
-        chatWindow.style.marginBottom = "15px";
-        chatWindow.style.overflow = "hidden";
-        chatWindow.style.transition = "all 0.3s ease";
-        
-        const iframe = doc.createElement("iframe");
-        iframe.src = "{URL_APP_CHAT}/?embed=true";
-        iframe.style.width = "100%";
-        iframe.style.height = "100%";
-        iframe.style.border = "none";
-        chatWindow.appendChild(iframe);
-        
-        // 3. Tạo nút bấm Bong bóng
-        const btn = doc.createElement("button");
-        btn.style.float = "right";
-        btn.style.width = "60px";
-        btn.style.height = "60px";
-        btn.style.borderRadius = "50%";
-        btn.style.backgroundColor = "#0A84FF";
-        btn.style.color = "white";
-        btn.style.border = "none";
-        btn.style.fontSize = "26px";
-        btn.style.cursor = "pointer";
-        btn.style.boxShadow = "0 4px 20px rgba(10, 132, 255, 0.4)";
-        btn.style.display = "flex";
-        btn.style.alignItems = "center";
-        btn.style.justifyContent = "center";
-        btn.innerHTML = "💬";
-        
-        // Hiệu ứng và Logic Đóng/Mở
-        btn.onmouseover = function() {{ this.style.transform = 'scale(1.1)'; }};
-        btn.onmouseout = function() {{ this.style.transform = 'scale(1)'; }};
-        btn.onclick = function() {{
-            if (chatWindow.style.display === "none") {{
-                chatWindow.style.display = "block";
-                btn.innerHTML = "✖";
-            }} else {{
-                chatWindow.style.display = "none";
-                btn.innerHTML = "💬";
-            }}
-        }};
-        
-        // Lắp ráp
-        container.appendChild(chatWindow);
-        container.appendChild(btn);
-        
-        // Tiêm vào thẻ <body> của trang chính
-        doc.body.appendChild(container);
+st.markdown(f"""
+<style>
+    /* 1. Đặt toàn bộ cụm bong bóng cố định ở góc */
+    .linance-native-chat {{
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        z-index: 9999999;
     }}
-"""
+    
+    /* 2. Giấu cái mũi tên tam giác mặc định của thẻ details */
+    .linance-native-chat summary::-webkit-details-marker {{
+        display: none;
+    }}
+    .linance-native-chat summary {{
+        list-style: none;
+        outline: none; /* Bỏ viền khi click */
+    }}
 
-# Chèn mã thông qua thẻ ảnh tàng hình
-html_injection = f"""
-    <img src onerror='{js_code}' style='display:none;'>
-"""
+    /* 3. Nút bấm bong bóng (Biến thẻ summary thành nút tròn) */
+    .chat-bubble-btn {{
+        width: 60px;
+        height: 60px;
+        background-color: #0A84FF;
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        cursor: pointer;
+        box-shadow: 0 4px 20px rgba(10, 132, 255, 0.4);
+        transition: transform 0.2s ease;
+        float: right; /* Ép nút luôn nằm bên phải */
+    }}
 
-st.markdown(html_injection, unsafe_allow_html=True)
+    .chat-bubble-btn:hover {{
+        transform: scale(1.1);
+    }}
+
+    /* 4. Khung chứa Iframe (Mặc định bị giấu, click vào tự mở) */
+    .chat-iframe-box {{
+        position: absolute;
+        bottom: 80px; /* Nằm cách nút bấm 20px phía trên */
+        right: 0;
+        width: 380px;
+        height: 600px;
+        background: white;
+        border-radius: 18px;
+        box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+        border: 1px solid rgba(128, 128, 128, 0.2);
+        overflow: hidden;
+        animation: popUp 0.3s ease-out;
+    }}
+    
+    @keyframes popUp {{
+        from {{ opacity: 0; transform: translateY(20px); }}
+        to {{ opacity: 1; transform: translateY(0); }}
+    }}
+</style>
+
+<details class="linance-native-chat">
+    <summary class="chat-bubble-btn">💬</summary>
+    
+    <div class="chat-iframe-box">
+        <iframe src="{URL_APP_CHAT}/?embed=true" style="width: 100%; height: 100%; border: none;"></iframe>
+    </div>
+</details>
+""", unsafe_allow_html=True)
 # ==========================================
 # ==========================================
 # KHỐI 4: FOOTER BẢN QUYỀN
