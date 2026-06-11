@@ -1973,4 +1973,65 @@ def render_footer():
             </div>
         </div>
     """, unsafe_allow_html=True)
+import streamlit as st
+# ==========================================
+# GIAO DIỆN CHÍNH + BONG BÓNG CHAT BẤT TỬ
+# ==========================================
 
+# 1. Cấu hình trang
+st.set_page_config(page_title="LINANCE Dashboard", layout="wide")
+
+# 2. CSS Tùy chỉnh (Đã sửa lỗi ẩn Header)
+def apply_custom_css():
+    custom_css = """
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        /* Font toàn hệ thống */
+        html, body, [class*="css"] { font-family: 'Inter', sans-serif !important; color: #1E2329; }
+
+        /* HEADER GIỮ LẠI ĐỂ HIỆN MENU - Chỉ ẩn Footer */
+        footer {visibility: hidden;}
+        
+        /* Màu nền */
+        .stApp { background-color: #FAFAFA; }
+
+        /* Các component UI Ngài đã dùng */
+        .category-tag { background-color: #F5F5F5; color: #474D57; padding: 4px 12px; border-radius: 4px; font-size: 14px; font-weight: 500; }
+        .hero-title { font-size: 40px; font-weight: 700; color: #1E2329; }
+        
+        /* CSS BONG BÓNG CHAT (Ghim góc phải) */
+        div[data-testid="stPopover"] {
+            position: fixed !important;
+            bottom: 30px !important;
+            right: 30px !important;
+            z-index: 999999 !important;
+        }
+        div[data-testid="stPopover"] > button {
+            width: 65px !important;
+            height: 65px !important;
+            border-radius: 50% !important;
+            background: linear-gradient(135deg, #FF9500, #FF5E3A) !important;
+            border: none !important;
+            box-shadow: 0 8px 24px rgba(255, 149, 0, 0.4) !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+        div[data-testid="stPopover"] > button p { font-size: 30px !important; color: white !important; margin: 0 !important; }
+    </style>
+    """
+    st.markdown(custom_css, unsafe_allow_html=True)
+
+apply_custom_css()
+
+# 3. NỘI DUNG DASHBOARD CỦA NGÀI (Ví dụ)
+st.markdown('<div class="hero-title">Chào mừng Ngài trở lại, Long!</div>', unsafe_allow_html=True)
+st.write("Dữ liệu tài chính đang được cập nhật từ RS_DATA...")
+
+# 4. BONG BÓNG CHAT BẤT TỬ (Được gọi ở cuối file)
+# Lưu ý: URL này là nơi con Bot AI của Ngài đang chạy
+URL_AI = "https://jtkbj9wk5udrrxvrrwpr8j.streamlit.app"
+
+with st.popover("💬", use_container_width=False):
+    st.components.v1.iframe(f"{URL_AI}/?embed=true", width=380, height=550)
