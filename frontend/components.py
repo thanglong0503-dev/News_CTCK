@@ -1974,23 +1974,16 @@ def render_news_section():
             if st.button("Sau ▶", disabled=(st.session_state.current_page >= total_pages), use_container_width=True, key="next_btn"):
                 st.session_state.current_page += 1
                 st.rerun(scope="fragment")
-# ==========================================
-# 3. KÍCH HOẠT HIỂN THỊ LÊN MÀN HÌNH CHÍNH
-# ==========================================
-# Gọi các hàm để vẽ Dashboard
-render_topbar_clock()
-render_header()
-render_hero_section()
-render_news_section()
-render_footer()
+# --- XÓA HOẶC TẮT HẾT ĐOẠN NÀY TRONG COMPONENTS.PY ---
+# render_topbar_clock()
+# render_header()
+# render_hero_section()
+# render_news_section()
+# render_footer()
 
-# ==========================================
-# 4. GỌI BONG BÓNG CHAT (Luôn nằm ở cuối cùng để nổi lên trên)
-# ==========================================
-URL_APP_CHAT = "https://jtkbj9wk5udrrxvrrwpr8j.streamlit.app"
-
-with st.popover("💬", use_container_width=False):
-    st.components.v1.iframe(f"{URL_APP_CHAT}/?embed=true", width=380, height=550)
+# URL_APP_CHAT = "https://jtkbj9wk5udrrxvrrwpr8j.streamlit.app"
+# with st.popover("💬", use_container_width=False):
+#     st.components.v1.iframe(f"{URL_APP_CHAT}/?embed=true", width=380, height=550)
 # ==========================================
 # ==========================================
 # KHỐI 4: FOOTER BẢN QUYỀN
