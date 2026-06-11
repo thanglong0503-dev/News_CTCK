@@ -2,8 +2,7 @@ import streamlit as st
 
 def apply_custom_css(is_dark=False):
     # ==========================================
-    # 1. CODE GỐC CỦA NGÀI (Giữ nguyên 100%)
-    # Chỉ bọc dấu /* */ vào dòng header để mở khóa Menu.
+    # 1. CODE GỐC CỦA NGÀI (Bảo toàn 100%)
     # ==========================================
     custom_css = """
     <style>
@@ -56,31 +55,90 @@ def apply_custom_css(is_dark=False):
     st.markdown(custom_css, unsafe_allow_html=True)
 
     # ==========================================
-    # 2. XỬ LÝ DARK MODE BẰNG GHI ĐÈ
-    # Kích hoạt khi is_dark=True, không làm thay đổi logic CSS gốc.
+    # 2. XỬ LÝ GHI ĐÈ DARK MODE (Khi cần thiết)
     # ==========================================
     if is_dark:
         dark_css = """
         <style>
-            /* Ghi đè màu nền và chữ tổng thể */
-            html, body, [class*="css"], .stApp {
-                background-color: #0B0E11 !important;
-                color: #EAECEF !important;
-            }
-            
-            /* Ghi đè màu các class chữ của Ngài */
+            html, body, [class*="css"], .stApp { background-color: #0B0E11 !important; color: #EAECEF !important; }
             .hero-title, .section-title, .card-title, .hero-meta { color: #EAECEF !important; }
             .hero-desc, .hero-hashtag { color: #848E9C !important; }
-            
-            /* Ghi đè màu thẻ Card và Tag */
-            .news-card {
-                background-color: #181A20 !important;
-                border-color: #2B3139 !important;
-            }
-            .category-tag { 
-                background-color: #2B3139 !important; 
-                color: #848E9C !important; 
-            }
+            .news-card { background-color: #181A20 !important; border-color: #2B3139 !important; }
+            .category-tag { background-color: #2B3139 !important; color: #848E9C !important; }
         </style>
         """
         st.markdown(dark_css, unsafe_allow_html=True)
+
+    # ==========================================
+    # 3. ĐẮP THÊM CSS ĐỊNH DẠNG BONG BÓNG CHAT iOS (Độc lập hoàn toàn)
+    # ==========================================
+    chat_bubble_css = """
+    <style>
+        /* Ghim cố định cụm nút bấm xuống góc phải màn hình */
+        div[data-testid="stPopover"] {
+            position: fixed !important;
+            bottom: 30px !important;
+            right: 30px !important;
+            z-index: 999999 !important;
+        }
+        
+        /* Gọt nút bấm mặc định thành hình tròn nhỏ gọn màu Cam iOS */
+        div[data-testid="stPopover"] button {
+            width: 65px !important;
+            height: 65px !important;
+            border-radius: 50% !important;
+            background: linear-gradient(135deg, #FF9500, #FF5E3A) !important;
+            border: none !important;
+            padding: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            box-shadow: 0 8px 24px rgba(255, 149, 0, 0.4) !important;
+            transition: transform 0.2s ease !important;
+        }
+        
+        /* Hiệu ứng nảy nhẹ khi di chuột vào */
+        div[data-testid="stPopover"] button:hover {
+            transform: scale(1.08) !important;
+            box-shadow: 0 12px 28px rgba(255, 149, 0, 0.6) !important;
+        }
+        
+        /* Định dạng icon biểu tượng bên trong nút */
+        div[data-testid="stPopover"] button p {
+            font-size: 32px !important;
+            color: white !important;
+            margin: 0 !important;
+        }
+        
+        /* Xóa viền tập trung mặc định */
+        div[data-testid="stPopover"] button:focus {
+            outline: none !important;
+        }
+
+        /* Bo tròn góc cửa sổ Chat khi mở ra */
+        div[data-testid="stPopoverBody"] {
+            border-radius: 24px !important; 
+            border: 1px solid rgba(255, 255, 255, 0.3) !important;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15) !important;
+            padding: 0 !important; 
+            overflow: hidden !important;
+            width: 380px !important; /* Cố định độ rộng khung Chat */
+        }
+    </style>
+    """
+    st.markdown(chat_bubble_css, unsafe_allow_html=True)
+
+
+# ==========================================
+# GỌI PHẦN HIỂN THỊ (Ngài đặt ở cuối file Dashboard)
+# ==========================================
+
+# Gọi hàm CSS (Mặc định truyền False cho Light Mode, True cho Dark Mode)
+apply_custom_css(is_dark=False)
+
+# Đường link con Bot AI chạy độc lập của Ngài
+URL_APP_CHAT = "https://jtkbj9wk5udrrxvrrwpr8j.streamlit.app"
+
+# Nút bấm mở cửa sổ chat nổi (use_container_width=False để không bị kéo giãn bậy bạ)
+with st.popover("💬", use_container_width=False):
+    st.components.v1.iframe(f"{URL_APP_CHAT}/?embed=true", width=380, height=550)
