@@ -1953,30 +1953,33 @@ def render_news_section():
                 st.rerun(scope="fragment")
 import streamlit.components.v1 as components
 
+import streamlit as st
+
 # ==========================================
-# GẮN BONG BÓNG CHAT VÀO DASHBOARD CHÍNH (BẢN VƯỢT RÀO COMPONENTS)
+# BONG BÓNG CHAT - BẢN KHẮC PHỤC LỖI CLICK (IMAGE ONLOAD HACK)
 # ==========================================
 
-URL_APP_CHAT = "https://jtkbj9wk5udrrxvrrwpr8j.streamlit.app/" # Nhớ đổi link này khi Ngài đẩy lên mạng
+URL_APP_CHAT = "https://jtkbj9wk5udrrxvrrwpr8j.streamlit.app/" # Thay bằng URL khi deploy thật
 
-# Đoạn Javascript tiêm trực tiếp vào giao diện mẹ
-js_code = """
-<script>
-    // Lấy quyền điều khiển toàn bộ trang web mẹ của Streamlit
+# Kỹ thuật: Dùng sự kiện onload của một hình ảnh tàng hình để kích hoạt JS 
+# Streamlit lọc <script> nhưng lại "quên" lọc thuộc tính onload của thẻ <img>!
+js_code = f"""
+    // Lấy quyền điều khiển toàn trang
     const doc = window.parent.document;
 
-    // Kiểm tra xem bong bóng đã được tạo chưa (tránh tạo trùng lặp khi app tự tải lại)
-    if (!doc.getElementById("linance-bot-container")) {
+    // Tránh tạo trùng lặp khi làm mới trang
+    if (!doc.getElementById("linance-bot-container")) {{
         
-        // 1. Tạo hộp chứa cố định ở góc phải
+        // 1. Tạo hộp chứa
         const container = doc.createElement("div");
         container.id = "linance-bot-container";
         container.style.position = "fixed";
         container.style.bottom = "30px";
         container.style.right = "30px";
-        container.style.zIndex = "999999";
+        container.style.zIndex = "99999999"; // Đẩy lên lớp cao nhất
+        container.style.pointerEvents = "auto"; // Đảm bảo nhận được cú click
         
-        // 2. Tạo cửa sổ Chat (Bọc iframe của App AI)
+        // 2. Tạo cửa sổ Chat ẩn
         const chatWindow = doc.createElement("div");
         chatWindow.style.display = "none";
         chatWindow.style.width = "380px";
@@ -1990,7 +1993,7 @@ js_code = """
         chatWindow.style.transition = "all 0.3s ease";
         
         const iframe = doc.createElement("iframe");
-        iframe.src = "URL_PLACEHOLDER/?embed=true";
+        iframe.src = "{URL_APP_CHAT}/?embed=true";
         iframe.style.width = "100%";
         iframe.style.height = "100%";
         iframe.style.border = "none";
@@ -2013,33 +2016,34 @@ js_code = """
         btn.style.justifyContent = "center";
         btn.innerHTML = "💬";
         
-        // Hiệu ứng di chuột
-        btn.onmouseover = function() { this.style.transform = 'scale(1.1)'; };
-        btn.onmouseout = function() { this.style.transform = 'scale(1)'; };
-        
-        // Lệnh đóng/mở
-        btn.onclick = function() {
-            if (chatWindow.style.display === "none") {
+        // Hiệu ứng và Logic Đóng/Mở
+        btn.onmouseover = function() {{ this.style.transform = 'scale(1.1)'; }};
+        btn.onmouseout = function() {{ this.style.transform = 'scale(1)'; }};
+        btn.onclick = function() {{
+            if (chatWindow.style.display === "none") {{
                 chatWindow.style.display = "block";
                 btn.innerHTML = "✖";
-            } else {
+            }} else {{
                 chatWindow.style.display = "none";
                 btn.innerHTML = "💬";
-            }
-        };
+            }}
+        }};
         
-        // Lắp ráp các bộ phận
+        // Lắp ráp
         container.appendChild(chatWindow);
         container.appendChild(btn);
         
-        // Tiêm vào trang web chính
+        // Tiêm vào thẻ <body> của trang chính
         doc.body.appendChild(container);
-    }
-</script>
+    }}
 """
 
-# Truyền đoạn mã vào Streamlit với kích thước tàng hình (width=0, height=0)
-components.html(js_code.replace("URL_PLACEHOLDER", URL_APP_CHAT), height=0, width=0)
+# Chèn mã thông qua thẻ ảnh tàng hình
+html_injection = f"""
+    <img src onerror='{js_code}' style='display:none;'>
+"""
+
+st.markdown(html_injection, unsafe_allow_html=True)
 # ==========================================
 # ==========================================
 # KHỐI 4: FOOTER BẢN QUYỀN
