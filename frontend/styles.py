@@ -69,7 +69,7 @@ def apply_custom_css(is_dark=False):
         st.markdown(dark_css, unsafe_allow_html=True)
 
     # ==========================================
-    # 3. CSS ĐỘC QUYỀN CHO NÚT "LINANCE AI BOT" (Màu Cam Thuần Thương Hiệu)
+    # 3. CSS ĐỘC QUYỀN CHO NÚT "LINANCE AI BOT" (Ép Màu Cam Bất Tử)
     # ==========================================
     chat_bubble_css = """
     <style>
@@ -82,27 +82,35 @@ def apply_custom_css(is_dark=False):
             width: max-content !important; 
         }
         
-        /* 2. Thiết kế khối chữ nhật nhỏ nhắn, MÀU CAM THUẦN */
-        div[data-testid="stPopover"] > button {
+        /* 2. ÉP MÀU CAM XUYÊN QUA MỌI LỚP (Loại bỏ màu trắng mặc định) */
+        div[data-testid="stPopover"] * {
+            background-color: transparent !important; /* Xóa nền trắng mảng bám */
+        }
+
+        /* 3. Phủ màu Cam Gradient lên cái nút thực sự */
+        div[data-testid="stPopover"] button,
+        div[data-testid="stPopover"] button[kind="secondary"] {
             border-radius: 6px !important; 
-            /* MÀU CAM MỚI: Từ cam tươi (#FF9800) vuốt nhẹ sang cam đậm thương hiệu (#FF6B00) */
-            background: linear-gradient(135deg, #FF9800, #FF6B00) !important; 
+            background-image: linear-gradient(135deg, #FF9800, #FF6B00) !important; /* Dùng background-image cho gradient */
             border: 1px solid rgba(255, 255, 255, 0.4) !important; 
             padding: 8px 16px !important; 
-            box-shadow: 0 4px 12px rgba(255, 107, 0, 0.3) !important; /* Bóng đổ cũng chuyển sang tone cam */
+            box-shadow: 0 4px 12px rgba(255, 107, 0, 0.3) !important; 
             transition: all 0.2s ease !important;
             width: max-content !important; 
             height: auto !important;
+            color: #FFFFFF !important; /* Ép chữ trắng */
         }
         
-        /* 3. Hiệu ứng nảy lên */
-        div[data-testid="stPopover"] > button:hover {
+        /* 4. Hiệu ứng nảy lên */
+        div[data-testid="stPopover"] button:hover,
+        div[data-testid="stPopover"] button[kind="secondary"]:hover {
             transform: translateY(-2px) !important;
             box-shadow: 0 6px 16px rgba(255, 107, 0, 0.5) !important;
+            border-color: rgba(255, 255, 255, 0.8) !important;
         }
         
-        /* 4. Định dạng chữ */
-        div[data-testid="stPopover"] > button p {
+        /* 5. Định dạng chữ */
+        div[data-testid="stPopover"] button p {
             font-size: 13px !important; 
             font-weight: 600 !important; 
             letter-spacing: 0.3px !important;
@@ -112,13 +120,14 @@ def apply_custom_css(is_dark=False):
             white-space: nowrap !important; 
         }
         
-        /* 5. Tắt viền đỏ báo lỗi khi click chuột */
-        div[data-testid="stPopover"] > button:focus {
+        /* 6. Tắt viền đỏ báo lỗi khi click chuột */
+        div[data-testid="stPopover"] button:focus,
+        div[data-testid="stPopover"] button:active {
             outline: none !important;
-            color: white !important;
+            box-shadow: 0 4px 12px rgba(255, 107, 0, 0.3) !important; /* Giữ nguyên bóng cam khi bấm */
         }
 
-        /* 6. Khung chat hiển thị */
+        /* 7. Khung chat hiển thị */
         div[data-testid="stPopoverBody"] {
             border-radius: 12px !important;
             border: 1px solid rgba(0, 0, 0, 0.08) !important;
@@ -126,8 +135,10 @@ def apply_custom_css(is_dark=False):
             padding: 0 !important; 
             overflow: hidden !important;
             width: 360px !important; 
+            background-color: #FFFFFF !important; /* Đảm bảo ruột khung chat màu trắng */
         }
     </style>
     """
     st.markdown(chat_bubble_css, unsafe_allow_html=True)
+ 
     
