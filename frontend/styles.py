@@ -12,7 +12,7 @@ def apply_custom_css():
         }
 
         /* TẠM THỜI MỞ KHÓA HEADER ĐỂ HIỆN THỊ MENU SIDEBAR */
-        /* header {visibility: hidden;} */ 
+        header {visibility: hidden;} 
         footer {visibility: hidden;} /* Cứ giữ ẩn footer nếu Ngài muốn */
         
         /* Chỉnh màu nền chính */
