@@ -1955,74 +1955,69 @@ def render_news_section():
 import streamlit as st
 
 # ==========================================
-# BONG BÓNG CHAT iOS ORANGE - BẢN FIX LỖI TÀNG HÌNH
+# BONG BÓNG CHAT iOS ORANGE - BẢN FIX DỨT ĐIỂM CSS
 # ==========================================
 
 URL_APP_CHAT = "https://jtkbj9wk5udrrxvrrwpr8j.streamlit.app/" # Thay bằng URL khi deploy thật
 
 st.markdown("""
 <style>
-    /* 1. Kéo cả cụm về góc phải, nhưng ĐỂ TRỐNG KÍCH THƯỚC (Auto) để không bị lỗi tàng hình */
+    /* 1. Bốc toàn bộ khối Popover ra khỏi luồng trang và ghim xuống góc */
     div[data-testid="stPopover"] {
         position: fixed !important;
         bottom: 30px !important;
         right: 30px !important;
         z-index: 999999 !important;
-        width: auto !important; 
     }
     
-    /* 2. Ép kích thước và làm tròn ĐÚNG CÁI NÚT BẤM bên trong */
-    div[data-testid="stPopover"] > button {
+    /* 2. Nhắm thẳng vào NÚT BẤM (Xuyên qua mọi lớp vỏ) để ép nó thành hình tròn nhỏ */
+    div[data-testid="stPopover"] button {
         width: 65px !important;
         height: 65px !important;
-        border-radius: 50% !important;
-        background: linear-gradient(135deg, #FF9500, #FF5E3A) !important; 
+        border-radius: 50% !important; /* Bo tròn hoàn hảo */
+        background: linear-gradient(135deg, #FF9500, #FF5E3A) !important; /* Cam iOS */
         border: none !important;
-        box-shadow: 0 8px 24px rgba(255, 149, 0, 0.4) !important;
         padding: 0 !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
-        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+        box-shadow: 0 8px 24px rgba(255, 149, 0, 0.4) !important;
+        transition: all 0.3s ease !important;
     }
     
-    /* Hiệu ứng nảy lên mềm mại khi di chuột vào */
-    div[data-testid="stPopover"] > button:hover {
-        transform: scale(1.08) translateY(-4px) !important;
-        box-shadow: 0 12px 28px rgba(255, 149, 0, 0.5) !important;
+    /* Hiệu ứng nảy lên khi di chuột */
+    div[data-testid="stPopover"] button:hover {
+        transform: scale(1.1) !important;
+        box-shadow: 0 12px 28px rgba(255, 149, 0, 0.6) !important;
     }
     
-    /* Phóng to icon chat (màu trắng) */
-    div[data-testid="stPopover"] > button p {
-        font-size: 30px !important;
+    /* Phóng to Icon Chat bên trong nút */
+    div[data-testid="stPopover"] button p {
+        font-size: 32px !important;
         line-height: 1 !important;
         margin: 0 !important;
         color: white !important;
     }
     
     /* Xóa viền báo lỗi mặc định khi click */
-    div[data-testid="stPopover"] > button:focus {
+    div[data-testid="stPopover"] button:focus {
         outline: none !important;
     }
 
-    /* 3. Tút tát lại Cửa sổ mở ra cho sang trọng */
+    /* 3. Bo góc cửa sổ chat mở ra (Popover Body) cho sang trọng */
     div[data-testid="stPopoverBody"] {
         border-radius: 24px !important; 
         border: 1px solid rgba(255, 255, 255, 0.3) !important;
         box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15) !important;
         padding: 0 !important; 
         overflow: hidden !important;
-        background: rgba(255, 255, 255, 0.9) !important;
-        backdrop-filter: blur(20px) !important; 
-        -webkit-backdrop-filter: blur(20px) !important;
-        width: 380px !important; /* Cố định chiều rộng cửa sổ Chat */
+        width: 380px !important; /* Khóa kích thước cửa sổ mở ra */
     }
 </style>
 """, unsafe_allow_html=True)
 
-# 2. GỌI TÍNH NĂNG VỚI LỆNH use_container_width=False ĐỂ NGĂN NÓ KÉO DÀI THÀNH HÀNG NGANG
-with st.popover("💬", use_container_width=False):
-    # Nhúng AI vào cửa sổ nổi
+# Gọi hàm nguyên bản (Không thêm lệnh thừa)
+with st.popover("💬"):
     st.components.v1.iframe(f"{URL_APP_CHAT}/?embed=true", width=380, height=550)
 # ==========================================
 # ==========================================
