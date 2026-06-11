@@ -21,15 +21,30 @@ from backend.ai_analysis import (
     fetch_cafef_reports, 
     generate_ai_report_scoring
 )
-import streamlit as st
+# ==========================================
+# 1. LỆNH TỐI THƯỢNG (PHẢI NẰM ĐẦU TIÊN)
+# ==========================================
+st.set_page_config(page_title="LINANCE Dashboard", layout="wide", page_icon="📈")
 
-# ---- BẮT ĐẦU ĐOẠN TEST ----
-st.warning("⚠️ Nếu Ngài thấy dòng màu vàng này, nghĩa là code mới đã được cập nhật!")
-with st.popover("💬 NÚT TEST BONG BÓNG", use_container_width=False):
-    st.write("Tuyệt vời! Lệnh popover hoạt động bình thường!")
-# ---- KẾT THÚC ĐOẠN TEST ----
+# ==========================================
+# 2. ĐỔ BÊ TÔNG CSS CHO BONG BÓNG CHAT VÀ NỀN
+# ==========================================
+st.markdown("""
+<style>
+    /* CSS Bong bóng chat Cam chuẩn iOS */
+    div[data-testid="stPopover"] { position: fixed !important; bottom: 30px !important; right: 30px !important; z-index: 999999 !important; }
+    div[data-testid="stPopover"] button { width: 65px !important; height: 65px !important; border-radius: 50% !important; background: linear-gradient(135deg, #FF9500, #FF5E3A) !important; border: none !important; box-shadow: 0 8px 24px rgba(255, 149, 0, 0.4) !important; transition: transform 0.2s ease !important; display: flex !important; align-items: center !important; justify-content: center !important;}
+    div[data-testid="stPopover"] button:hover { transform: scale(1.08) !important; box-shadow: 0 12px 28px rgba(255, 149, 0, 0.6) !important;}
+    div[data-testid="stPopover"] button p { font-size: 32px !important; color: white !important; margin: 0 !important; }
+    div[data-testid="stPopover"] button:focus { outline: none !important; }
+    div[data-testid="stPopoverBody"] { border-radius: 24px !important; border: 1px solid rgba(0,0,0,0.1) !important; box-shadow: 0 20px 40px rgba(0,0,0,0.15) !important; overflow: hidden !important; width: 380px !important; padding: 0 !important; }
 
-# ... (Code giao diện cũ của Ngài ở bên dưới) ...
+    /* Xóa Header/Footer rác của Streamlit để trang sạch sẽ */
+    header {visibility: hidden;} 
+    footer {visibility: hidden;}
+    .stApp { background-color: #FAFAFA; }
+</style>
+""", unsafe_allow_html=True)
 # ==========================================
 # KHỐI 0: ĐỒNG HỒ REAL-TIME (TOP BAR)
 # ==========================================
@@ -1959,7 +1974,23 @@ def render_news_section():
             if st.button("Sau ▶", disabled=(st.session_state.current_page >= total_pages), use_container_width=True, key="next_btn"):
                 st.session_state.current_page += 1
                 st.rerun(scope="fragment")
+# ==========================================
+# 3. KÍCH HOẠT HIỂN THỊ LÊN MÀN HÌNH CHÍNH
+# ==========================================
+# Gọi các hàm để vẽ Dashboard
+render_topbar_clock()
+render_header()
+render_hero_section()
+render_news_section()
+render_footer()
 
+# ==========================================
+# 4. GỌI BONG BÓNG CHAT (Luôn nằm ở cuối cùng để nổi lên trên)
+# ==========================================
+URL_APP_CHAT = "https://jtkbj9wk5udrrxvrrwpr8j.streamlit.app"
+
+with st.popover("💬", use_container_width=False):
+    st.components.v1.iframe(f"{URL_APP_CHAT}/?embed=true", width=380, height=550)
 # ==========================================
 # ==========================================
 # KHỐI 4: FOOTER BẢN QUYỀN
