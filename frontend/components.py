@@ -339,8 +339,8 @@ def render_vnindex_chart():
             )
             config = {'scrollZoom': True, 'displayModeBar': False}
             st.plotly_chart(fig, use_container_width=True, config=config)
-            year_range_str = f"{stats['year_low']:,.2f} - {stats['year_high']:,.2f}" if stats['year_high'] > 0 else "N/A"
-            vol_str = f"{stats['volume']:,}" if stats['volume'] > 0 else "N/A"
+            year_range_str = f"{stats.get('year_low',0):,.2f} - {stats.get('year_high',0):,.2f}" if stats['year_high'] > 0 else "N/A"
+            vol_str = f"{stats.get('volume',0):,}" if stats['volume'] > 0 else "N/A"
             st.markdown(f"""
             <style>
             .stat-row {{ display: flex; justify-content: space-between; border-bottom: 1px dashed #EAECEF; padding: 12px 0; font-size: 14px; }}
@@ -352,12 +352,12 @@ def render_vnindex_chart():
             </style>
             <div style="display: flex; flex-direction: row; width: 100%; margin-top: 10px; margin-bottom: 10px;">
                 <div class="stat-col">
-                    <div class="stat-row"><span class="stat-label">Previous Close</span><span class="stat-val">{stats['prev_close']:,.2f}</span></div>
-                    <div class="stat-row"><span class="stat-label">Open</span><span class="stat-val">{stats['open']:,.2f}</span></div>
+                    <div class="stat-row"><span class="stat-label">Previous Close</span><span class="stat-val">{stats.get('prev_close',0):,.2f}</span></div>
+                    <div class="stat-row"><span class="stat-label">Open</span><span class="stat-val">{stats.get('open',0):,.2f}</span></div>
                 </div>
                 <div class="stat-col">
                     <div class="stat-row"><span class="stat-label">Volume</span><span class="stat-val">{vol_str}</span></div>
-                    <div class="stat-row"><span class="stat-label">Day's Range</span><span class="stat-val">{stats['day_low']:,.2f} - {stats['day_high']:,.2f}</span></div>
+                    <div class="stat-row"><span class="stat-label">Day's Range</span><span class="stat-val">{stats.get('day_low',0):,.2f} - {stats.get('day_high',0):,.2f}</span></div>
                 </div>
                 <div class="stat-col">
                     <div class="stat-row"><span class="stat-label">52 Week Range</span><span class="stat-val">{year_range_str}</span></div>
@@ -415,7 +415,7 @@ def render_hero_section():
                 data = market_data.get(t, {"name": t, "price": "N/A", "change": 0})
                 color_class = "c-up" if data['change'] >= 0 else "c-down"
                 sign = "+" if data['change'] > 0 else ""
-                rows_html += f"""<div class="m-row"><div class="m-name">{data['name']}</div><div class="m-price">{data['price']}</div><div class="m-change {color_class}">{sign}{data['change']:.2f}%</div></div>"""
+                rows_html += f"""<div class="m-row"><div class="m-name">{data.get('name','')}</div><div class="m-price">{data.get('price','N/A')}</div><div class="m-change {color_class}">{sign}{data.get('change',0):.2f}%</div></div>"""
             cards_html += f"""<div class="m-card"><div class="m-header"><div class="m-title">{group_name}</div><a href="#" class="m-more">Chi tiết &rsaquo;</a></div>{rows_html}</div>"""
         st.markdown(f"{css_market}<div class='m-grid'>{cards_html}</div>", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
@@ -445,8 +445,12 @@ def render_hero_section():
             else:
                 css_ai_news = """<style>.ai-news-card { background: #fff; border: 1px solid #EAECEF; border-radius: 8px; padding: 20px; height: 180px; display: flex; flex-direction: column; justify-content: center; gap: 16px;} .ai-tag { font-size: 11px; font-weight: 700; border-radius: 4px; padding: 4px 8px; text-transform: uppercase; margin-right: 8px;} .ai-title { font-size: 14px; font-weight: 600; color: #1E2329; line-height: 1.4; display: inline;} .ai-title:hover { color: #E65100; } .b-up-t { color: #0ECB81; background-color: #E6FFF3; border: 1px solid #0ECB81;} .b-down-t { color: #F6465D; background-color: #FFF1F0; border: 1px solid #F6465D;}</style>"""
                 rows_html = ""
-                if top_bullish_news: rows_html += f"""<div><a href="{top_bullish_news[0]['link']}" target="_blank" style="text-decoration: none;"><span class="ai-tag b-up-t">TÍN HIỆU TÍCH CỰC</span><span class="ai-title">{top_bullish_news[0]['title']}</span></a></div>"""
-                if top_bearish_news: rows_html += f"""<div><a href="{top_bearish_news[0]['link']}" target="_blank" style="text-decoration: none;"><span class="ai-tag b-down-t">TÍN HIỆU TIÊU CỰC</span><span class="ai-title">{top_bearish_news[0]['title']}</span></a></div>"""
+                if top_bullish_news:
+                    _bl=top_bullish_news[0]['link'];_bt=top_bullish_news[0]['title']
+                    rows_html += f"<div><a href='{_bl}' target='_blank' style='text-decoration:none;'><span class='ai-tag b-up-t'>TÍN HIỆU TÍCH CỰC</span><span class='ai-title'>{_bt}</span></a></div>"
+                if top_bearish_news:
+                    _brl=top_bearish_news[0]['link'];_brt=top_bearish_news[0]['title']
+                    rows_html += f"<div><a href='{_brl}' target='_blank' style='text-decoration:none;'><span class='ai-tag b-down-t'>TÍN HIỆU TIÊU CỰC</span><span class='ai-title'>{_brt}</span></a></div>"
                 st.markdown(f"{css_ai_news}<div class='ai-news-card'>{rows_html}</div>", unsafe_allow_html=True)
 
         @st.cache_data(ttl=3600, show_spinner=False)
@@ -492,7 +496,8 @@ def render_hero_section():
                 """
                 cards_html = ""
                 for _, row in df_golden.iterrows():
-                    cards_html += f"<div class='a-card'><div class='a-ticker'>{row['Mã CK']}</div><div class='a-type'>ĐỘT PHÁ SỨC MẠNH</div><div class='a-details'>Giá: {int(row['Giá']):,}<br>Thanh khoản: <span style='color:#1E2329;'>{row['Thanh_Khoản_Tỷ']:.1f} Tỷ</span><br>Điểm RS: <span class='a-rs-tag'>{int(row['RS_1M'])}</span></div></div>"
+                    _mk=row['Mã CK'];_g=int(row['Giá']);_tk=row['Thanh_Khoản_Tỷ'];_r1=int(row['RS_1M'])
+                    cards_html += f"<div class='a-card'><div class='a-ticker'>{_mk}</div><div class='a-type'>ĐỘT PHÁ SỨC MẠNH</div><div class='a-details'>Giá: {_g:,}<br>Thanh khoản: <span style='color:#1E2329;'>{_tk:.1f} Tỷ</span><br>Điểm RS: <span class='a-rs-tag'>{_r1}</span></div></div>"
                 st.markdown(css_ai_alerts + f"<div class='a-card-grid'>{cards_html}</div>", unsafe_allow_html=True)
             else:
                 st.info("Hệ thống đang quét... chưa có mã nào đạt đủ tiêu chuẩn.")
@@ -567,7 +572,8 @@ def render_hero_section():
                 for _, row in df_rs_sorted.iterrows():
                     style_1m = get_rs_style(row['RS_1M'])
                     style_3m = get_rs_style(row['RS_3M'])
-                    rows_html += f"<tr><td style='text-align: left;'><div class='rs-ticker'>{row['Mã CK']}</div><div class='rs-sector'>{row['Ngành']}</div></td><td><div class='rs-cell' style='{style_1m}'>{int(row['RS_1M'])}</div></td><td><div class='rs-cell' style='{style_3m}'>{int(row['RS_3M'])}</div></td></tr>"
+                    _mk=row['Mã CK'];_ng=row['Ngành'];_r1=int(row['RS_1M']);_r3=int(row['RS_3M'])
+                    rows_html += f"<tr><td style='text-align: left;'><div class='rs-ticker'>{_mk}</div><div class='rs-sector'>{_ng}</div></td><td><div class='rs-cell' style='{style_1m}'>{_r1}</div></td><td><div class='rs-cell' style='{style_3m}'>{_r3}</div></td></tr>"
                 table_html = f"<div class='rs-table-container'><table class='rs-table'><thead><tr><th style='text-align: left;'>CỔ PHIẾU</th><th>RS 1T</th><th>RS 3T</th></tr></thead><tbody>{rows_html}</tbody></table></div>"
                 st.markdown(css_rs_table + table_html, unsafe_allow_html=True)
 
@@ -583,7 +589,8 @@ def render_hero_section():
                     industry_options = []
                     for _, row in df_ind_sorted.iterrows():
                         trend = str(row.get('Xu_Hướng', 'TRUNG TÍNH')).strip()
-                        industry_options.append(f"{row['Ngành']} (RS: {row['RS_TB']:.1f}) - {trend}")
+                        _ng=row['Ngành'];_rtb=row['RS_TB']
+                    industry_options.append(f"{_ng} (RS: {_rtb:.1f}) - {trend}")
                     st.markdown("<span style='font-weight:700; font-size:14px; color:#1E2329;'>BƯỚC 1: CHỌN NGÀNH ĐỂ SOI DÒNG TIỀN</span>", unsafe_allow_html=True)
                     selected_option = st.selectbox("Danh sách Ngành (Sắp xếp từ mạnh đến yếu):", industry_options, label_visibility="collapsed")
                     selected_industry_name = selected_option.split(" (RS:")[0]
@@ -604,7 +611,8 @@ def render_hero_section():
                             style_1m = get_rs_style(row['RS_1M'])
                             score = int(row['Điểm_KT'])
                             stars = "★" * score + "☆" * (5 - score)
-                            rows_html_right += f"<tr><td style='text-align: left;'><div class='rs-ticker'>{row['Mã CK']}</div><div class='rs-sector'>Thanh khoản: {row['Thanh_Khoản_Tỷ']:.1f} Tỷ</div></td><td><div class='rs-cell' style='{style_1m}'>{int(row['RS_1M'])}</div></td><td style='color: #E65100; font-size: 13px; font-weight: 700;'>{stars}</td></tr>"
+                            _mk=row['Mã CK'];_tk=row['Thanh_Khoản_Tỷ'];_r1=int(row['RS_1M'])
+                            rows_html_right += f"<tr><td style='text-align: left;'><div class='rs-ticker'>{_mk}</div><div class='rs-sector'>Thanh khoản: {_tk:.1f} Tỷ</div></td><td><div class='rs-cell' style='{style_1m}'>{_r1}</div></td><td style='color: #E65100; font-size: 13px; font-weight: 700;'>{stars}</td></tr>"
                         table_html_right = f"<div class='rs-table-container'><table class='rs-table'><thead><tr><th style='text-align: left;'>MÃ CK</th><th>RS 1T</th><th>ĐIỂM KỸ THUẬT</th></tr></thead><tbody>{rows_html_right}</tbody></table></div>"
                         st.markdown(css_rs_table + table_html_right, unsafe_allow_html=True)
                 render_industry_filter()
@@ -645,16 +653,16 @@ def render_hero_section():
 <div class="soc-title">Dữ liệu thảo luận (24h)</div>
 <div class="soc-metrics">
 <div class="soc-m-item"><span class="soc-m-lbl">Tương tác nổi bật</span><span class="soc-m-val">–</span></div>
-<div class="soc-m-item"><span class="soc-m-lbl">Lượt đề cập</span><span class="soc-m-val">{f319_data['total_mentions']:,}</span></div>
-<div class="soc-m-item"><span class="soc-m-lbl">Bài đăng</span><span class="soc-m-val">{f319_data['total_posts']}</span></div>
+<div class="soc-m-item"><span class="soc-m-lbl">Lượt đề cập</span><span class="soc-m-val">{f319_data.get('total_mentions',0):,}</span></div>
+<div class="soc-m-item"><span class="soc-m-lbl">Bài đăng</span><span class="soc-m-val">{f319_data.get('total_posts',0)}</span></div>
 </div>
 <div class="p-bar-labels">
-<span style="color: #0ECB81;">Tăng giá {f319_data['bullish_pct']}%</span>
-<span style="color: #F6465D;">Giảm giá {f319_data['bearish_pct']}%</span>
+<span style="color: #0ECB81;">Tăng giá {f319_data.get('bullish_pct',0)}%</span>
+<span style="color: #F6465D;">Giảm giá {f319_data.get('bearish_pct',0)}%</span>
 </div>
 <div class="p-bar-container">
-<div class="p-bar-bull" style="width: {f319_data['bullish_pct']}%;"></div>
-<div class="p-bar-bear" style="width: {f319_data['bearish_pct']}%;"></div>
+<div class="p-bar-bull" style="width: {f319_data.get('bullish_pct',0)}%;"></div>
+<div class="p-bar-bear" style="width: {f319_data.get('bearish_pct',0)}%;"></div>
 </div>
 <div style="font-size: 13px; color: #707A8A; line-height: 1.5; margin-top: 24px;">
 Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo thường xuất hiện tại các vùng đỉnh ngắn hạn.
@@ -1087,8 +1095,8 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
                     try:
                         top_buy_df = df_final[df_final['Clean_Volume'] > 0].sort_values(by='Clean_Volume', ascending=False).head(3)
                         top_sell_df = df_final[df_final['Clean_Volume'] < 0].sort_values(by='Clean_Volume', ascending=True).head(3)
-                        top_buy_html = "".join([f"<li style='margin-bottom: 4px;'><b>{row['Ticker']}</b>: Tăng <span style='color: #0ECB81; font-weight: 700;'>+{row['Clean_Volume']:,.0f}</span> cp</li>" for _, row in top_buy_df.iterrows()])
-                        top_sell_html = "".join([f"<li style='margin-bottom: 4px;'><b>{row['Ticker']}</b>: Bán ra <span style='color: #F6465D; font-weight: 700;'>{row['Clean_Volume']:,.0f}</span> cp</li>" for _, row in top_sell_df.iterrows()])
+                        top_buy_html = "".join(["<li style='margin-bottom: 4px;'><b>" + str(row['Ticker']) + "</b>: Tăng <span style='color: #0ECB81; font-weight: 700;'>+" + "{:,.0f}".format(row['Clean_Volume']) + " cp</span></li>" for _, row in top_buy_df.iterrows()])
+                        top_sell_html = "".join(["<li style='margin-bottom: 4px;'><b>" + str(row['Ticker']) + "</b>: Bán ra <span style='color: #F6465D; font-weight: 700;'>" + "{:,.0f}".format(row['Clean_Volume']) + " cp</span></li>" for _, row in top_sell_df.iterrows()])
                         warning_note = ""
                         if not top_sell_df.empty:
                             worst_ticker = top_sell_df.iloc[0]['Ticker']
@@ -1823,13 +1831,14 @@ def render_news_section():
             target_col = col1 if i % 2 == 0 else col2
             with target_col:
                 flag = "Global" if row.get('region') == 'GLOBAL' else "VN"
-                card_html = f"""<a href="{row['link']}" target="_blank" style="text-decoration: none; color: inherit; display: block; height: 100%;">
+                _lnk=row['link'];_ctck=row['ctck'];_tag=row['tag'];_ttl=row['title'];_dt=row['date']
+                card_html = f"""<a href="{_lnk}" target="_blank" style="text-decoration: none; color: inherit; display: block; height: 100%;">
 <div class='n-card'>
 <div>
-<div style='color: #FF6B00; font-size: 11px; font-weight: 700; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.3px;'>{flag} · {row['ctck']} · {row['tag']}</div>
-<div style='color: #1E2329; font-size: 15px; font-weight: 700; margin-bottom: 12px; line-height: 1.4;'>{row['title']}</div>
+<div style='color: #FF6B00; font-size: 11px; font-weight: 700; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.3px;'>{flag} · {_ctck} · {_tag}</div>
+<div style='color: #1E2329; font-size: 15px; font-weight: 700; margin-bottom: 12px; line-height: 1.4;'>{_ttl}</div>
 </div>
-<div style='color: #848E9C; font-size: 12px; font-weight: 600;'>{row['date']}</div>
+<div style='color: #848E9C; font-size: 12px; font-weight: 600;'>{_dt}</div>
 </div></a>"""
                 st.markdown(card_html, unsafe_allow_html=True)
 
