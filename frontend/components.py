@@ -1311,27 +1311,33 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
                                     except:
                                         upside_html = ""
 
-                                    t4_html += f"""<div class="rep-card" style="border-left-color: {card_border_color};">
-<div class="rep-top">
-    <div style="display: flex; align-items: center; gap: 10px;">
-        <span class="rep-tkr">{r.get('Ticker', 'N/A')}</span>
-        <span class="{t4_cls}">{t4_act}</span>
-        <span class="{t4_sts_cls}">{t4_sts}</span>
-    </div>
-    <span class="rep-brk">{r.get('Broker', 'N/A')}</span>
-</div>
-<div class="rep-mid">
-    <div><div class="rep-lbl">Giá khuyến nghị</div><div class="rep-val">{t4_cp}</div></div>
-    <div><div class="rep-lbl">Giá hiện tại</div><div class="rep-val" style="color:#185FA5;">{t4_rp}</div></div>
-    <div><div class="rep-lbl">Giá mục tiêu</div><div class="rep-val" style="color:#FF6B00;">{t4_tp}</div></div>
-    {upside_html}
-    <div><div class="rep-lbl">Ngày phát hành</div><div class="rep-val" style="color:#707A8A; font-weight:600;">{r.get('Date', 'N/A')}</div></div>
-</div>
-<div class="rep-divider"></div>
-<div style="font-size: 12px; text-align: right;">
-    <a href="{r.get('Link', '#')}" target="_blank" style="color:#185FA5; font-weight:600; text-decoration:none;">Xem chi tiết báo cáo &rarr;</a>
-</div>
-</div>"""
+                                    _tkr   = str(r.get('Ticker', 'N/A'))
+                                    _brk   = str(r.get('Broker', 'N/A'))
+                                    _date  = str(r.get('Date', 'N/A'))
+                                    _link  = str(r.get('Link', '#'))
+                                    t4_html += (
+                                        f'<div class="rep-card" style="border-left-color: {card_border_color};">'
+                                        f'<div class="rep-top">'
+                                        f'<div style="display:flex;align-items:center;gap:10px;">'
+                                        f'<span class="rep-tkr">{_tkr}</span>'
+                                        f'<span class="{t4_cls}">{t4_act}</span>'
+                                        f'<span class="{t4_sts_cls}">{t4_sts}</span>'
+                                        f'</div>'
+                                        f'<span class="rep-brk">{_brk}</span>'
+                                        f'</div>'
+                                        f'<div class="rep-mid">'
+                                        f'<div><div class="rep-lbl">Giá khuyến nghị</div><div class="rep-val">{t4_cp}</div></div>'
+                                        f'<div><div class="rep-lbl">Giá hiện tại</div><div class="rep-val" style="color:#185FA5;">{t4_rp}</div></div>'
+                                        f'<div><div class="rep-lbl">Giá mục tiêu</div><div class="rep-val" style="color:#FF6B00;">{t4_tp}</div></div>'
+                                        f'{upside_html}'
+                                        f'<div><div class="rep-lbl">Ngày phát hành</div><div class="rep-val" style="color:#707A8A;font-weight:600;">{_date}</div></div>'
+                                        f'</div>'
+                                        f'<div class="rep-divider"></div>'
+                                        f'<div style="font-size:12px;text-align:right;">'
+                                        f'<a href="{_link}" target="_blank" style="color:#185FA5;font-weight:600;text-decoration:none;">Xem chi tiết báo cáo &rarr;</a>'
+                                        f'</div>'
+                                        f'</div>'
+                                    )
 
                                 st.markdown(f"{t4_css}<div>{t4_html}</div>", unsafe_allow_html=True)
 
