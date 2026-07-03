@@ -589,8 +589,9 @@ def render_hero_section():
                     industry_options = []
                     for _, row in df_ind_sorted.iterrows():
                         trend = str(row.get('Xu_Hướng', 'TRUNG TÍNH')).strip()
-                        _ng=row['Ngành'];_rtb=row['RS_TB']
-                    industry_options.append(f"{_ng} (RS: {_rtb:.1f}) - {trend}")
+                        _ng = row['Ngành']
+                        _rtb = row['RS_TB']
+                        industry_options.append(f"{_ng} (RS: {_rtb:.1f}) - {trend}")
                     st.markdown("<span style='font-weight:700; font-size:14px; color:#1E2329;'>BƯỚC 1: CHỌN NGÀNH ĐỂ SOI DÒNG TIỀN</span>", unsafe_allow_html=True)
                     selected_option = st.selectbox("Danh sách Ngành (Sắp xếp từ mạnh đến yếu):", industry_options, label_visibility="collapsed")
                     selected_industry_name = selected_option.split(" (RS:")[0]
@@ -1202,18 +1203,24 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
                             st.session_state.rep_cached_df = df_temp
                         st.session_state.rep_cache_time = time.time()
 
-                if t4_df_rep.empty:
+                # Lấy data từ session_state (đã được cache ở block trên)
+                _rep_df = st.session_state.get('rep_cached_df', pd.DataFrame())
+                # Fallback: nếu session_state chưa có thì dùng t4_df_rep từ outer scope
+                if _rep_df.empty and not t4_df_rep.empty:
+                    _rep_df = t4_df_rep.copy()
+
+                if _rep_df.empty:
                     st.info("Hệ thống đang đồng bộ dữ liệu báo cáo từ Google Sheets LINANCE_DB...")
                 else:
                     # --- BỘ LỌC ---
                     st.markdown("<div style='background: #FAFAFA; padding: 16px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #EAECEF;'>", unsafe_allow_html=True)
                     t4_col1, t4_col2 = st.columns(2)
-                    t4_all_brokers = ["Tất cả"] + t4_df_rep['Broker'].dropna().unique().tolist()
+                    t4_all_brokers = ["Tất cả"] + _rep_df['Broker'].dropna().unique().tolist()
                     with t4_col1: t4_broker_flt = st.selectbox("Lọc theo Công ty:", t4_all_brokers, key="t4_brk_flt")
                     with t4_col2: t4_time_flt = st.selectbox("Thời gian:", ["Tất cả", "Tháng này", "Hôm nay"], key="t4_time_flt")
                     st.markdown("</div>", unsafe_allow_html=True)
 
-                    t4_filtered_rep = t4_df_rep.copy()
+                    t4_filtered_rep = _rep_df.copy()
                     if t4_broker_flt != "Tất cả": t4_filtered_rep = t4_filtered_rep[t4_filtered_rep['Broker'] == t4_broker_flt]
                     if t4_time_flt == "Hôm nay":
                         t4_today_str = datetime.now().strftime("%d/%m/%Y")
