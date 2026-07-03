@@ -1120,94 +1120,13 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
             def render_short_term_timeline():
                 import time
 
-                if 'rep_cached_df' not in st.session_state or time.time() - st.session_state.get('rep_cache_time', 0) > 900:
-                    with st.spinner("Đang tải báo cáo và đồng bộ giá..."):
-                        reports_data = fetch_reports_db()
-                        manual_dict = {}
-                        try:
-                            manual_data = fetch_manual_price_db()
-                            if manual_data and len(manual_data) > 1:
-                                for row in manual_data[1:]:
-                                    if len(row) >= 2:
-                                        tk = str(row[0]).strip().upper()
-                                        if tk:
-                                            pr_str = str(row[1]).replace(',', '').replace('.', '').replace(' ', '').strip()
-                                            try:
-                                                manual_dict[tk] = float(pr_str)
-                                            except: pass
-                        except Exception as e:
-                            pass
-
-                        if not reports_data:
-                            st.session_state.rep_cached_df = pd.DataFrame()
-                        else:
-                            df_temp = pd.DataFrame(reports_data)
-                            df_temp['Parsed_Date'] = pd.to_datetime(df_temp['Date'], format="%d/%m/%Y", errors='coerce')
-                            df_temp = df_temp.sort_values(by='Parsed_Date', ascending=False).reset_index(drop=True)
-                            unique_tickers = df_temp['Ticker'].dropna().astype(str).str.strip().unique().tolist()
-                            yf_tickers = [t + ".VN" if not t.endswith(".VN") else t for t in unique_tickers if t]
-                            batch_data = pd.DataFrame()
-                            if yf_tickers:
-                                try:
-                                    batch_data = yf.download(yf_tickers, period="6mo", group_by='ticker', threads=False, progress=False, ignore_tz=True)
-                                except Exception as e: pass
-
-                            current_prices, auto_statuses = [], []
-                            for _, r in df_temp.iterrows():
-                                tkr = str(r.get('Ticker', '')).strip()
-                                rec_p = float(r.get('Current_Price_At_Date', 0)) if str(r.get('Current_Price_At_Date', 0)).replace('.','',1).isdigit() else 0
-                                tgt_p = float(r.get('Target_Price', 0)) if str(r.get('Target_Price', 0)).replace('.','',1).isdigit() else 0
-                                rec_date_str, manual_status = str(r.get('Date', '')), str(r.get('Status', '')).strip().upper()
-                                cp, highest_price, lowest_price = 0, 0, 0
-                                yf_t = tkr + ".VN" if not tkr.endswith(".VN") else tkr
-                                if not batch_data.empty and yf_tickers:
-                                    try:
-                                        if len(yf_tickers) == 1: ticker_df = batch_data
-                                        elif isinstance(batch_data.columns, pd.MultiIndex) and yf_t in batch_data.columns.levels[0]: ticker_df = batch_data[yf_t]
-                                        else: ticker_df = pd.DataFrame()
-                                        if not ticker_df.empty:
-                                            sliced_df = ticker_df.copy()
-                                            if sliced_df.index.tz is not None: sliced_df.index = sliced_df.index.tz_localize(None)
-                                            try:
-                                                start_ts = pd.to_datetime(rec_date_str, format="%d/%m/%Y")
-                                                sliced_df = sliced_df[sliced_df.index >= start_ts]
-                                            except: pass
-                                            if not sliced_df.empty:
-                                                valid_closes = sliced_df['Close'].dropna()
-                                                if not valid_closes.empty:
-                                                    cp = valid_closes.iloc[-1]
-                                                    highest_price = sliced_df['High'].dropna().max()
-                                                    lowest_price = sliced_df['Low'].dropna().min()
-                                                    if cp < 1000 and cp > 0: cp *= 1000; highest_price *= 1000; lowest_price *= 1000
-                                    except: pass
-
-                                if cp == 0 or pd.isna(cp):
-                                    if tkr in manual_dict:
-                                        cp = float(manual_dict[tkr])
-                                        if highest_price == 0: highest_price = cp
-                                        if lowest_price == 0: lowest_price = cp
-
-                                current_prices.append(cp)
-                                if 'ĐẠT' in manual_status or 'TARGET' in manual_status: auto_statuses.append("ĐẠT TARGET")
-                                elif 'CẮT' in manual_status or 'LỖ' in manual_status: auto_statuses.append("CẮT LỖ")
-                                else:
-                                    if cp == 0 or lowest_price == 0: auto_statuses.append("ĐANG THEO DÕI")
-                                    elif highest_price >= tgt_p and tgt_p > 0: auto_statuses.append("ĐẠT TARGET")
-                                    elif rec_p > 0 and lowest_price <= rec_p * 0.88:
-                                        if cp >= rec_p * 0.98: auto_statuses.append("ĐANG THEO DÕI")
-                                        else: auto_statuses.append("CẮT LỖ")
-                                    else: auto_statuses.append("ĐANG THEO DÕI")
-
-                            df_temp['Realtime_Price'] = current_prices
-                            df_temp['Auto_Status'] = auto_statuses
-                            st.session_state.rep_cached_df = df_temp
-                        st.session_state.rep_cache_time = time.time()
-
-                # Lấy data từ session_state (đã được cache ở block trên)
-                _rep_df = st.session_state.get('rep_cached_df', pd.DataFrame())
-                # Fallback: nếu session_state chưa có thì dùng t4_df_rep từ outer scope
-                if _rep_df.empty and not t4_df_rep.empty:
-                    _rep_df = t4_df_rep.copy()
+                # Dùng trực tiếp t4_df_rep đã được load ở outer scope (fast, không cần yfinance lại)
+                # Giá realtime lấy từ t4_price_dict (RS_DATA sheet) qua calculate_dynamic_status
+                _rep_df = t4_df_rep.copy() if not t4_df_rep.empty else pd.DataFrame()
+                # Sắp xếp theo ngày mới nhất
+                if not _rep_df.empty and 'Date' in _rep_df.columns:
+                    _rep_df['_sort_date'] = pd.to_datetime(_rep_df['Date'], format="%d/%m/%Y", errors='coerce')
+                    _rep_df = _rep_df.sort_values(by='_sort_date', ascending=False).drop(columns=['_sort_date']).reset_index(drop=True)
 
                 if _rep_df.empty:
                     st.info("Hệ thống đang đồng bộ dữ liệu báo cáo từ Google Sheets LINANCE_DB...")
@@ -1257,7 +1176,6 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
                     t4_col_list, t4_col_board = st.columns([1.7, 1])
 
                     with t4_col_list:
-                        @st.fragment
                         def render_t4_report_list():
                             T4_ITEMS_PER_PAGE = 5
                             t4_total_items = len(t4_filtered_rep)
