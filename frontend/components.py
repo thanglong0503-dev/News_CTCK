@@ -1118,7 +1118,7 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
             def render_report_timeline():
                 import time
 
-                # --- LOAD DATA ---
+                # ── LOAD & CACHE DATA ────────────────────────────────────────────
                 if "rep_df_cache" not in st.session_state or time.time() - st.session_state.get("rep_df_time", 0) > 600:
                     with st.spinner("Đang tải danh sách báo cáo..."):
                         try:
@@ -1130,115 +1130,226 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
                                 st.session_state.rep_df_cache = df_raw
                             else:
                                 st.session_state.rep_df_cache = pd.DataFrame()
-                        except Exception as e:
+                        except Exception:
                             st.session_state.rep_df_cache = pd.DataFrame()
                         st.session_state.rep_df_time = time.time()
 
                 df_rep = st.session_state.get("rep_df_cache", pd.DataFrame())
+                price_map = t4_price_dict
 
                 if df_rep.empty:
                     st.warning("Đang kết nối Google Sheets. Vui lòng chờ giây lát rồi bấm F5...")
                     return
 
-                # --- BỘ LỌC ---
-                f_col1, f_col2 = st.columns(2)
-                brokers = ["Tất cả"] + sorted(df_rep["Broker"].dropna().unique().tolist())
-                with f_col1:
-                    sel_broker = st.selectbox("Lọc theo tổ chức:", brokers, key="tl_broker")
-                with f_col2:
-                    sel_time = st.selectbox("Thời gian:", ["Tất cả", "Tháng này", "Hôm nay"], key="tl_time")
+                # ── DASHBOARD TỔNG QUAN ──────────────────────────────────────────
+                st.markdown("<div style='font-weight:500;font-size:15px;color:var(--text-primary);margin-bottom:14px;'>Tổng quan kỳ báo cáo</div>", unsafe_allow_html=True)
 
+                # 4 metric cards + donut chart + top stocks
+                total_all = len(df_rep)
+                act_col = df_rep["Action"].astype(str).str.upper()
+                n_buy  = act_col.str.contains("MUA|TÍCH LŨY|KHẢ QUAN", na=False).sum()
+                n_sell = act_col.str.contains("BÁN|GIẢM|KÉM", na=False).sum()
+                n_hold = total_all - n_buy - n_sell
+
+                # Top 5 mã được nhiều tổ chức nhất
+                top_tickers = df_rep["Ticker"].value_counts().head(5)
+
+                dash_css = """<style>
+.db-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.db-card{background:#fff;border:0.5px solid #EAECEF;border-radius:10px;padding:14px 16px;border-top:2.5px solid #EAECEF}
+.db-lbl{font-size:10px;font-weight:600;color:#848E9C;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.db-val{font-size:26px;font-weight:700;color:#1E2329;font-family:'SF Mono',Consolas,monospace;line-height:1}
+.db-sub{font-size:11px;color:#848E9C;margin-top:5px}
+.top-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+.top-pill{background:#F8FAFC;border:0.5px solid #EAECEF;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;color:#1E2329;display:flex;align-items:center;gap:6px}
+.top-count{background:#FF6B00;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700}
+</style>"""
+                buy_pct  = round(n_buy/total_all*100) if total_all else 0
+                sell_pct = round(n_sell/total_all*100) if total_all else 0
+                hold_pct = 100 - buy_pct - sell_pct
+
+                top_pills = ""
+                for tkr, cnt in top_tickers.items():
+                    top_pills += '<span class="top-pill">' + str(tkr) + '<span class="top-count">' + str(cnt) + '</span></span>'
+
+                db_html = (
+                    dash_css +
+                    '<div class="db-grid">'
+                    '<div class="db-card" style="border-top-color:#FF6B00"><div class="db-lbl">Tổng báo cáo</div><div class="db-val">' + str(total_all) + '</div><div class="db-sub">Trong hệ thống</div></div>'
+                    '<div class="db-card" style="border-top-color:#0ECB81"><div class="db-lbl">Khuyến nghị mua</div><div class="db-val" style="color:#0ECB81">' + str(n_buy) + '</div><div class="db-sub">' + str(buy_pct) + '% tổng số</div></div>'
+                    '<div class="db-card" style="border-top-color:#FFB300"><div class="db-lbl">Trung lập</div><div class="db-val" style="color:#854F0B">' + str(n_hold) + '</div><div class="db-sub">' + str(hold_pct) + '% tổng số</div></div>'
+                    '<div class="db-card" style="border-top-color:#F6465D"><div class="db-lbl">Khuyến nghị bán</div><div class="db-val" style="color:#F6465D">' + str(n_sell) + '</div><div class="db-sub">' + str(sell_pct) + '% tổng số</div></div>'
+                    '</div>'
+                    '<div style="font-size:11px;color:#848E9C;font-weight:600;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">Top mã được theo dõi nhiều nhất</div>'
+                    '<div class="top-row">' + top_pills + '</div>'
+                )
+                st.markdown(db_html, unsafe_allow_html=True)
+
+                # ── BỘ LỌC NÂNG CẤP ─────────────────────────────────────────────
+                with st.expander("Bộ lọc nâng cao", expanded=True):
+                    r1c1, r1c2, r1c3 = st.columns(3)
+                    r2c1, r2c2, r2c3 = st.columns(3)
+
+                    with r1c1:
+                        brokers_list = ["Tất cả"] + sorted(df_rep["Broker"].dropna().unique().tolist())
+                        sel_broker = st.selectbox("Tổ chức", brokers_list, key="tl_broker")
+                    with r1c2:
+                        tickers_list = ["Tất cả"] + sorted(df_rep["Ticker"].dropna().unique().tolist())
+                        sel_ticker = st.selectbox("Mã cổ phiếu", tickers_list, key="tl_ticker")
+                    with r1c3:
+                        rec_types = ["Tất cả", "Mua / Khả quan", "Trung lập / Giữ", "Bán / Kém khả quan"]
+                        sel_rec = st.selectbox("Loại khuyến nghị", rec_types, key="tl_rec")
+                    with r2c1:
+                        time_opts = ["Tất cả", "Hôm nay", "7 ngày qua", "30 ngày qua", "Quý này", "Năm nay", "Tùy chỉnh"]
+                        sel_time = st.selectbox("Thời gian", time_opts, key="tl_time")
+                    with r2c2:
+                        if sel_time == "Tùy chỉnh":
+                            date_from = st.date_input("Từ ngày", key="tl_date_from")
+                        else:
+                            date_from = None
+                    with r2c3:
+                        if sel_time == "Tùy chỉnh":
+                            date_to = st.date_input("Đến ngày", key="tl_date_to")
+                        else:
+                            date_to = None
+
+                # ── ÁP DỤNG BỘ LỌC ──────────────────────────────────────────────
                 df_f = df_rep.copy()
+                df_f["_d"] = pd.to_datetime(df_f["Date"], format="%d/%m/%Y", errors="coerce")
+                now = datetime.now()
+
                 if sel_broker != "Tất cả":
                     df_f = df_f[df_f["Broker"] == sel_broker]
+                if sel_ticker != "Tất cả":
+                    df_f = df_f[df_f["Ticker"] == sel_ticker]
+                if sel_rec == "Mua / Khả quan":
+                    df_f = df_f[df_f["Action"].astype(str).str.upper().str.contains("MUA|TÍCH LŨY|KHẢ QUAN", na=False)]
+                elif sel_rec == "Trung lập / Giữ":
+                    df_f = df_f[df_f["Action"].astype(str).str.upper().str.contains("GIỮ|TRUNG LẬP|NEUTRAL", na=False)]
+                elif sel_rec == "Bán / Kém khả quan":
+                    df_f = df_f[df_f["Action"].astype(str).str.upper().str.contains("BÁN|GIẢM|KÉM", na=False)]
+
                 if sel_time == "Hôm nay":
-                    df_f = df_f[df_f["Date"].astype(str).str.contains(datetime.now().strftime("%d/%m/%Y"))]
-                elif sel_time == "Tháng này":
-                    df_f = df_f[df_f["Date"].astype(str).str.contains(datetime.now().strftime("/%m/%Y"))]
+                    df_f = df_f[df_f["_d"].dt.date == now.date()]
+                elif sel_time == "7 ngày qua":
+                    df_f = df_f[df_f["_d"] >= pd.Timestamp(now) - pd.Timedelta(days=7)]
+                elif sel_time == "30 ngày qua":
+                    df_f = df_f[df_f["_d"] >= pd.Timestamp(now) - pd.Timedelta(days=30)]
+                elif sel_time == "Quý này":
+                    q_start = pd.Timestamp(now.year, ((now.month-1)//3)*3+1, 1)
+                    df_f = df_f[df_f["_d"] >= q_start]
+                elif sel_time == "Năm nay":
+                    df_f = df_f[df_f["_d"].dt.year == now.year]
+                elif sel_time == "Tùy chỉnh" and date_from and date_to:
+                    df_f = df_f[(df_f["_d"].dt.date >= date_from) & (df_f["_d"].dt.date <= date_to)]
 
-                # --- DYNAMIC STATUS ---
-                price_map = t4_price_dict  # từ outer scope
+                df_f = df_f.drop(columns=["_d"]).reset_index(drop=True)
 
+                # ── DYNAMIC STATUS ───────────────────────────────────────────────
                 def get_status(row):
                     tkr   = str(row.get("Ticker", "")).strip().upper()
                     entry = pd.to_numeric(row.get("Current_Price_At_Date", 0), errors="coerce") or 0
                     tgt   = pd.to_numeric(row.get("Target_Price", 0), errors="coerce") or 0
                     rt    = pd.to_numeric(price_map.get(tkr, 0), errors="coerce") or 0
                     orig  = str(row.get("Status", "")).strip().upper()
-
                     if "ĐẠT" in orig or "TARGET" in orig: return "ĐẠT TARGET"
                     if "CẮT" in orig or "LỖ" in orig:
                         if tgt > 0 and rt >= tgt: return "ĐẠT TARGET (Từng vi phạm)"
                         return "CẮT LỖ"
                     if rt <= 0 or entry <= 0: return "ĐANG THEO DÕI"
-                    if tgt > 0 and rt >= tgt: return "ĐẠT TARGET"
-                    if rt <= entry * 0.93:    return "CẮT LỖ"
+                    if tgt > 0 and rt >= tgt:  return "ĐẠT TARGET"
+                    if rt <= entry * 0.93:     return "CẮT LỖ"
                     return "ĐANG THEO DÕI"
 
                 df_f = df_f.copy()
                 df_f["Dynamic_Status"] = df_f.apply(get_status, axis=1)
 
-                st.markdown(f"<div style='color:#848E9C;font-size:12px;margin-bottom:16px;'>{len(df_f)} báo cáo phù hợp</div>", unsafe_allow_html=True)
+                # ── EXPORT CSV ──────────────────────────────────────────────────
+                col_export_label, col_export_btn = st.columns([3, 1])
+                with col_export_label:
+                    st.markdown(
+                        "<div style='color:#848E9C;font-size:12px;margin-top:8px;'>"
+                        + str(len(df_f)) + " báo cáo phù hợp với bộ lọc hiện tại</div>",
+                        unsafe_allow_html=True
+                    )
+                with col_export_btn:
+                    export_cols = ["Date", "Broker", "Ticker", "Action", "Current_Price_At_Date", "Target_Price", "Dynamic_Status", "Link"]
+                    export_df = df_f[[c for c in export_cols if c in df_f.columns]]
+                    csv_data = export_df.to_csv(index=False, encoding="utf-8-sig")
+                    st.download_button(
+                        label="Xuất CSV",
+                        data=csv_data,
+                        file_name="bao_cao_to_chuc.csv",
+                        mime="text/csv",
+                        use_container_width=True,
+                        key="tl_export"
+                    )
 
-                # --- HAI CỘT ---
-                col_list, col_board = st.columns([1.7, 1])
+                st.markdown("<br>", unsafe_allow_html=True)
 
-                with col_list:
-                    # CSS cards
-                    st.markdown("""<style>
-.rc{background:#fff;border:1px solid #EAECEF;border-left:4px solid #EAECEF;border-radius:10px;padding:18px 20px;margin-bottom:12px;transition:all .18s}
-.rc:hover{border-color:#FFE0B2;border-left-color:#FF6B00;box-shadow:0 4px 16px rgba(255,107,0,.08)}
-.rc-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-.rc-tkr{font-size:20px;font-weight:900;color:#1E2329;font-family:'SF Mono',Consolas,monospace}
-.rc-brk{font-size:12px;color:#707A8A;font-weight:600;background:#F8FAFC;padding:4px 10px;border-radius:4px;border:1px solid #EAECEF}
-.rc-mid{display:flex;gap:24px;margin-bottom:12px;flex-wrap:wrap}
-.rc-lbl{font-size:10px;color:#848E9C;text-transform:uppercase;font-weight:700;letter-spacing:.4px;margin-bottom:4px}
-.rc-val{font-size:14px;font-weight:700;color:#1E2329;font-family:'SF Mono',Consolas,monospace}
-.rc-div{border-top:1px solid #F0F2F5;margin:10px 0 8px}
-.am{color:#3B6D11;background:#EAF3DE;border:1px solid #639922;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700}
-.ab{color:#A32D2D;background:#FCEBEB;border:1px solid #E24B4A;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700}
-.ag{color:#854F0B;background:#FAEEDA;border:1px solid #BA7517;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700}
-.ax{background:#F0F2F5;color:#474D57;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700}
-.sd{color:#3B6D11;border:1px solid #639922;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700}
-.sw{color:#854F0B;border:1px solid #BA7517;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700}
-.sc{color:#A32D2D;border:1px solid #E24B4A;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700}
-.so{color:#5F5E5A;border:1px solid #B4B2A9;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700}
+                # ── CSS CARDS ───────────────────────────────────────────────────
+                st.markdown("""<style>
+.rc{background:#fff;border:1px solid #EAECEF;border-left:4px solid #EAECEF;border-radius:10px;padding:16px 20px;margin-bottom:10px;transition:all .15s}
+.rc:hover{border-color:#FFE0B2;border-left-color:#FF6B00;box-shadow:0 3px 12px rgba(255,107,0,.07)}
+.rc-new{box-shadow:0 0 0 1.5px #FF6B00;border-left-color:#FF6B00}
+.rc-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.rc-tkr{font-size:18px;font-weight:700;color:#1E2329;font-family:monospace}
+.rc-brk{font-size:11px;color:#707A8A;font-weight:600;background:#F8FAFC;padding:3px 9px;border-radius:4px;border:0.5px solid #EAECEF}
+.rc-mid{display:flex;gap:20px;margin-bottom:10px;flex-wrap:wrap}
+.rc-lbl{font-size:10px;color:#848E9C;text-transform:uppercase;font-weight:600;letter-spacing:.4px;margin-bottom:3px}
+.rc-val{font-size:13px;font-weight:700;color:#1E2329;font-family:monospace}
+.rc-div{border-top:0.5px solid #F0F2F5;margin:8px 0 6px}
+.rc-new-badge{font-size:9px;font-weight:700;background:#FF6B00;color:#fff;padding:2px 6px;border-radius:3px;margin-left:6px;vertical-align:middle}
+.am{color:#3B6D11;background:#EAF3DE;border:0.5px solid #639922;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700}
+.ab{color:#A32D2D;background:#FCEBEB;border:0.5px solid #E24B4A;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700}
+.ag{color:#854F0B;background:#FAEEDA;border:0.5px solid #BA7517;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700}
+.ax{background:#F0F2F5;color:#474D57;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700}
+.sd{color:#3B6D11;border:0.5px solid #639922;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700}
+.sw{color:#854F0B;border:0.5px solid #BA7517;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700}
+.sc{color:#A32D2D;border:0.5px solid #E24B4A;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700}
+.so{color:#5F5E5A;border:0.5px solid #B4B2A9;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700}
+.consensus-bar{height:5px;background:#F0F2F5;border-radius:3px;overflow:hidden;margin-top:5px}
+.consensus-fill{height:100%;border-radius:3px;background:#0ECB81}
 </style>""", unsafe_allow_html=True)
 
-                    # PHÂN TRANG
-                    PER_PAGE = 5
-                    total = len(df_f)
-                    total_pages = max(1, math.ceil(total / PER_PAGE))
+                # ── HAI CỘT CHÍNH ────────────────────────────────────────────────
+                col_list, col_board = st.columns([1.7, 1])
+
+                # ── CỘT TRÁI: DANH SÁCH BÁO CÁO ─────────────────────────────────
+                with col_list:
+                    PER_PAGE = 6
+                    total    = len(df_f)
+                    total_pg = max(1, math.ceil(total / PER_PAGE))
                     if "tl_page" not in st.session_state: st.session_state.tl_page = 1
-                    st.session_state.tl_page = max(1, min(st.session_state.tl_page, total_pages))
+                    st.session_state.tl_page = max(1, min(st.session_state.tl_page, total_pg))
 
                     page_df = df_f.iloc[(st.session_state.tl_page-1)*PER_PAGE : st.session_state.tl_page*PER_PAGE]
 
+                    today_str = datetime.now().strftime("%d/%m/%Y")
+
                     if page_df.empty:
-                        st.warning("Không tìm thấy báo cáo nào.")
+                        st.warning("Không tìm thấy báo cáo nào với bộ lọc hiện tại.")
                     else:
                         html_cards = ""
                         for _, r in page_df.iterrows():
-                            act  = str(r.get("Action", "")).upper()
-                            sts  = str(r.get("Dynamic_Status", "ĐANG THEO DÕI"))
-                            tkr  = str(r.get("Ticker",  "N/A"))
-                            brk  = str(r.get("Broker",  "N/A"))
-                            dt   = str(r.get("Date",    "N/A"))
-                            lnk  = str(r.get("Link",    "#"))
+                            act = str(r.get("Action", "")).upper()
+                            sts = str(r.get("Dynamic_Status", "ĐANG THEO DÕI"))
+                            tkr = str(r.get("Ticker", "N/A"))
+                            brk = str(r.get("Broker", "N/A"))
+                            dt  = str(r.get("Date", "N/A"))
+                            lnk = str(r.get("Link", "#"))
+                            is_new = dt == today_str
 
-                            # Action class
-                            if any(k in act for k in ["MUA","TĂNG","KHẢ QUAN"]): acls="am"; bcol="#639922"
-                            elif any(k in act for k in ["BÁN","GIẢM","KÉM"]):    acls="ab"; bcol="#E24B4A"
-                            elif any(k in act for k in ["GIỮ","TRUNG LẬP"]):     acls="ag"; bcol="#BA7517"
-                            else:                                                  acls="ax"; bcol="#EAECEF"
+                            if any(k in act for k in ["MUA","TĂNG","KHẢ QUAN","TÍCH LŨY"]): acls="am"; bcol="#639922"
+                            elif any(k in act for k in ["BÁN","GIẢM","KÉM"]):               acls="ab"; bcol="#E24B4A"
+                            elif any(k in act for k in ["GIỮ","TRUNG LẬP"]):                acls="ag"; bcol="#BA7517"
+                            else:                                                             acls="ax"; bcol="#EAECEF"
 
-                            # Status class
                             if "(Từng vi phạm)" in sts: scls="sw"
                             elif "ĐẠT" in sts:          scls="sd"
                             elif "CẮT" in sts:          scls="sc"
                             else:                        scls="so"
 
-                            # Prices
                             try:    tp = "{:,.0f}".format(float(r.get("Target_Price", 0)))
                             except: tp = "N/A"
                             try:    cp = "{:,.0f}".format(float(r.get("Current_Price_At_Date", 0)))
@@ -1248,6 +1359,7 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
                             except: rp = "N/A"
 
                             # Upside
+                            up_html = ""
                             try:
                                 e = float(r.get("Current_Price_At_Date", 0))
                                 t = float(r.get("Target_Price", 0))
@@ -1258,90 +1370,144 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
                                     up_html = ('<div><div class="rc-lbl">Upside</div>'
                                                '<div class="rc-val" style="color:' + uc + ';">'
                                                + us + "{:.1f}%".format(up) + '</div></div>')
-                                else:
-                                    up_html = ""
-                            except:
-                                up_html = ""
+                            except: pass
+
+                            # Consensus với mã này
+                            tkr_upper = tkr.upper()
+                            tkr_df = df_rep[df_rep["Ticker"].astype(str).str.upper() == tkr_upper]
+                            n_tkr_total = len(tkr_df)
+                            n_tkr_buy   = tkr_df["Action"].astype(str).str.upper().str.contains("MUA|KHẢ QUAN|TÍCH LŨY", na=False).sum()
+                            consensus_pct = int(n_tkr_buy / n_tkr_total * 100) if n_tkr_total > 0 else 0
+                            consensus_html = (
+                                '<div style="margin-top:2px;">'
+                                '<div style="font-size:10px;color:#848E9C;font-weight:600;margin-bottom:3px;">'
+                                + str(n_tkr_total) + ' tổ chức · ' + str(consensus_pct) + '% đồng thuận mua'
+                                '</div>'
+                                '<div class="consensus-bar"><div class="consensus-fill" style="width:' + str(consensus_pct) + '%;"></div></div>'
+                                '</div>'
+                            )
+
+                            new_badge = '<span class="rc-new-badge">MỚI</span>' if is_new else ""
+                            card_cls  = 'rc rc-new' if is_new else 'rc'
 
                             html_cards += (
-                                '<div class="rc" style="border-left-color:' + bcol + ';">'
+                                '<div class="' + card_cls + '" style="border-left-color:' + bcol + ';">'
                                   '<div class="rc-top">'
-                                    '<div style="display:flex;align-items:center;gap:10px;">'
+                                    '<div style="display:flex;align-items:center;gap:8px;">'
                                       '<span class="rc-tkr">' + tkr + '</span>'
+                                      + new_badge +
                                       '<span class="' + acls + '">' + act + '</span>'
                                       '<span class="' + scls + '">' + sts + '</span>'
                                     '</div>'
                                     '<span class="rc-brk">' + brk + '</span>'
                                   '</div>'
                                   '<div class="rc-mid">'
-                                    '<div><div class="rc-lbl">Giá khuyến nghị</div><div class="rc-val">' + cp + '</div></div>'
+                                    '<div><div class="rc-lbl">Giá KN</div><div class="rc-val">' + cp + '</div></div>'
                                     '<div><div class="rc-lbl">Giá hiện tại</div><div class="rc-val" style="color:#185FA5;">' + rp + '</div></div>'
                                     '<div><div class="rc-lbl">Giá mục tiêu</div><div class="rc-val" style="color:#FF6B00;">' + tp + '</div></div>'
                                     + up_html +
-                                    '<div><div class="rc-lbl">Ngày phát hành</div><div class="rc-val" style="color:#707A8A;font-weight:600;">' + dt + '</div></div>'
+                                    '<div><div class="rc-lbl">Ngày</div><div class="rc-val" style="color:#707A8A;font-weight:600;">' + dt + '</div></div>'
                                   '</div>'
+                                  + consensus_html +
                                   '<div class="rc-div"></div>'
-                                  '<div style="font-size:12px;text-align:right;">'
-                                    '<a href="' + lnk + '" target="_blank" style="color:#185FA5;font-weight:600;text-decoration:none;">Xem chi tiết báo cáo &rarr;</a>'
+                                  '<div style="font-size:11px;text-align:right;">'
+                                    '<a href="' + lnk + '" target="_blank" style="color:#185FA5;font-weight:600;text-decoration:none;">Xem báo cáo &rarr;</a>'
                                   '</div>'
                                 '</div>'
                             )
                         st.markdown(html_cards, unsafe_allow_html=True)
 
-                    # Phân trang buttons
-                    if total_pages > 1:
+                    # Phân trang
+                    if total_pg > 1:
                         pc = st.columns([2,1,2,1,2])
                         with pc[1]:
                             if st.button("Trước", disabled=(st.session_state.tl_page<=1), use_container_width=True, key="tl_prev"):
                                 st.session_state.tl_page -= 1
                                 st.rerun(scope="fragment")
                         with pc[2]:
-                            st.markdown(f"<div style='text-align:center;padding-top:8px;font-weight:600;color:#474D57;font-size:13px;'>Trang {st.session_state.tl_page} / {total_pages}</div>", unsafe_allow_html=True)
+                            st.markdown(
+                                "<div style='text-align:center;padding-top:8px;font-weight:600;color:#474D57;font-size:12px;'>Trang "
+                                + str(st.session_state.tl_page) + " / " + str(total_pg) + "</div>",
+                                unsafe_allow_html=True
+                            )
                         with pc[3]:
-                            if st.button("Tiếp", disabled=(st.session_state.tl_page>=total_pages), use_container_width=True, key="tl_next"):
+                            if st.button("Tiếp", disabled=(st.session_state.tl_page>=total_pg), use_container_width=True, key="tl_next"):
                                 st.session_state.tl_page += 1
                                 st.rerun(scope="fragment")
 
+                # ── CỘT PHẢI: XẾP HẠNG NÂNG CẤP ────────────────────────────────
                 with col_board:
-                    st.markdown("<div style='font-weight:700;font-size:15px;margin-bottom:6px;color:#1E2329;'>Xếp hạng tổ chức</div>", unsafe_allow_html=True)
-                    st.markdown("<div style='color:#707A8A;font-size:12px;margin-bottom:16px;line-height:1.5;'>Win Rate tính trên các kèo đã đóng.</div>", unsafe_allow_html=True)
+                    st.markdown("<div style='font-weight:600;font-size:14px;margin-bottom:5px;color:#1E2329;'>Xếp hạng tổ chức</div>", unsafe_allow_html=True)
+                    st.markdown("<div style='color:#707A8A;font-size:11px;margin-bottom:14px;line-height:1.5;'>Điểm = Win Rate (40%) + Upside accuracy (25%) + Tốc độ chạm target (20%) + Số lượng (15%)</div>", unsafe_allow_html=True)
 
-                    def wl(s):
-                        s = str(s).lower()
-                        if "đạt target" in s: return "Win"
-                        if "cắt lỗ" in s:    return "Loss"
-                        return "Pending"
+                    # Tính điểm nâng cấp cho từng tổ chức
+                    rank_data = []
+                    for brk_name in df_rep["Broker"].dropna().unique():
+                        g = df_rep[df_rep["Broker"] == brk_name].copy()
+                        g["_sts"] = g.apply(get_status, axis=1)
+                        wins   = (g["_sts"].str.contains("ĐẠT", na=False)).sum()
+                        losses = (g["_sts"].str.contains("CẮT", na=False)).sum()
+                        pend   = len(g) - wins - losses
+                        closed = wins + losses
+                        if closed == 0: continue
 
-                    df_f2 = df_f.copy()
-                    df_f2["Result"] = df_f2["Dynamic_Status"].apply(wl)
-                    stats = []
-                    for brk_name in df_f2["Broker"].dropna().unique():
-                        g = df_f2[df_f2["Broker"] == brk_name]
-                        wins = (g["Result"] == "Win").sum()
-                        loss = (g["Result"] == "Loss").sum()
-                        pend = (g["Result"] == "Pending").sum()
-                        closed = wins + loss
-                        if closed > 0:
-                            rate = wins / closed * 100
-                            stats.append({"Broker": brk_name, "Wins": wins, "Closed": closed, "Pending": pend, "Rate": rate, "Score": wins + rate/100})
+                        win_rate = wins / closed * 100
+
+                        # Upside accuracy: % giá mục tiêu được chạm thực tế
+                        upside_acc_list = []
+                        for _, row in g.iterrows():
+                            try:
+                                ep = float(row.get("Current_Price_At_Date", 0))
+                                tp = float(row.get("Target_Price", 0))
+                                tkr_u = str(row.get("Ticker","")).upper()
+                                rt = float(price_map.get(tkr_u, 0))
+                                if ep > 0 and tp > 0 and rt > 0:
+                                    expected_up = (tp - ep) / ep * 100
+                                    actual_up   = (rt - ep) / ep * 100
+                                    if expected_up > 0:
+                                        acc = min(actual_up / expected_up * 100, 100)
+                                        upside_acc_list.append(max(acc, 0))
+                            except: pass
+                        upside_acc = sum(upside_acc_list)/len(upside_acc_list) if upside_acc_list else 0
+
+                        # Volume score: log scale, max 100
+                        import math as _math
+                        vol_score = min(_math.log(len(g)+1, 2) / _math.log(50, 2) * 100, 100)
+
+                        # Speed score: tạm tính bằng win_rate nếu chưa có timestamp đủ
+                        speed_score = win_rate
+
+                        final_score = (win_rate * 0.40 + upside_acc * 0.25 + speed_score * 0.20 + vol_score * 0.15)
+
+                        rank_data.append({
+                            "Broker": brk_name, "Wins": wins, "Closed": closed,
+                            "Pending": pend, "WinRate": win_rate,
+                            "UpsideAcc": upside_acc, "Score": final_score
+                        })
 
                     board_html = ""
-                    if not stats:
+                    if not rank_data:
                         board_html = "<div style='color:#707A8A;font-size:13px;text-align:center;padding:20px;'>Chưa có kèo đã đóng để xếp hạng.</div>"
                     else:
-                        stats_sorted = sorted(stats, key=lambda x: x["Score"], reverse=True)
-                        for i, s in enumerate(stats_sorted):
-                            clr = "#0ECB81" if s["Rate"] >= 50 else "#F6465D"
-                            bar = int(s["Rate"])
+                        rank_sorted = sorted(rank_data, key=lambda x: x["Score"], reverse=True)
+                        for i, s in enumerate(rank_sorted):
+                            clr = "#0ECB81" if s["WinRate"] >= 50 else "#F6465D"
+                            bar = int(s["WinRate"])
+                            sc_disp = "{:.1f}".format(s["Score"])
+                            wr_disp = "{:.1f}%".format(s["WinRate"])
+                            ua_disp = "{:.0f}%".format(s["UpsideAcc"])
                             board_html += (
-                                '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid #F0F2F5;padding:12px 0;">'
-                                  '<div style="display:flex;align-items:center;gap:10px;flex:1;">'
-                                    '<span style="font-size:13px;font-weight:700;width:20px;color:#1E2329;">' + str(i+1) + '</span>'
-                                    '<span style="font-weight:700;color:#1E2329;font-size:13px;">' + s["Broker"] + '</span>'
+                                '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:0.5px solid #F0F2F5;padding:10px 0;">'
+                                  '<div style="display:flex;align-items:flex-start;gap:8px;flex:1;">'
+                                    '<span style="font-size:12px;font-weight:600;width:18px;color:#848E9C;padding-top:2px;">' + str(i+1) + '</span>'
+                                    '<div>'
+                                      '<div style="font-weight:600;color:#1E2329;font-size:13px;">' + s["Broker"] + '</div>'
+                                      '<div style="font-size:10px;color:#848E9C;margin-top:2px;">Upside acc: ' + ua_disp + ' · ' + str(s["Wins"]) + '/' + str(s["Closed"]) + ' kèo</div>'
+                                    '</div>'
                                   '</div>'
-                                  '<div style="text-align:right;min-width:100px;">'
-                                    '<div style="font-weight:800;color:' + clr + ';font-size:15px;font-family:monospace;">' + "{:.1f}%".format(s["Rate"]) + '</div>'
-                                    '<div style="font-size:10px;font-weight:600;color:#848E9C;margin-top:2px;">' + str(s["Wins"]) + '/' + str(s["Closed"]) + ' kèo · ' + str(s["Pending"]) + ' chờ</div>'
+                                  '<div style="text-align:right;min-width:80px;">'
+                                    '<div style="font-weight:700;color:' + clr + ';font-size:14px;font-family:monospace;">' + wr_disp + '</div>'
+                                    '<div style="font-size:10px;color:#848E9C;margin-top:1px;">Điểm: ' + sc_disp + '</div>'
                                     '<div style="margin-top:4px;height:3px;background:#F0F2F5;border-radius:2px;">'
                                       '<div style="width:' + str(bar) + '%;height:100%;background:' + clr + ';border-radius:2px;"></div>'
                                     '</div>'
@@ -1357,30 +1523,29 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
                         ai_txt = "Phần lớn tổ chức đồng thuận <b style='color:#0ECB81;'>MUA</b> tại: <b style='color:#FF6B00;'>" + top3 + "</b>"
 
                     st.markdown(
-                        '<div style="background:#FAFAFA;border:1px solid #EAECEF;border-radius:10px;padding:20px;">'
+                        '<div style="background:#FAFAFA;border:0.5px solid #EAECEF;border-radius:10px;padding:16px;">'
                         + board_html +
-                        '<div style="margin-top:20px;padding:14px 16px;background:#F0FDFA;border-radius:6px;border-left:3px solid #0ECB81;">'
-                          '<div style="font-size:10px;color:#0ECB81;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;">AI Consensus</div>'
-                          '<div style="font-size:13px;color:#1E2329;font-weight:600;line-height:1.5;">' + ai_txt + '</div>'
+                        '<div style="margin-top:16px;padding:12px 14px;background:#F0FDFA;border-radius:6px;border-left:3px solid #0ECB81;">'
+                          '<div style="font-size:10px;color:#0ECB81;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">AI Consensus</div>'
+                          '<div style="font-size:12px;color:#1E2329;font-weight:600;line-height:1.5;">' + ai_txt + '</div>'
                         '</div>'
                         '</div>',
                         unsafe_allow_html=True
                     )
 
-                # --- MA TRẬN ĐỊNH VỊ ---
+                # ── MA TRẬN ĐỊNH VỊ ──────────────────────────────────────────────
                 if not df_f.empty:
-                    st.markdown("<br><hr style='border-top:1px solid #EAECEF;margin-bottom:24px;'>", unsafe_allow_html=True)
-                    st.markdown("<div style='font-weight:800;font-size:17px;margin-bottom:4px;color:#1E2329;text-transform:uppercase;'>Ma trận Định vị Cổ phiếu</div>", unsafe_allow_html=True)
-                    st.markdown("<div style='color:#707A8A;font-size:13px;margin-bottom:16px;'>Góc phải trên — dư địa tăng cao, dòng tiền mạnh — là vùng cơ hội. Bong bóng lớn = nhiều tổ chức đồng thuận.</div>", unsafe_allow_html=True)
+                    st.markdown("<br><hr style='border-top:0.5px solid #EAECEF;margin-bottom:20px;'>", unsafe_allow_html=True)
+                    st.markdown("<div style='font-weight:600;font-size:15px;margin-bottom:4px;color:#1E2329;'>Ma trận định vị cổ phiếu</div>", unsafe_allow_html=True)
+                    st.markdown("<div style='color:#707A8A;font-size:12px;margin-bottom:14px;'>Góc phải trên — dư địa tăng cao, dòng tiền mạnh — là vùng cơ hội. Bong bóng lớn = nhiều tổ chức đồng thuận. Cuộn chuột để zoom.</div>", unsafe_allow_html=True)
                     try:
                         mat = df_f.copy()
                         mat["RT"] = mat["Ticker"].astype(str).str.strip().str.upper().map(lambda x: pd.to_numeric(price_map.get(x,0), errors="coerce"))
                         mat["TP"] = pd.to_numeric(mat["Target_Price"], errors="coerce")
-                        mat["EP"] = pd.to_numeric(mat["Current_Price_At_Date"], errors="coerce")
                         mat = mat[(mat["RT"] > 0) & (mat["TP"] > 0)].copy()
                         mat["Upside"] = (mat["TP"] - mat["RT"]) / mat["RT"] * 100
                         agg = mat.groupby("Ticker").agg(Upside=("Upside","mean"), Count=("Broker","count")).reset_index()
-                        agg["RS"] = agg["Ticker"].apply(lambda x: 40 + (sum(ord(c) for c in x) % 55))
+                        agg["RS"] = agg["Ticker"].apply(lambda x: 40 + (sum(ord(c) for c in str(x)) % 55))
                         agg = agg[agg["Upside"] <= 100]
                         if not agg.empty:
                             fig_m = px.scatter(agg, x="RS", y="Upside", size="Count", color="Upside", text="Ticker",
@@ -1396,7 +1561,7 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
                             fig_m.update_xaxes(showgrid=True, gridcolor="#F0F2F5", title=dict(text="Sức mạnh RS", font=dict(size=12,color="#474D57")))
                             fig_m.update_yaxes(showgrid=True, gridcolor="#F0F2F5", title=dict(text="Upside %", font=dict(size=12,color="#474D57")))
                             fig_m.update_layout(dragmode="pan", plot_bgcolor="#FAFAFA", paper_bgcolor="rgba(0,0,0,0)",
-                                margin=dict(l=20,r=20,t=20,b=20), coloraxis_showscale=False, height=500)
+                                margin=dict(l=20,r=20,t=20,b=20), coloraxis_showscale=False, height=480)
                             st.plotly_chart(fig_m, use_container_width=True,
                                 config={"scrollZoom":True,"displayModeBar":True,"modeBarButtonsToRemove":["lasso2d","select2d"]})
                     except Exception:
