@@ -1262,25 +1262,10 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
                 df_f = df_f.copy()
                 df_f["Dynamic_Status"] = df_f.apply(get_status, axis=1)
 
-                # ── EXPORT CSV ──────────────────────────────────────────────────
-                col_export_label, col_export_btn = st.columns([3, 1])
-                with col_export_label:
-                    st.markdown(
-                        "<div style='color:#848E9C;font-size:12px;margin-top:8px;'>"
+                st.markdown(
+                        "<div style='color:#848E9C;font-size:12px;margin-top:8px;margin-bottom:16px;'>"
                         + str(len(df_f)) + " báo cáo phù hợp với bộ lọc hiện tại</div>",
                         unsafe_allow_html=True
-                    )
-                with col_export_btn:
-                    export_cols = ["Date", "Broker", "Ticker", "Action", "Current_Price_At_Date", "Target_Price", "Dynamic_Status", "Link"]
-                    export_df = df_f[[c for c in export_cols if c in df_f.columns]]
-                    csv_data = export_df.to_csv(index=False, encoding="utf-8-sig")
-                    st.download_button(
-                        label="Xuất CSV",
-                        data=csv_data,
-                        file_name="bao_cao_to_chuc.csv",
-                        mime="text/csv",
-                        use_container_width=True,
-                        key="tl_export"
                     )
 
                 st.markdown("<br>", unsafe_allow_html=True)
@@ -1639,7 +1624,7 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
 
     # --- TAB 6: PHÂN TÍCH CỔ PHIẾU ---
     with tab6:
-        st.markdown("<br><div style='font-weight: 800; font-size: 20px; margin-bottom: 24px; color: #1E2329; text-transform: uppercase; border-left: 4px solid #FF6B00; padding-left: 12px;'>Trung Tâm Phân Tích & Định Giá Chuyên Sâu</div>", unsafe_allow_html=True)
+        st.markdown("<br><div style='font-weight:700;font-size:18px;margin-bottom:20px;color:#1E2329;border-left:4px solid #FF6B00;padding-left:12px;'>Phân tích & Định giá Cổ phiếu</div>", unsafe_allow_html=True)
 
         @st.cache_data(ttl=3600, show_spinner=False)
         def fetch_stock_data_pro(ticker):
@@ -1656,6 +1641,479 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
 
         @st.fragment
         def render_stock_analysis_standalone():
+            # ── SEARCH BAR ──────────────────────────────────────────────────────
+            with st.form(key="search_stock_form"):
+                col_search, col_btn, col_compare, col_empty = st.columns([2, 1, 2, 2])
+                with col_search:
+                    search_ticker = st.text_input("Mã CP chính:", value="FPT", max_chars=10, label_visibility="collapsed").upper().strip()
+                with col_btn:
+                    submit_search = st.form_submit_button("Phân tích")
+                with col_compare:
+                    compare_input = st.text_input("So sánh thêm (VD: HPG, MBB):", max_chars=30, label_visibility="collapsed", placeholder="So sánh thêm mã khác...")
+
+            if not search_ticker:
+                return
+
+            with st.spinner("Đang tải dữ liệu " + search_ticker + "..."):
+                hist, info = fetch_stock_data_pro(search_ticker)
+
+            if hist is None or (hasattr(hist, 'empty') and hist.empty):
+                st.error("Không tìm thấy dữ liệu cho mã " + search_ticker + ". Kiểm tra lại mã CP.")
+                return
+
+            if info is None: info = {}
+
+            # ── TÍNH TOÁN CHỈ SỐ KỸ THUẬT ───────────────────────────────────────
+            hist = hist.copy()
+
+            # MA
+            hist["MA20"]  = hist["Close"].rolling(20).mean()
+            hist["MA50"]  = hist["Close"].rolling(50).mean()
+            hist["MA200"] = hist["Close"].rolling(200).mean()
+
+            # Bollinger Bands
+            hist["BB_mid"]   = hist["Close"].rolling(20).mean()
+            bb_std           = hist["Close"].rolling(20).std()
+            hist["BB_upper"] = hist["BB_mid"] + 2 * bb_std
+            hist["BB_lower"] = hist["BB_mid"] - 2 * bb_std
+
+            # RSI
+            delta = hist["Close"].diff()
+            gain  = delta.clip(lower=0).rolling(14).mean()
+            loss  = (-delta.clip(upper=0)).rolling(14).mean()
+            rs    = gain / loss.replace(0, 1e-9)
+            hist["RSI"] = 100 - (100 / (1 + rs))
+            rsi_now = float(hist["RSI"].iloc[-1]) if not hist["RSI"].isna().all() else 50
+
+            # MACD
+            ema12          = hist["Close"].ewm(span=12, adjust=False).mean()
+            ema26          = hist["Close"].ewm(span=26, adjust=False).mean()
+            hist["MACD"]   = ema12 - ema26
+            hist["Signal"] = hist["MACD"].ewm(span=9, adjust=False).mean()
+            hist["Hist"]   = hist["MACD"] - hist["Signal"]
+            macd_now       = float(hist["MACD"].iloc[-1])
+            signal_now     = float(hist["Signal"].iloc[-1])
+
+            # Giá & stats
+            current_price = float(info.get("currentPrice", hist["Close"].iloc[-1]))
+            prev_close    = float(info.get("previousClose", hist["Close"].iloc[-2]))
+            change        = current_price - prev_close
+            change_pct    = (change / prev_close * 100) if prev_close else 0
+            price_color   = "#0ECB81" if change >= 0 else "#F6465D"
+            price_sign    = "+" if change >= 0 else ""
+            industry      = str(info.get("industry", "HOSE / HNX"))
+            w52_high      = float(hist["Close"].max())
+            w52_low       = float(hist["Close"].min())
+            dist_from_high = (current_price - w52_high) / w52_high * 100
+
+            # ── TÍN HIỆU KỸ THUẬT TỔNG HỢP ─────────────────────────────────────
+            signals = []
+            ma20_v = float(hist["MA20"].iloc[-1]) if not pd.isna(hist["MA20"].iloc[-1]) else 0
+            ma50_v = float(hist["MA50"].iloc[-1]) if not pd.isna(hist["MA50"].iloc[-1]) else 0
+            ma200_v= float(hist["MA200"].iloc[-1]) if not pd.isna(hist["MA200"].iloc[-1]) else 0
+            bb_upper_v = float(hist["BB_upper"].iloc[-1]) if not pd.isna(hist["BB_upper"].iloc[-1]) else 0
+            bb_lower_v = float(hist["BB_lower"].iloc[-1]) if not pd.isna(hist["BB_lower"].iloc[-1]) else 0
+
+            if ma20_v > 0: signals.append(("Mua" if current_price > ma20_v else "Bán", "Giá vs MA20"))
+            if ma50_v > 0: signals.append(("Mua" if current_price > ma50_v else "Bán", "Giá vs MA50"))
+            if ma200_v> 0: signals.append(("Mua" if current_price > ma200_v else "Bán", "Giá vs MA200"))
+            signals.append(("Bán" if rsi_now > 70 else "Mua" if rsi_now < 30 else "Trung lập", "RSI(14)"))
+            signals.append(("Mua" if macd_now > signal_now else "Bán", "MACD vs Signal"))
+            if bb_upper_v > 0:
+                signals.append(("Bán" if current_price > bb_upper_v else "Mua" if current_price < bb_lower_v else "Trung lập", "Bollinger Bands"))
+
+            n_buy_sig  = sum(1 for s,_ in signals if s == "Mua")
+            n_sell_sig = sum(1 for s,_ in signals if s == "Bán")
+            n_neut_sig = len(signals) - n_buy_sig - n_sell_sig
+            if n_buy_sig > n_sell_sig + n_neut_sig:
+                overall_sig = "MUA"; overall_col = "#0ECB81"
+            elif n_sell_sig > n_buy_sig + n_neut_sig:
+                overall_sig = "BÁN"; overall_col = "#F6465D"
+            else:
+                overall_sig = "TRUNG LẬP"; overall_col = "#FFB300"
+            score = int(n_buy_sig / len(signals) * 100) if signals else 50
+
+            # ── LAYOUT ──────────────────────────────────────────────────────────
+            col_left, col_right = st.columns([1, 2.5])
+
+            with col_left:
+                # Price card
+                _ind = industry
+                _cp  = "{:,.0f}".format(current_price)
+                _ch  = "{:,.0f}".format(abs(change))
+                _chp = "{:.2f}".format(abs(change_pct))
+                st.markdown(
+                    '<div style="background:#fff;border:0.5px solid #EAECEF;border-radius:10px;padding:16px 18px;margin-bottom:12px;">'
+                    '<div style="font-size:28px;font-weight:700;color:#1E2329;font-family:monospace;">' + search_ticker + '</div>'
+                    '<div style="color:#848E9C;font-size:10px;margin-bottom:8px;text-transform:uppercase;font-weight:600;">' + _ind + '</div>'
+                    '<div style="font-size:26px;font-weight:700;color:#1E2329;font-family:monospace;">' + _cp + ' ₫</div>'
+                    '<div style="color:' + price_color + ';font-size:12px;font-weight:700;margin-top:2px;">'
+                    + price_sign + _ch + ' (' + price_sign + _chp + '%)</div>'
+                    '</div>',
+                    unsafe_allow_html=True
+                )
+
+                # Tín hiệu tổng hợp
+                sig_rows = ""
+                for s, lbl in signals:
+                    sc = "#0ECB81" if s == "Mua" else "#F6465D" if s == "Bán" else "#FFB300"
+                    sig_rows += (
+                        '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:0.5px solid #F0F2F5;">'
+                        '<span style="font-size:11px;color:#707A8A;font-weight:500;">' + lbl + '</span>'
+                        '<span style="font-size:11px;font-weight:700;color:' + sc + ';">' + s + '</span>'
+                        '</div>'
+                    )
+                score_bar = int(n_buy_sig / len(signals) * 100) if signals else 50
+                st.markdown(
+                    '<div style="background:#fff;border:0.5px solid #EAECEF;border-radius:10px;padding:14px 16px;margin-bottom:12px;">'
+                    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'
+                    '<span style="font-size:11px;color:#848E9C;font-weight:600;text-transform:uppercase;">Tín hiệu kỹ thuật</span>'
+                    '<span style="font-size:13px;font-weight:700;color:' + overall_col + ';border:0.5px solid ' + overall_col + ';padding:2px 8px;border-radius:4px;">' + overall_sig + '</span>'
+                    '</div>'
+                    + sig_rows +
+                    '<div style="display:flex;gap:8px;margin-top:10px;text-align:center;">'
+                    '<div style="flex:1;background:#EAF3DE;border-radius:6px;padding:6px 0;">'
+                    '<div style="font-size:16px;font-weight:700;color:#3B6D11;">' + str(n_buy_sig) + '</div>'
+                    '<div style="font-size:9px;color:#639922;font-weight:600;">MUA</div>'
+                    '</div>'
+                    '<div style="flex:1;background:#FAEEDA;border-radius:6px;padding:6px 0;">'
+                    '<div style="font-size:16px;font-weight:700;color:#854F0B;">' + str(n_neut_sig) + '</div>'
+                    '<div style="font-size:9px;color:#BA7517;font-weight:600;">TRUNG LẬP</div>'
+                    '</div>'
+                    '<div style="flex:1;background:#FCEBEB;border-radius:6px;padding:6px 0;">'
+                    '<div style="font-size:16px;font-weight:700;color:#A32D2D;">' + str(n_sell_sig) + '</div>'
+                    '<div style="font-size:9px;color:#E24B4A;font-weight:600;">BÁN</div>'
+                    '</div>'
+                    '</div>'
+                    '</div>',
+                    unsafe_allow_html=True
+                )
+
+                # RSI + 52w + metrics (giữ nguyên như cũ)
+                rsi_disp  = "{:.1f}".format(rsi_now)
+                rsi_color = "#F6465D" if rsi_now > 70 else "#0ECB81" if rsi_now < 30 else "#FFB300"
+                rsi_label = "Quá mua" if rsi_now > 70 else "Quá bán" if rsi_now < 30 else "Trung tính"
+                st.markdown(
+                    '<div style="background:#fff;border:0.5px solid #EAECEF;border-radius:10px;padding:12px 16px;margin-bottom:12px;">'
+                    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
+                    '<span style="font-size:10px;color:#848E9C;font-weight:600;text-transform:uppercase;">RSI(14)</span>'
+                    '<span style="font-size:12px;font-weight:700;color:' + rsi_color + ';">' + rsi_disp + ' · ' + rsi_label + '</span>'
+                    '</div>'
+                    '<div style="height:5px;background:#F0F2F5;border-radius:3px;">'
+                    '<div style="width:' + str(int(rsi_now)) + '%;height:100%;background:' + rsi_color + ';border-radius:3px;"></div>'
+                    '</div>'
+                    '<div style="display:flex;justify-content:space-between;font-size:9px;color:#B4B2A9;margin-top:2px;"><span>0</span><span>30</span><span>70</span><span>100</span></div>'
+                    '</div>',
+                    unsafe_allow_html=True
+                )
+
+                _w52h = "{:,.0f}".format(w52_high)
+                _w52l = "{:,.0f}".format(w52_low)
+                _dfh  = "{:.1f}".format(abs(dist_from_high))
+                rng_pct = int((current_price - w52_low) / (w52_high - w52_low) * 100) if (w52_high - w52_low) > 0 else 50
+                st.markdown(
+                    '<div style="background:#fff;border:0.5px solid #EAECEF;border-radius:10px;padding:12px 16px;margin-bottom:12px;">'
+                    '<div style="font-size:10px;color:#848E9C;font-weight:600;text-transform:uppercase;margin-bottom:6px;">Vùng giá 52 tuần</div>'
+                    '<div style="height:4px;background:#F0F2F5;border-radius:3px;margin-bottom:4px;">'
+                    '<div style="width:' + str(rng_pct) + '%;height:100%;background:#185FA5;border-radius:3px;"></div>'
+                    '</div>'
+                    '<div style="display:flex;justify-content:space-between;font-size:10px;font-weight:600;color:#848E9C;">'
+                    '<span>' + _w52l + '</span><span style="color:#A32D2D;font-size:9px;">-' + _dfh + '% từ đỉnh</span><span>' + _w52h + '</span>'
+                    '</div>'
+                    '</div>',
+                    unsafe_allow_html=True
+                )
+
+                # Chỉ số tài chính
+                metrics = {
+                    "Vốn hóa":    ("{:,.0f} Tỷ".format(info.get("marketCap",0)/1e9)) if info.get("marketCap") else "N/A",
+                    "KL TB ngày": ("{:,.0f}".format(info.get("averageVolume",0))) if info.get("averageVolume") else "N/A",
+                    "EPS (TTM)":  ("{:,.0f} ₫".format(info.get("trailingEps",0))) if info.get("trailingEps") else "N/A",
+                    "P/E":        ("{:.2f}".format(info.get("trailingPE",0))) if info.get("trailingPE") else "N/A",
+                    "P/B":        ("{:.2f}".format(info.get("priceToBook",0))) if info.get("priceToBook") else "N/A",
+                    "Beta":       ("{:.2f}".format(info.get("beta",0))) if info.get("beta") else "N/A",
+                    "Div Yield":  ("{:.2f}%".format(info.get("dividendYield",0)*100)) if info.get("dividendYield") else "N/A",
+                    "ROE":        ("{:.1f}%".format(info.get("returnOnEquity",0)*100)) if info.get("returnOnEquity") else "N/A",
+                }
+                rows_html = ""
+                for k, v in metrics.items():
+                    rows_html += (
+                        '<div style="display:flex;justify-content:space-between;border-bottom:0.5px dashed #EAECEF;padding:7px 0;font-size:11px;">'
+                        '<span style="color:#707A8A;font-weight:600;">' + k + '</span>'
+                        '<span style="font-weight:700;color:#1E2329;font-family:monospace;">' + str(v) + '</span>'
+                        '</div>'
+                    )
+                st.markdown('<div style="background:#fff;border:0.5px solid #EAECEF;border-radius:10px;padding:12px 16px;margin-bottom:12px;">' + rows_html + '</div>', unsafe_allow_html=True)
+
+                # Báo cáo tổ chức liên quan
+                try:
+                    rep_cache = st.session_state.get("rep_df_cache", pd.DataFrame())
+                    if not rep_cache.empty:
+                        tkr_reports = rep_cache[rep_cache["Ticker"].astype(str).str.upper() == search_ticker.upper()].head(4)
+                        if not tkr_reports.empty:
+                            st.markdown("<div style='font-size:11px;font-weight:600;color:#1E2329;margin-bottom:8px;'>Báo cáo tổ chức gần nhất</div>", unsafe_allow_html=True)
+                            rep_rows = ""
+                            for _, rr in tkr_reports.iterrows():
+                                act = str(rr.get("Action",""))
+                                brk = str(rr.get("Broker",""))
+                                dt  = str(rr.get("Date",""))
+                                tp  = rr.get("Target_Price","")
+                                try:    tp_fmt = "{:,.0f}".format(float(tp))
+                                except: tp_fmt = str(tp)
+                                act_up = act.upper()
+                                if any(k in act_up for k in ["MUA","KHẢ QUAN","TÍCH LŨY"]): ac="#0ECB81"
+                                elif any(k in act_up for k in ["BÁN","GIẢM"]): ac="#F6465D"
+                                else: ac="#FFB300"
+                                rep_rows += (
+                                    '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:0.5px solid #F0F2F5;">'
+                                    '<div><div style="font-size:11px;font-weight:700;color:#1E2329;">' + brk + '</div>'
+                                    '<div style="font-size:9px;color:#848E9C;">' + dt + '</div></div>'
+                                    '<div style="text-align:right;">'
+                                    '<div style="font-size:11px;font-weight:700;color:' + ac + ';">' + act + '</div>'
+                                    '<div style="font-size:10px;color:#FF6B00;font-weight:600;">TP: ' + tp_fmt + '</div>'
+                                    '</div></div>'
+                                )
+                            st.markdown('<div style="background:#fff;border:0.5px solid #EAECEF;border-radius:10px;padding:12px 16px;">' + rep_rows + '</div>', unsafe_allow_html=True)
+                except Exception: pass
+
+            # ── CỘT PHẢI: CHARTS ────────────────────────────────────────────────
+            with col_right:
+                chart_tabs = st.tabs(["Nến + MA", "Bollinger Bands", "Volume", "RSI", "MACD", "Định giá P/E", "So sánh mã"])
+
+                with chart_tabs[0]:
+                    fig_tech = go.Figure()
+                    fig_tech.add_trace(go.Candlestick(
+                        x=hist.index, open=hist["Open"], high=hist["High"],
+                        low=hist["Low"], close=hist["Close"],
+                        increasing_line_color="#0ECB81", decreasing_line_color="#F6465D",
+                        name="Giá"
+                    ))
+                    for ma_col, ma_color, ma_name in [("MA20","#FF6B00","MA20"), ("MA50","#185FA5","MA50"), ("MA200","#9C27B0","MA200")]:
+                        if ma_col in hist.columns and not hist[ma_col].isna().all():
+                            fig_tech.add_trace(go.Scatter(
+                                x=hist.index, y=hist[ma_col],
+                                mode="lines", line=dict(color=ma_color, width=1.2),
+                                name=ma_name, opacity=0.85
+                            ))
+                    fig_tech.update_layout(
+                        margin=dict(l=0,r=0,t=10,b=0), height=380,
+                        xaxis_rangeslider_visible=False,
+                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                        yaxis=dict(gridcolor="#F0F0F0", fixedrange=False),
+                        xaxis=dict(fixedrange=False), dragmode="pan",
+                        legend=dict(orientation="h", yanchor="bottom", y=1.02, font=dict(size=11))
+                    )
+                    st.plotly_chart(fig_tech, use_container_width=True, config={"scrollZoom":True,"displayModeBar":True,"displaylogo":False})
+
+                with chart_tabs[1]:
+                    fig_bb = go.Figure()
+                    fig_bb.add_trace(go.Candlestick(
+                        x=hist.index, open=hist["Open"], high=hist["High"],
+                        low=hist["Low"], close=hist["Close"],
+                        increasing_line_color="#0ECB81", decreasing_line_color="#F6465D",
+                        name="Giá", showlegend=False
+                    ))
+                    fig_bb.add_trace(go.Scatter(x=hist.index, y=hist["BB_upper"], mode="lines",
+                        line=dict(color="#185FA5", width=1, dash="dash"), name="BB Upper", opacity=0.7))
+                    fig_bb.add_trace(go.Scatter(x=hist.index, y=hist["BB_mid"], mode="lines",
+                        line=dict(color="#FF6B00", width=1.2), name="BB Mid (MA20)"))
+                    fig_bb.add_trace(go.Scatter(x=hist.index, y=hist["BB_lower"], mode="lines",
+                        line=dict(color="#185FA5", width=1, dash="dash"), name="BB Lower",
+                        fill="tonexty", fillcolor="rgba(24,95,165,0.05)", opacity=0.7))
+                    fig_bb.update_layout(
+                        margin=dict(l=0,r=0,t=10,b=0), height=380,
+                        xaxis_rangeslider_visible=False,
+                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                        yaxis=dict(gridcolor="#F0F0F0", fixedrange=False),
+                        xaxis=dict(fixedrange=False), dragmode="pan",
+                        legend=dict(orientation="h", yanchor="bottom", y=1.02, font=dict(size=11))
+                    )
+                    st.plotly_chart(fig_bb, use_container_width=True, config={"scrollZoom":True,"displayModeBar":True,"displaylogo":False})
+                    bb_pct = int((current_price - bb_lower_v) / (bb_upper_v - bb_lower_v) * 100) if (bb_upper_v - bb_lower_v) > 0 else 50
+                    bb_msg = "Giá đang chạm dải trên — có thể quá mua hoặc breakout." if bb_pct > 85 else \
+                             "Giá đang chạm dải dưới — có thể quá bán hoặc breakdown." if bb_pct < 15 else \
+                             "Giá đang giao dịch trong dải Bollinger — chưa có tín hiệu breakout rõ ràng."
+                    bb_c = "#F6465D" if bb_pct > 85 else "#0ECB81" if bb_pct < 15 else "#FFB300"
+                    st.markdown('<div style="background:#FAFAFA;border-left:3px solid ' + bb_c + ';border-radius:4px;padding:10px 14px;font-size:12px;color:#474D57;">' + bb_msg + '</div>', unsafe_allow_html=True)
+
+                with chart_tabs[2]:
+                    vol_colors = ["#0ECB81" if c >= o else "#F6465D" for c, o in zip(hist["Close"], hist["Open"])]
+                    fig_vol = go.Figure(go.Bar(
+                        x=hist.index, y=hist["Volume"], marker_color=vol_colors, opacity=0.8,
+                        name="Khối lượng", hovertemplate="%{x|%d/%m/%Y}<br>KL: %{y:,.0f}<extra></extra>"
+                    ))
+                    vol_ma = hist["Volume"].rolling(20).mean()
+                    fig_vol.add_trace(go.Scatter(
+                        x=hist.index, y=vol_ma, mode="lines",
+                        line=dict(color="#FF6B00", width=1.5), name="KL TB 20 phiên"
+                    ))
+                    fig_vol.update_layout(
+                        margin=dict(l=0,r=0,t=10,b=0), height=380,
+                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                        yaxis=dict(gridcolor="#F0F0F0"), xaxis=dict(fixedrange=False), bargap=0.1,
+                        legend=dict(orientation="h", yanchor="bottom", y=1.02, font=dict(size=11))
+                    )
+                    st.plotly_chart(fig_vol, use_container_width=True, config={"scrollZoom":True,"displayModeBar":False})
+
+                with chart_tabs[3]:
+                    fig_rsi = go.Figure()
+                    fig_rsi.add_hrect(y0=70, y1=100, fillcolor="#F6465D", opacity=0.05, line_width=0)
+                    fig_rsi.add_hrect(y0=0,  y1=30,  fillcolor="#0ECB81", opacity=0.05, line_width=0)
+                    fig_rsi.add_trace(go.Scatter(
+                        x=hist.index, y=hist["RSI"], mode="lines",
+                        line=dict(color="#185FA5", width=1.8), name="RSI(14)",
+                        hovertemplate="%{x|%d/%m/%Y}<br>RSI: %{y:.1f}<extra></extra>"
+                    ))
+                    fig_rsi.add_hline(y=70, line_dash="dot", line_color="#F6465D", line_width=1,
+                        annotation_text="Quá mua (70)", annotation_font_color="#F6465D", annotation_font_size=10)
+                    fig_rsi.add_hline(y=30, line_dash="dot", line_color="#0ECB81", line_width=1,
+                        annotation_text="Quá bán (30)", annotation_font_color="#0ECB81", annotation_font_size=10)
+                    fig_rsi.update_layout(
+                        margin=dict(l=0,r=0,t=10,b=0), height=380,
+                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                        yaxis=dict(gridcolor="#F0F0F0", range=[0,100]),
+                        xaxis=dict(fixedrange=False), showlegend=False
+                    )
+                    st.plotly_chart(fig_rsi, use_container_width=True, config={"scrollZoom":True,"displayModeBar":False})
+                    rsi_c = "#F6465D" if rsi_now > 70 else "#0ECB81" if rsi_now < 30 else "#FFB300"
+                    rsi_msg = "Cổ phiếu đang ở vùng quá mua — thận trọng với rủi ro điều chỉnh." if rsi_now > 70 else \
+                              "Cổ phiếu đang ở vùng quá bán — có thể xuất hiện cơ hội bắt đáy." if rsi_now < 30 else \
+                              "RSI đang ở vùng trung tính, chưa có tín hiệu rõ ràng."
+                    st.markdown('<div style="background:#FAFAFA;border-left:3px solid ' + rsi_c + ';border-radius:4px;padding:10px 14px;font-size:12px;color:#474D57;">' + rsi_msg + '</div>', unsafe_allow_html=True)
+
+                with chart_tabs[4]:
+                    # MACD chart
+                    macd_colors = ["#0ECB81" if v >= 0 else "#F6465D" for v in hist["Hist"]]
+                    fig_macd = go.Figure()
+                    fig_macd.add_trace(go.Bar(
+                        x=hist.index, y=hist["Hist"], name="Histogram",
+                        marker_color=macd_colors, opacity=0.75
+                    ))
+                    fig_macd.add_trace(go.Scatter(
+                        x=hist.index, y=hist["MACD"], mode="lines",
+                        line=dict(color="#185FA5", width=1.5), name="MACD"
+                    ))
+                    fig_macd.add_trace(go.Scatter(
+                        x=hist.index, y=hist["Signal"], mode="lines",
+                        line=dict(color="#FF6B00", width=1.5), name="Signal"
+                    ))
+                    fig_macd.add_hline(y=0, line_color="#EAECEF", line_width=1)
+                    fig_macd.update_layout(
+                        margin=dict(l=0,r=0,t=10,b=0), height=380,
+                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                        yaxis=dict(gridcolor="#F0F0F0"), xaxis=dict(fixedrange=False),
+                        bargap=0.1,
+                        legend=dict(orientation="h", yanchor="bottom", y=1.02, font=dict(size=11))
+                    )
+                    st.plotly_chart(fig_macd, use_container_width=True, config={"scrollZoom":True,"displayModeBar":False})
+                    macd_c = "#0ECB81" if macd_now > signal_now else "#F6465D"
+                    macd_msg = "MACD cắt lên Signal — tín hiệu tích cực, xu hướng tăng có thể đang hình thành." if macd_now > signal_now else \
+                               "MACD cắt xuống Signal — tín hiệu tiêu cực, xu hướng giảm có thể đang hình thành."
+                    st.markdown('<div style="background:#FAFAFA;border-left:3px solid ' + macd_c + ';border-radius:4px;padding:10px 14px;font-size:12px;color:#474D57;">' + macd_msg + '</div>', unsafe_allow_html=True)
+
+                with chart_tabs[5]:
+                    # P/E history
+                    eps = info.get("trailingEps", 0)
+                    if eps and eps > 0:
+                        hist["PE_History"] = hist["Close"] / eps
+                        mean_pe = float(hist["PE_History"].mean())
+                        fig_pe = go.Figure()
+                        fig_pe.add_trace(go.Scatter(
+                            x=hist.index, y=hist["PE_History"], mode="lines", name="P/E",
+                            line=dict(color="#FF6B00", width=2),
+                            fill="tozeroy", fillcolor="rgba(255,107,0,0.07)"
+                        ))
+                        fig_pe.add_trace(go.Scatter(
+                            x=hist.index, y=[mean_pe]*len(hist), mode="lines", name="P/E TB",
+                            line=dict(color="#848E9C", width=1.5, dash="dash")
+                        ))
+                        fig_pe.update_layout(
+                            margin=dict(l=0,r=0,t=10,b=0), height=320,
+                            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                            yaxis=dict(gridcolor="#F0F0F0", fixedrange=False),
+                            xaxis=dict(fixedrange=False), dragmode="pan",
+                            legend=dict(orientation="h", yanchor="bottom", y=1.02, font=dict(size=11))
+                        )
+                        st.plotly_chart(fig_pe, use_container_width=True, config={"scrollZoom":True,"displayModeBar":True,"displaylogo":False})
+                        current_pe = float(hist["PE_History"].iloc[-1])
+                        pe_diff = ((current_pe - mean_pe) / mean_pe * 100) if mean_pe > 0 else 0
+                        pe_c = "#F6465D" if pe_diff > 15 else "#0ECB81" if pe_diff < -15 else "#FFB300"
+                        pe_s = "+" if pe_diff > 0 else ""
+                        pe_msg = "Định giá tương đối cao so với lịch sử." if pe_diff > 15 else \
+                                 "Có thể đang bị định giá thấp so với lịch sử." if pe_diff < -15 else \
+                                 "P/E giao động quanh mức trung bình lịch sử."
+                        _cpe = "{:.1f}".format(current_pe)
+                        _mpe = "{:.1f}".format(mean_pe)
+                        _pdiff = "{:.1f}".format(abs(pe_diff))
+                        st.markdown(
+                            '<div style="display:flex;gap:10px;margin-bottom:10px;">'
+                            '<div style="flex:1;background:#fff;border:0.5px solid #EAECEF;border-radius:8px;padding:10px;text-align:center;">'
+                            '<div style="font-size:9px;color:#848E9C;font-weight:600;margin-bottom:3px;">P/E HIỆN TẠI</div>'
+                            '<div style="font-size:18px;font-weight:700;color:' + pe_c + ';font-family:monospace;">' + _cpe + '</div>'
+                            '</div>'
+                            '<div style="flex:1;background:#fff;border:0.5px solid #EAECEF;border-radius:8px;padding:10px;text-align:center;">'
+                            '<div style="font-size:9px;color:#848E9C;font-weight:600;margin-bottom:3px;">P/E TB</div>'
+                            '<div style="font-size:18px;font-weight:700;color:#1E2329;font-family:monospace;">' + _mpe + '</div>'
+                            '</div>'
+                            '<div style="flex:1;background:#fff;border:0.5px solid #EAECEF;border-radius:8px;padding:10px;text-align:center;">'
+                            '<div style="font-size:9px;color:#848E9C;font-weight:600;margin-bottom:3px;">CHÊNH LỆCH</div>'
+                            '<div style="font-size:18px;font-weight:700;color:' + pe_c + ';font-family:monospace;">' + pe_s + _pdiff + '%</div>'
+                            '</div>'
+                            '</div>'
+                            '<div style="background:#FAFAFA;border-left:3px solid ' + pe_c + ';border-radius:4px;padding:10px 14px;font-size:12px;color:#474D57;">' + pe_msg + '</div>',
+                            unsafe_allow_html=True
+                        )
+                    else:
+                        st.info("Không đủ dữ liệu EPS để vẽ biểu đồ định giá P/E.")
+
+                with chart_tabs[6]:
+                    # So sánh đa mã — chuẩn hóa về 100 tại điểm đầu
+                    compare_tickers = [t.strip().upper() for t in compare_input.replace(",", " ").split() if t.strip()] if compare_input else []
+
+                    if not compare_tickers:
+                        st.info("Nhập thêm mã CP vào ô 'So sánh thêm mã khác' ở thanh tìm kiếm để so sánh hiệu suất.")
+                    else:
+                        fig_cmp = go.Figure()
+                        # Main ticker
+                        base = float(hist["Close"].iloc[0])
+                        norm_main = hist["Close"] / base * 100
+                        fig_cmp.add_trace(go.Scatter(
+                            x=hist.index, y=norm_main, mode="lines",
+                            line=dict(color="#FF6B00", width=2), name=search_ticker
+                        ))
+                        colors_cmp = ["#185FA5","#0ECB81","#9C27B0","#F6465D","#FFB300"]
+                        for i, cmp_tkr in enumerate(compare_tickers[:4]):
+                            with st.spinner("Đang tải " + cmp_tkr + "..."):
+                                h2, _ = fetch_stock_data_pro(cmp_tkr)
+                            if h2 is not None and not h2.empty:
+                                b2 = float(h2["Close"].iloc[0])
+                                n2 = h2["Close"] / b2 * 100
+                                fig_cmp.add_trace(go.Scatter(
+                                    x=h2.index, y=n2, mode="lines",
+                                    line=dict(color=colors_cmp[i % len(colors_cmp)], width=1.8),
+                                    name=cmp_tkr
+                                ))
+                        fig_cmp.add_hline(y=100, line_dash="dot", line_color="#EAECEF", line_width=1)
+                        fig_cmp.update_layout(
+                            margin=dict(l=0,r=0,t=10,b=0), height=380,
+                            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                            yaxis=dict(gridcolor="#F0F0F0", fixedrange=False,
+                                       ticksuffix="%", title="Hiệu suất (gốc = 100)"),
+                            xaxis=dict(fixedrange=False), dragmode="pan",
+                            legend=dict(orientation="h", yanchor="bottom", y=1.02, font=dict(size=11))
+                        )
+                        st.plotly_chart(fig_cmp, use_container_width=True, config={"scrollZoom":True,"displayModeBar":True,"displaylogo":False})
+                        st.caption("Hiệu suất được chuẩn hóa về 100 tại điểm đầu kỳ (1 năm). Giúp so sánh khách quan giữa các mã có mức giá khác nhau.")
+
+        render_stock_analysis_standalone()
+
+
+
+# ==========================================
+# KHỐI 3: TIN TỨC & CAROUSEL
+        @st.fragment
+        def render_stock_analysis_standalone():
+            # ── SEARCH BAR ──────────────────────────────────────────────────────
             with st.form(key="search_stock_form"):
                 col_search, col_btn, col_empty = st.columns([2, 1, 3])
                 with col_search:
@@ -1663,72 +2121,341 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
                 with col_btn:
                     submit_search = st.form_submit_button("Phân Tích")
 
-            if search_ticker:
-                with st.spinner(f"Đang tải dữ liệu {search_ticker}..."):
-                    hist, info = fetch_stock_data_pro(search_ticker)
-                    if hist is None:
-                        st.error("Đang lấy dữ liệu, vui lòng thử lại sau ít phút.")
-                        return
-                    if not hist.empty:
-                        if info is None: info = {}
-                        col_left, col_right = st.columns([1, 2.5])
-                        with col_left:
-                            current_price = info.get('currentPrice', hist['Close'].iloc[-1])
-                            prev_close = info.get('previousClose', hist['Close'].iloc[-2])
-                            change = current_price - prev_close
-                            change_pct = (change / prev_close) * 100 if prev_close else 0
-                            color = "#0ECB81" if change >= 0 else "#F6465D"
-                            sign = "+" if change >= 0 else ""
-                            st.markdown(f"""
-                            <div style='background: #FFFFFF; border: 1px solid #EAECEF; border-radius: 10px; padding: 20px; margin-bottom: 20px;'>
-                                <h2 style='margin:0; color:#1E2329; font-size: 36px; font-weight: 900; font-family: "SF Mono", Consolas, monospace;'>{search_ticker}</h2>
-                                <div style='color: #848E9C; font-size: 12px; margin-bottom: 12px; text-transform: uppercase; font-weight: 600;'>{info.get('industry', 'HOSE / HNX')}</div>
-                                <div style='font-size: 32px; font-weight: 800; color: #1E2329; font-family: "SF Mono", Consolas, monospace;'>{current_price:,.0f} ₫</div>
-                                <div style='color:{color}; font-size: 14px; font-weight: 700; margin-top: 4px;'>{sign}{change:,.0f} ({sign}{change_pct:.2f}%)</div>
-                            </div>
-                            """, unsafe_allow_html=True)
-                            st.markdown("<div style='font-weight: 700; font-size: 14px; margin-bottom: 12px; color: #1E2329;'>Chỉ số tài chính</div>", unsafe_allow_html=True)
-                            metrics = {
-                                "Vốn hóa": f"{info.get('marketCap', 0)/1e9:,.0f} Tỷ" if info.get('marketCap') else "N/A",
-                                "Khối lượng TB": f"{info.get('averageVolume', 0):,.0f}" if info.get('averageVolume') else "N/A",
-                                "EPS (TTM)": f"{info.get('trailingEps', 0):,.0f} ₫" if info.get('trailingEps') else "N/A",
-                                "P/E": f"{info.get('trailingPE', 0):.2f}" if info.get('trailingPE') else "N/A",
-                                "P/B": f"{info.get('priceToBook', 0):.2f}" if info.get('priceToBook') else "N/A",
-                                "Beta": f"{info.get('beta', 0):.2f}" if info.get('beta') else "N/A"
-                            }
-                            for k, v in metrics.items():
-                                st.markdown(f"<div style='display: flex; justify-content: space-between; border-bottom: 1px dashed #EAECEF; padding: 10px 0; font-size: 13px;'><span style='color:#707A8A; font-weight:600;'>{k}</span><span style='font-weight:800; color:#1E2329; font-family:\"SF Mono\",Consolas,monospace;'>{v}</span></div>", unsafe_allow_html=True)
+            if not search_ticker:
+                return
 
-                        with col_right:
-                            st.markdown("<div style='font-weight: 700; font-size: 14px; margin-bottom: 12px; color: #1E2329;'>Phân tích kỹ thuật (1 năm)</div>", unsafe_allow_html=True)
-                            fig_tech = go.Figure(data=[go.Candlestick(
-                                x=hist.index, open=hist['Open'], high=hist['High'], low=hist['Low'], close=hist['Close'],
-                                increasing_line_color='#0ECB81', decreasing_line_color='#F6465D'
-                            )])
-                            fig_tech.update_layout(
-                                margin=dict(l=0, r=0, t=10, b=0), height=350,
-                                xaxis_rangeslider_visible=False,
-                                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                                yaxis=dict(gridcolor='#F0F0F0', fixedrange=False),
-                                xaxis=dict(fixedrange=False),
-                                dragmode='pan'
-                            )
-                            st.plotly_chart(fig_tech, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True, 'displaylogo': False})
+            with st.spinner("Đang tải dữ liệu " + search_ticker + "..."):
+                hist, info = fetch_stock_data_pro(search_ticker)
 
-                            st.markdown("<div style='font-weight: 700; font-size: 14px; margin-top: 20px; margin-bottom: 12px; color: #1E2329;'>Định giá theo P/E</div>", unsafe_allow_html=True)
-                            eps = info.get('trailingEps', 0)
-                            if eps and eps > 0:
-                                hist['PE_History'] = hist['Close'] / eps
-                                mean_pe = hist['PE_History'].mean()
-                                fig_pe = go.Figure()
-                                fig_pe.add_trace(go.Scatter(x=hist.index, y=hist['PE_History'], mode='lines', name='Mức P/E', line=dict(color='#FF6B00', width=2), fill='tozeroy', fillcolor='rgba(255, 107, 0, 0.1)'))
-                                fig_pe.add_trace(go.Scatter(x=hist.index, y=[mean_pe]*len(hist), mode='lines', name='P/E Trung bình', line=dict(color='#848E9C', width=1.5, dash='dash')))
-                                fig_pe.update_layout(margin=dict(l=0, r=0, t=10, b=0), height=300, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', yaxis=dict(gridcolor='#F0F0F0', fixedrange=False), xaxis=dict(fixedrange=False), dragmode='pan', showlegend=False)
-                                st.plotly_chart(fig_pe, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True, 'displaylogo': False})
-                            else:
-                                st.info("Không đủ dữ liệu EPS để vẽ biểu đồ định giá P/E.")
+            if hist is None:
+                st.error("Đang lấy dữ liệu, vui lòng thử lại sau ít phút.")
+                return
+            if hist.empty:
+                st.error("Không tìm thấy dữ liệu cho mã " + search_ticker + ". Kiểm tra lại mã CP.")
+                return
+
+            if info is None: info = {}
+
+            # ── GIÁ & THÔNG SỐ CƠ BẢN ──────────────────────────────────────────
+            current_price = float(info.get("currentPrice", hist["Close"].iloc[-1]))
+            prev_close    = float(info.get("previousClose", hist["Close"].iloc[-2]))
+            change        = current_price - prev_close
+            change_pct    = (change / prev_close * 100) if prev_close else 0
+            price_color   = "#0ECB81" if change >= 0 else "#F6465D"
+            price_sign    = "+" if change >= 0 else ""
+            industry      = str(info.get("industry", "HOSE / HNX"))
+
+            # Tính MA
+            hist = hist.copy()
+            hist["MA20"]  = hist["Close"].rolling(20).mean()
+            hist["MA50"]  = hist["Close"].rolling(50).mean()
+            hist["MA200"] = hist["Close"].rolling(200).mean()
+
+            # RSI
+            delta  = hist["Close"].diff()
+            gain   = delta.clip(lower=0).rolling(14).mean()
+            loss   = (-delta.clip(upper=0)).rolling(14).mean()
+            rs     = gain / loss.replace(0, 1e-9)
+            hist["RSI"] = 100 - (100 / (1 + rs))
+            rsi_now = float(hist["RSI"].iloc[-1]) if not hist["RSI"].isna().all() else 50
+
+            # 52w high/low
+            w52_high = float(hist["Close"].max())
+            w52_low  = float(hist["Close"].min())
+            dist_from_high = (current_price - w52_high) / w52_high * 100
+
+            # Scoring đơn giản
+            score = 50
+            if change_pct > 0:   score += 10
+            if rsi_now < 70:     score += 10
+            if rsi_now > 30:     score += 5
+            if dist_from_high > -10: score += 10
+            ma20_last = hist["MA20"].iloc[-1]
+            if not pd.isna(ma20_last) and current_price > ma20_last: score += 10
+            score = min(score, 100)
+            score_color = "#0ECB81" if score >= 65 else "#FFB300" if score >= 45 else "#F6465D"
+            score_label = "Tích cực" if score >= 65 else "Trung lập" if score >= 45 else "Thận trọng"
+
+            # ── LAYOUT: CỘT TRÁI (INFO) + CỘT PHẢI (CHARTS) ────────────────────
+            col_left, col_right = st.columns([1, 2.5])
+
+            with col_left:
+                # Price card
+                _ind = industry
+                _cp  = "{:,.0f}".format(current_price)
+                _ch  = "{:,.0f}".format(abs(change))
+                _chp = "{:.2f}".format(abs(change_pct))
+                st.markdown(
+                    '<div style="background:#fff;border:0.5px solid #EAECEF;border-radius:10px;padding:18px 20px;margin-bottom:14px;">'
+                    '<div style="font-size:30px;font-weight:700;color:#1E2329;font-family:monospace;">' + search_ticker + '</div>'
+                    '<div style="color:#848E9C;font-size:11px;margin-bottom:10px;text-transform:uppercase;font-weight:600;">' + _ind + '</div>'
+                    '<div style="font-size:28px;font-weight:700;color:#1E2329;font-family:monospace;">' + _cp + ' ₫</div>'
+                    '<div style="color:' + price_color + ';font-size:13px;font-weight:700;margin-top:3px;">'
+                    + price_sign + _ch + ' (' + price_sign + _chp + '%)</div>'
+                    '</div>',
+                    unsafe_allow_html=True
+                )
+
+                # Score card
+                st.markdown(
+                    '<div style="background:#fff;border:0.5px solid #EAECEF;border-radius:10px;padding:14px 18px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;">'
+                    '<div>'
+                    '<div style="font-size:10px;color:#848E9C;font-weight:600;text-transform:uppercase;margin-bottom:4px;">Điểm kỹ thuật</div>'
+                    '<div style="font-size:11px;color:' + score_color + ';font-weight:700;">' + score_label + '</div>'
+                    '</div>'
+                    '<div style="font-size:36px;font-weight:700;color:' + score_color + ';font-family:monospace;">' + str(score) + '</div>'
+                    '</div>',
+                    unsafe_allow_html=True
+                )
+
+                # RSI gauge
+                rsi_disp  = "{:.1f}".format(rsi_now)
+                rsi_color = "#F6465D" if rsi_now > 70 else "#0ECB81" if rsi_now < 30 else "#FFB300"
+                rsi_label = "Quá mua" if rsi_now > 70 else "Quá bán" if rsi_now < 30 else "Trung tính"
+                rsi_pct   = int(rsi_now)
+                st.markdown(
+                    '<div style="background:#fff;border:0.5px solid #EAECEF;border-radius:10px;padding:14px 18px;margin-bottom:14px;">'
+                    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
+                    '<span style="font-size:11px;color:#848E9C;font-weight:600;text-transform:uppercase;">RSI(14)</span>'
+                    '<span style="font-size:14px;font-weight:700;color:' + rsi_color + ';">' + rsi_disp + ' · ' + rsi_label + '</span>'
+                    '</div>'
+                    '<div style="height:6px;background:#F0F2F5;border-radius:3px;">'
+                    '<div style="width:' + str(rsi_pct) + '%;height:100%;background:' + rsi_color + ';border-radius:3px;"></div>'
+                    '</div>'
+                    '<div style="display:flex;justify-content:space-between;font-size:9px;color:#B4B2A9;margin-top:3px;"><span>0</span><span>30</span><span>70</span><span>100</span></div>'
+                    '</div>',
+                    unsafe_allow_html=True
+                )
+
+                # 52w range
+                _w52h = "{:,.0f}".format(w52_high)
+                _w52l = "{:,.0f}".format(w52_low)
+                _dfh  = "{:.1f}".format(abs(dist_from_high))
+                rng_pct = int((current_price - w52_low) / (w52_high - w52_low) * 100) if (w52_high - w52_low) > 0 else 50
+                st.markdown(
+                    '<div style="background:#fff;border:0.5px solid #EAECEF;border-radius:10px;padding:14px 18px;margin-bottom:14px;">'
+                    '<div style="font-size:10px;color:#848E9C;font-weight:600;text-transform:uppercase;margin-bottom:8px;">Vùng giá 52 tuần</div>'
+                    '<div style="height:5px;background:#F0F2F5;border-radius:3px;margin-bottom:5px;">'
+                    '<div style="width:' + str(rng_pct) + '%;height:100%;background:#185FA5;border-radius:3px;"></div>'
+                    '</div>'
+                    '<div style="display:flex;justify-content:space-between;font-size:11px;font-weight:600;color:#848E9C;">'
+                    '<span>' + _w52l + '</span><span style="color:#A32D2D;font-size:10px;">-' + _dfh + '% từ đỉnh</span><span>' + _w52h + '</span>'
+                    '</div>'
+                    '</div>',
+                    unsafe_allow_html=True
+                )
+
+                # Chỉ số tài chính
+                st.markdown("<div style='font-size:12px;font-weight:600;color:#1E2329;margin-bottom:8px;'>Chỉ số tài chính</div>", unsafe_allow_html=True)
+                metrics = {
+                    "Vốn hóa":      ("{:,.0f} Tỷ".format(info.get("marketCap",0)/1e9)) if info.get("marketCap") else "N/A",
+                    "KL TB ngày":   ("{:,.0f}".format(info.get("averageVolume",0))) if info.get("averageVolume") else "N/A",
+                    "EPS (TTM)":    ("{:,.0f} ₫".format(info.get("trailingEps",0))) if info.get("trailingEps") else "N/A",
+                    "P/E":          ("{:.2f}".format(info.get("trailingPE",0))) if info.get("trailingPE") else "N/A",
+                    "P/B":          ("{:.2f}".format(info.get("priceToBook",0))) if info.get("priceToBook") else "N/A",
+                    "Beta":         ("{:.2f}".format(info.get("beta",0))) if info.get("beta") else "N/A",
+                    "Div Yield":    ("{:.2f}%".format(info.get("dividendYield",0)*100)) if info.get("dividendYield") else "N/A",
+                    "ROE":          ("{:.1f}%".format(info.get("returnOnEquity",0)*100)) if info.get("returnOnEquity") else "N/A",
+                }
+                rows_html = ""
+                for k, v in metrics.items():
+                    rows_html += (
+                        '<div style="display:flex;justify-content:space-between;border-bottom:0.5px dashed #EAECEF;padding:8px 0;font-size:12px;">'
+                        '<span style="color:#707A8A;font-weight:600;">' + k + '</span>'
+                        '<span style="font-weight:700;color:#1E2329;font-family:monospace;">' + str(v) + '</span>'
+                        '</div>'
+                    )
+                st.markdown('<div style="background:#fff;border:0.5px solid #EAECEF;border-radius:10px;padding:14px 18px;margin-bottom:14px;">' + rows_html + '</div>', unsafe_allow_html=True)
+
+                # Báo cáo tổ chức liên quan
+                try:
+                    rep_cache = st.session_state.get("rep_df_cache", pd.DataFrame())
+                    if not rep_cache.empty:
+                        tkr_reports = rep_cache[rep_cache["Ticker"].astype(str).str.upper() == search_ticker.upper()].head(4)
+                        if not tkr_reports.empty:
+                            st.markdown("<div style='font-size:12px;font-weight:600;color:#1E2329;margin-bottom:8px;'>Báo cáo tổ chức gần nhất</div>", unsafe_allow_html=True)
+                            rep_rows = ""
+                            for _, rr in tkr_reports.iterrows():
+                                act  = str(rr.get("Action",""))
+                                brk  = str(rr.get("Broker",""))
+                                dt   = str(rr.get("Date",""))
+                                tp   = rr.get("Target_Price","")
+                                try:    tp_fmt = "{:,.0f}".format(float(tp))
+                                except: tp_fmt = str(tp)
+                                act_up = act.upper()
+                                if any(k in act_up for k in ["MUA","KHẢ QUAN","TÍCH LŨY"]): ac="#0ECB81"
+                                elif any(k in act_up for k in ["BÁN","GIẢM"]): ac="#F6465D"
+                                else: ac="#FFB300"
+                                rep_rows += (
+                                    '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:0.5px solid #F0F2F5;">'
+                                    '<div>'
+                                    '<div style="font-size:11px;font-weight:700;color:#1E2329;">' + brk + '</div>'
+                                    '<div style="font-size:10px;color:#848E9C;">' + dt + '</div>'
+                                    '</div>'
+                                    '<div style="text-align:right;">'
+                                    '<div style="font-size:11px;font-weight:700;color:' + ac + ';">' + act + '</div>'
+                                    '<div style="font-size:10px;color:#FF6B00;font-weight:600;">TP: ' + tp_fmt + '</div>'
+                                    '</div>'
+                                    '</div>'
+                                )
+                            st.markdown('<div style="background:#fff;border:0.5px solid #EAECEF;border-radius:10px;padding:12px 16px;">' + rep_rows + '</div>', unsafe_allow_html=True)
+                except Exception: pass
+
+            # ── CỘT PHẢI: CHARTS ────────────────────────────────────────────────
+            with col_right:
+                chart_tabs = st.tabs(["Nến + MA", "Volume", "RSI", "Định giá P/E"])
+
+                with chart_tabs[0]:
+                    # Candlestick + MA lines
+                    fig_tech = go.Figure()
+                    fig_tech.add_trace(go.Candlestick(
+                        x=hist.index, open=hist["Open"], high=hist["High"],
+                        low=hist["Low"], close=hist["Close"],
+                        increasing_line_color="#0ECB81", decreasing_line_color="#F6465D",
+                        name="Giá"
+                    ))
+                    for ma_col, ma_color, ma_name in [("MA20","#FF6B00","MA20"), ("MA50","#185FA5","MA50"), ("MA200","#9C27B0","MA200")]:
+                        if ma_col in hist.columns and not hist[ma_col].isna().all():
+                            fig_tech.add_trace(go.Scatter(
+                                x=hist.index, y=hist[ma_col],
+                                mode="lines", line=dict(color=ma_color, width=1.2),
+                                name=ma_name, opacity=0.85
+                            ))
+                    fig_tech.update_layout(
+                        margin=dict(l=0,r=0,t=10,b=0), height=380,
+                        xaxis_rangeslider_visible=False,
+                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                        yaxis=dict(gridcolor="#F0F0F0", fixedrange=False),
+                        xaxis=dict(fixedrange=False),
+                        dragmode="pan",
+                        legend=dict(orientation="h", yanchor="bottom", y=1.02, font=dict(size=11))
+                    )
+                    st.plotly_chart(fig_tech, use_container_width=True, config={"scrollZoom":True,"displayModeBar":True,"displaylogo":False})
+
+                with chart_tabs[1]:
+                    # Volume bar chart colored by up/down
+                    vol_colors = ["#0ECB81" if c >= o else "#F6465D" for c, o in zip(hist["Close"], hist["Open"])]
+                    fig_vol = go.Figure(go.Bar(
+                        x=hist.index, y=hist["Volume"],
+                        marker_color=vol_colors, opacity=0.8,
+                        name="Khối lượng",
+                        hovertemplate="%{x|%d/%m/%Y}<br>KL: %{y:,.0f}<extra></extra>"
+                    ))
+                    # Volume MA 20
+                    vol_ma = hist["Volume"].rolling(20).mean()
+                    fig_vol.add_trace(go.Scatter(
+                        x=hist.index, y=vol_ma,
+                        mode="lines", line=dict(color="#FF6B00", width=1.5),
+                        name="KL TB 20 phiên"
+                    ))
+                    fig_vol.update_layout(
+                        margin=dict(l=0,r=0,t=10,b=0), height=380,
+                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                        yaxis=dict(gridcolor="#F0F0F0"),
+                        xaxis=dict(fixedrange=False),
+                        bargap=0.1,
+                        legend=dict(orientation="h", yanchor="bottom", y=1.02, font=dict(size=11))
+                    )
+                    st.plotly_chart(fig_vol, use_container_width=True, config={"scrollZoom":True,"displayModeBar":False})
+
+                with chart_tabs[2]:
+                    # RSI chart với vùng overbought/oversold
+                    fig_rsi = go.Figure()
+                    fig_rsi.add_hrect(y0=70, y1=100, fillcolor="#F6465D", opacity=0.06, line_width=0)
+                    fig_rsi.add_hrect(y0=0, y1=30, fillcolor="#0ECB81", opacity=0.06, line_width=0)
+                    fig_rsi.add_trace(go.Scatter(
+                        x=hist.index, y=hist["RSI"],
+                        mode="lines", line=dict(color="#185FA5", width=1.8),
+                        name="RSI(14)",
+                        hovertemplate="%{x|%d/%m/%Y}<br>RSI: %{y:.1f}<extra></extra>"
+                    ))
+                    fig_rsi.add_hline(y=70, line_dash="dot", line_color="#F6465D", line_width=1,
+                        annotation_text="Quá mua (70)", annotation_font_color="#F6465D", annotation_font_size=10)
+                    fig_rsi.add_hline(y=30, line_dash="dot", line_color="#0ECB81", line_width=1,
+                        annotation_text="Quá bán (30)", annotation_font_color="#0ECB81", annotation_font_size=10)
+                    fig_rsi.update_layout(
+                        margin=dict(l=0,r=0,t=10,b=0), height=380,
+                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                        yaxis=dict(gridcolor="#F0F0F0", range=[0,100]),
+                        xaxis=dict(fixedrange=False),
+                        showlegend=False
+                    )
+                    st.plotly_chart(fig_rsi, use_container_width=True, config={"scrollZoom":True,"displayModeBar":False})
+
+                    # RSI summary
+                    rsi_c = "#F6465D" if rsi_now > 70 else "#0ECB81" if rsi_now < 30 else "#FFB300"
+                    rsi_msg = "Cổ phiếu đang ở vùng quá mua — thận trọng với rủi ro điều chỉnh." if rsi_now > 70 else \
+                              "Cổ phiếu đang ở vùng quá bán — có thể xuất hiện cơ hội bắt đáy." if rsi_now < 30 else \
+                              "RSI đang ở vùng trung tính, chưa có tín hiệu rõ ràng."
+                    st.markdown(
+                        '<div style="background:#FAFAFA;border-left:3px solid ' + rsi_c + ';border-radius:4px;padding:10px 14px;font-size:12px;color:#474D57;">'
+                        + rsi_msg + '</div>',
+                        unsafe_allow_html=True
+                    )
+
+                with chart_tabs[3]:
+                    # P/E history (giữ nguyên logic gốc)
+                    eps = info.get("trailingEps", 0)
+                    if eps and eps > 0:
+                        hist["PE_History"] = hist["Close"] / eps
+                        mean_pe = float(hist["PE_History"].mean())
+                        fig_pe = go.Figure()
+                        fig_pe.add_trace(go.Scatter(
+                            x=hist.index, y=hist["PE_History"],
+                            mode="lines", name="P/E",
+                            line=dict(color="#FF6B00", width=2),
+                            fill="tozeroy", fillcolor="rgba(255,107,0,0.08)"
+                        ))
+                        fig_pe.add_trace(go.Scatter(
+                            x=hist.index, y=[mean_pe]*len(hist),
+                            mode="lines", name="P/E trung bình",
+                            line=dict(color="#848E9C", width=1.5, dash="dash")
+                        ))
+                        fig_pe.update_layout(
+                            margin=dict(l=0,r=0,t=10,b=0), height=340,
+                            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                            yaxis=dict(gridcolor="#F0F0F0", fixedrange=False),
+                            xaxis=dict(fixedrange=False),
+                            dragmode="pan",
+                            legend=dict(orientation="h", yanchor="bottom", y=1.02, font=dict(size=11))
+                        )
+                        st.plotly_chart(fig_pe, use_container_width=True, config={"scrollZoom":True,"displayModeBar":True,"displaylogo":False})
+
+                        # P/E vs mean summary
+                        current_pe = float(hist["PE_History"].iloc[-1]) if eps > 0 else 0
+                        pe_diff    = ((current_pe - mean_pe) / mean_pe * 100) if mean_pe > 0 else 0
+                        pe_c       = "#F6465D" if pe_diff > 15 else "#0ECB81" if pe_diff < -15 else "#FFB300"
+                        pe_s       = "+" if pe_diff > 0 else ""
+                        pe_msg     = "Cổ phiếu đang giao dịch trên P/E trung bình — định giá tương đối cao." if pe_diff > 15 else \
+                                     "Cổ phiếu đang giao dịch dưới P/E trung bình — có thể đang bị định giá thấp." if pe_diff < -15 else \
+                                     "P/E hiện tại giao động quanh mức trung bình lịch sử."
+                        _cpe = "{:.1f}".format(current_pe)
+                        _mpe = "{:.1f}".format(mean_pe)
+                        _pdiff = "{:.1f}".format(abs(pe_diff))
+                        st.markdown(
+                            '<div style="display:flex;gap:12px;margin-bottom:10px;">'
+                            '<div style="flex:1;background:#fff;border:0.5px solid #EAECEF;border-radius:8px;padding:12px;text-align:center;">'
+                            '<div style="font-size:10px;color:#848E9C;font-weight:600;margin-bottom:4px;">P/E HIỆN TẠI</div>'
+                            '<div style="font-size:20px;font-weight:700;color:' + pe_c + ';font-family:monospace;">' + _cpe + '</div>'
+                            '</div>'
+                            '<div style="flex:1;background:#fff;border:0.5px solid #EAECEF;border-radius:8px;padding:12px;text-align:center;">'
+                            '<div style="font-size:10px;color:#848E9C;font-weight:600;margin-bottom:4px;">P/E TRUNG BÌNH</div>'
+                            '<div style="font-size:20px;font-weight:700;color:#1E2329;font-family:monospace;">' + _mpe + '</div>'
+                            '</div>'
+                            '<div style="flex:1;background:#fff;border:0.5px solid #EAECEF;border-radius:8px;padding:12px;text-align:center;">'
+                            '<div style="font-size:10px;color:#848E9C;font-weight:600;margin-bottom:4px;">CHÊNH LỆCH</div>'
+                            '<div style="font-size:20px;font-weight:700;color:' + pe_c + ';font-family:monospace;">' + pe_s + _pdiff + '%</div>'
+                            '</div>'
+                            '</div>'
+                            '<div style="background:#FAFAFA;border-left:3px solid ' + pe_c + ';border-radius:4px;padding:10px 14px;font-size:12px;color:#474D57;">'
+                            + pe_msg + '</div>',
+                            unsafe_allow_html=True
+                        )
+                    else:
+                        st.info("Không đủ dữ liệu EPS để vẽ biểu đồ định giá P/E.")
 
         render_stock_analysis_standalone()
+
 
 
 # ==========================================
