@@ -736,74 +736,6 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
         t4_df_rep = get_report_data_direct()
         t4_price_dict = get_rs_price_mapping()
 
-        # Metrics tổng quan
-        if not t4_df_rep.empty:
-            _total = len(t4_df_rep)
-            _buy_mask = t4_df_rep['Action'].astype(str).str.upper().str.contains('MUA|TÍCH LŨY|KHẢ QUAN', na=False)
-            _buy = _buy_mask.sum()
-            _brokers_count = t4_df_rep['Broker'].nunique()
-            _tickers_count = t4_df_rep['Ticker'].nunique()
-
-            st.markdown("""
-            <style>
-            .t4-metric-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 28px; }
-            .t4-metric-card {
-                background: #FFFFFF;
-                border: 1px solid #EAECEF;
-                border-top: 3px solid #FF6B00;
-                border-radius: 10px;
-                padding: 18px 20px;
-            }
-            .t4-metric-label {
-                font-size: 11px;
-                font-weight: 700;
-                color: #848E9C;
-                text-transform: uppercase;
-                letter-spacing: 0.5px;
-                margin-bottom: 10px;
-            }
-            .t4-metric-val {
-                font-size: 30px;
-                font-weight: 900;
-                color: #1E2329;
-                font-family: 'SF Mono', Consolas, monospace;
-                line-height: 1;
-            }
-            .t4-metric-sub {
-                font-size: 12px;
-                color: #848E9C;
-                margin-top: 6px;
-                font-weight: 500;
-            }
-            </style>
-            """, unsafe_allow_html=True)
-
-            buy_pct = round(_buy / _total * 100) if _total else 0
-            st.markdown(f"""
-            <div class="t4-metric-row">
-                <div class="t4-metric-card">
-                    <div class="t4-metric-label">Tổng báo cáo</div>
-                    <div class="t4-metric-val">{_total}</div>
-                    <div class="t4-metric-sub">Trong hệ thống</div>
-                </div>
-                <div class="t4-metric-card" style="border-top-color: #0ECB81;">
-                    <div class="t4-metric-label">Khuyến nghị mua</div>
-                    <div class="t4-metric-val" style="color: #0ECB81;">{_buy}</div>
-                    <div class="t4-metric-sub">{buy_pct}% tổng số báo cáo</div>
-                </div>
-                <div class="t4-metric-card" style="border-top-color: #185FA5;">
-                    <div class="t4-metric-label">Tổ chức tham gia</div>
-                    <div class="t4-metric-val" style="color: #185FA5;">{_brokers_count}</div>
-                    <div class="t4-metric-sub">CTCK đang theo dõi</div>
-                </div>
-                <div class="t4-metric-card" style="border-top-color: #9C27B0;">
-                    <div class="t4-metric-label">Mã CP theo dõi</div>
-                    <div class="t4-metric-val" style="color: #9C27B0;">{_tickers_count}</div>
-                    <div class="t4-metric-sub">Cổ phiếu khác nhau</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
         # --- SUB TABS ---
         sub_tab1, sub_tab2, sub_tab3 = st.tabs(["Dòng thời gian khuyến nghị", "Danh mục chiến lược", "VNDiamond Flow"])
 
@@ -1141,49 +1073,115 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
                     st.warning("Đang kết nối Google Sheets. Vui lòng chờ giây lát rồi bấm F5...")
                     return
 
-                # ── DASHBOARD TỔNG QUAN ──────────────────────────────────────────
-                st.markdown("<div style='font-weight:500;font-size:15px;color:var(--text-primary);margin-bottom:14px;'>Tổng quan kỳ báo cáo</div>", unsafe_allow_html=True)
+                # ── DASHBOARD TỔNG QUAN (duy nhất, không trùng lặp) ─────────────
+                total_all    = len(df_rep)
+                act_col      = df_rep["Action"].astype(str).str.upper()
+                n_buy        = int(act_col.str.contains("MUA|TÍCH LŨY|KHẢ QUAN", na=False).sum())
+                n_sell       = int(act_col.str.contains("BÁN|GIẢM|KÉM", na=False).sum())
+                n_hold       = total_all - n_buy - n_sell
+                n_brokers    = df_rep["Broker"].nunique()
+                n_tickers    = df_rep["Ticker"].nunique()
+                buy_pct      = round(n_buy/total_all*100) if total_all else 0
+                sell_pct     = round(n_sell/total_all*100) if total_all else 0
+                hold_pct     = 100 - buy_pct - sell_pct
+                top_tickers  = df_rep["Ticker"].value_counts().head(5)
 
-                # 4 metric cards + donut chart + top stocks
-                total_all = len(df_rep)
-                act_col = df_rep["Action"].astype(str).str.upper()
-                n_buy  = act_col.str.contains("MUA|TÍCH LŨY|KHẢ QUAN", na=False).sum()
-                n_sell = act_col.str.contains("BÁN|GIẢM|KÉM", na=False).sum()
-                n_hold = total_all - n_buy - n_sell
+                # --- Row 1: 6 metric cards ---
+                m1, m2, m3, m4, m5, m6 = st.columns(6)
+                mcss = "background:#fff;border:0.5px solid #EAECEF;border-radius:10px;padding:12px 14px;border-top:2.5px solid "
+                def mk(col, lbl, val, sub, color):
+                    col.markdown(
+                        '<div style="' + mcss + color + '">'
+                        '<div style="font-size:10px;font-weight:600;color:#848E9C;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">' + lbl + '</div>'
+                        '<div style="font-size:22px;font-weight:700;color:' + color + ';font-family:monospace;line-height:1;">' + str(val) + '</div>'
+                        '<div style="font-size:10px;color:#848E9C;margin-top:4px;">' + sub + '</div>'
+                        '</div>',
+                        unsafe_allow_html=True
+                    )
+                mk(m1, "Tổng BC",     total_all, "Tất cả",            "#FF6B00")
+                mk(m2, "Mua",         n_buy,     str(buy_pct)+"% tổng", "#0ECB81")
+                mk(m3, "Trung lập",   n_hold,    str(hold_pct)+"% tổng","#FFB300")
+                mk(m4, "Bán",         n_sell,    str(sell_pct)+"% tổng","#F6465D")
+                mk(m5, "Tổ chức",     n_brokers, "CTCK",               "#185FA5")
+                mk(m6, "Mã CP",       n_tickers, "Cổ phiếu",           "#9C27B0")
 
-                # Top 5 mã được nhiều tổ chức nhất
-                top_tickers = df_rep["Ticker"].value_counts().head(5)
+                st.markdown("<br>", unsafe_allow_html=True)
 
-                dash_css = """<style>
-.db-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
-.db-card{background:#fff;border:0.5px solid #EAECEF;border-radius:10px;padding:14px 16px;border-top:2.5px solid #EAECEF}
-.db-lbl{font-size:10px;font-weight:600;color:#848E9C;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
-.db-val{font-size:26px;font-weight:700;color:#1E2329;font-family:'SF Mono',Consolas,monospace;line-height:1}
-.db-sub{font-size:11px;color:#848E9C;margin-top:5px}
-.top-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
-.top-pill{background:#F8FAFC;border:0.5px solid #EAECEF;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;color:#1E2329;display:flex;align-items:center;gap:6px}
-.top-count{background:#FF6B00;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700}
-</style>"""
-                buy_pct  = round(n_buy/total_all*100) if total_all else 0
-                sell_pct = round(n_sell/total_all*100) if total_all else 0
-                hold_pct = 100 - buy_pct - sell_pct
+                # --- Row 2: Donut | Bar hoạt động theo tháng | Top mã ---
+                ch1, ch2, ch3 = st.columns([1, 1.6, 1.4])
 
-                top_pills = ""
-                for tkr, cnt in top_tickers.items():
-                    top_pills += '<span class="top-pill">' + str(tkr) + '<span class="top-count">' + str(cnt) + '</span></span>'
+                with ch1:
+                    fig_donut = go.Figure(data=[go.Pie(
+                        labels=["Mua", "Trung lập", "Bán"],
+                        values=[n_buy, n_hold, n_sell],
+                        hole=0.65,
+                        marker_colors=["#0ECB81", "#FFB300", "#F6465D"],
+                        textinfo="none",
+                        hovertemplate="%{label}: %{value} báo cáo (%{percent})<extra></extra>"
+                    )])
+                    fig_donut.add_annotation(
+                        text="<b>" + str(total_all) + "</b><br><span style='font-size:10px'>báo cáo</span>",
+                        x=0.5, y=0.5, showarrow=False, font=dict(size=14, color="#1E2329"), align="center"
+                    )
+                    fig_donut.update_layout(
+                        margin=dict(t=10, b=10, l=10, r=10), height=180,
+                        showlegend=True,
+                        legend=dict(orientation="h", yanchor="bottom", y=-0.25, xanchor="center", x=0.5,
+                                    font=dict(size=11), itemwidth=40),
+                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)"
+                    )
+                    st.plotly_chart(fig_donut, use_container_width=True, config={"displayModeBar": False})
 
-                db_html = (
-                    dash_css +
-                    '<div class="db-grid">'
-                    '<div class="db-card" style="border-top-color:#FF6B00"><div class="db-lbl">Tổng báo cáo</div><div class="db-val">' + str(total_all) + '</div><div class="db-sub">Trong hệ thống</div></div>'
-                    '<div class="db-card" style="border-top-color:#0ECB81"><div class="db-lbl">Khuyến nghị mua</div><div class="db-val" style="color:#0ECB81">' + str(n_buy) + '</div><div class="db-sub">' + str(buy_pct) + '% tổng số</div></div>'
-                    '<div class="db-card" style="border-top-color:#FFB300"><div class="db-lbl">Trung lập</div><div class="db-val" style="color:#854F0B">' + str(n_hold) + '</div><div class="db-sub">' + str(hold_pct) + '% tổng số</div></div>'
-                    '<div class="db-card" style="border-top-color:#F6465D"><div class="db-lbl">Khuyến nghị bán</div><div class="db-val" style="color:#F6465D">' + str(n_sell) + '</div><div class="db-sub">' + str(sell_pct) + '% tổng số</div></div>'
-                    '</div>'
-                    '<div style="font-size:11px;color:#848E9C;font-weight:600;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">Top mã được theo dõi nhiều nhất</div>'
-                    '<div class="top-row">' + top_pills + '</div>'
-                )
-                st.markdown(db_html, unsafe_allow_html=True)
+                with ch2:
+                    # Bar chart: số báo cáo theo tháng (12 tháng gần nhất)
+                    df_rep["_dm"] = pd.to_datetime(df_rep["Date"], format="%d/%m/%Y", errors="coerce")
+                    monthly = (
+                        df_rep.dropna(subset=["_dm"])
+                        .groupby(df_rep["_dm"].dt.to_period("M"))
+                        .size()
+                        .tail(12)
+                        .reset_index()
+                    )
+                    monthly.columns = ["Month", "Count"]
+                    monthly["MonthStr"] = monthly["Month"].astype(str)
+                    df_rep.drop(columns=["_dm"], inplace=True, errors="ignore")
+
+                    fig_bar = go.Figure(go.Bar(
+                        x=monthly["MonthStr"], y=monthly["Count"],
+                        marker_color="#185FA5", opacity=0.85,
+                        hovertemplate="%{x}: %{y} báo cáo<extra></extra>"
+                    ))
+                    fig_bar.update_layout(
+                        margin=dict(t=10, b=30, l=10, r=10), height=180,
+                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                        xaxis=dict(showgrid=False, tickfont=dict(size=10)),
+                        yaxis=dict(showgrid=True, gridcolor="#F0F2F5", tickfont=dict(size=10)),
+                        bargap=0.3
+                    )
+                    st.plotly_chart(fig_bar, use_container_width=True, config={"displayModeBar": False})
+
+                with ch3:
+                    # Horizontal bar: top 8 mã được khuyến nghị nhiều nhất
+                    top8 = df_rep["Ticker"].value_counts().head(8)
+                    fig_top = go.Figure(go.Bar(
+                        x=top8.values[::-1], y=top8.index[::-1],
+                        orientation="h",
+                        marker_color="#FF6B00", opacity=0.85,
+                        hovertemplate="%{y}: %{x} báo cáo<extra></extra>",
+                        text=top8.values[::-1],
+                        textposition="outside",
+                        textfont=dict(size=10)
+                    ))
+                    fig_top.update_layout(
+                        margin=dict(t=10, b=10, l=10, r=30), height=180,
+                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                        xaxis=dict(showgrid=True, gridcolor="#F0F2F5", tickfont=dict(size=10)),
+                        yaxis=dict(showgrid=False, tickfont=dict(size=11, color="#1E2329")),
+                        bargap=0.25
+                    )
+                    st.plotly_chart(fig_top, use_container_width=True, config={"displayModeBar": False})
+
+                st.markdown("<hr style='border-top:0.5px solid #EAECEF;margin:4px 0 20px;'>", unsafe_allow_html=True)
 
                 # ── BỘ LỌC NÂNG CẤP ─────────────────────────────────────────────
                 with st.expander("Bộ lọc nâng cao", expanded=True):
