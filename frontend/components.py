@@ -1833,16 +1833,63 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
                     unsafe_allow_html=True
                 )
 
-                # Chỉ số tài chính
+                # ── CHỈ SỐ TÀI CHÍNH — FALLBACK TOÀN DIỆN TỪ HIST ─────────────
+                def _fmt_or(val, fmt, fallback="—"):
+                    try:
+                        if val is None or val == 0: return fallback
+                        return fmt.format(val)
+                    except: return fallback
+
+                # KL TB 20 phiên từ hist (luôn có)
+                _avg_vol_hist = int(hist["Volume"].tail(20).mean()) if "Volume" in hist.columns and len(hist) >= 20 else 0
+
+                # Lấy từ info, fallback tính từ hist
+                _mktcap    = info.get("marketCap", None)
+                _pe_info   = info.get("trailingPE", None)
+                _eps_info  = info.get("trailingEps", None)
+                _pb_info   = info.get("priceToBook", None)
+                _beta_info = info.get("beta", None)
+                _div_info  = info.get("dividendYield", None)
+                _roe_info  = info.get("returnOnEquity", None)
+                _avg_vol   = info.get("averageVolume", None) or (_avg_vol_hist if _avg_vol_hist > 0 else None)
+                _shares    = info.get("sharesOutstanding", None)
+
+                # Fallback: ước tính vốn hóa từ shares * giá
+                if not _mktcap and _shares and _shares > 0:
+                    _mktcap = _shares * current_price
+
+                # Fallback: EPS từ P/E và giá
+                if not _eps_info and _pe_info and _pe_info > 0:
+                    _eps_info = current_price / _pe_info
+
+                # Fallback: P/E từ EPS và giá
+                if not _pe_info and _eps_info and _eps_info > 0:
+                    _pe_info = current_price / _eps_info
+
+                # Biến động hàng năm từ hist (luôn tính được)
+                _ann_vol = float(hist["Close"].pct_change().std() * (252**0.5) * 100)
+
+                # Beta tự tính nếu không có (vs chính nó = 1, chỉ hiển thị từ API)
+                _beta_disp = "{:.2f}".format(_beta_info) if _beta_info else "—"
+
+                def _money(val, fallback="—"):
+                    if not val or val == 0: return fallback
+                    if val >= 1e12: return "{:.1f} Nghìn Tỷ".format(val/1e12)
+                    if val >= 1e9:  return "{:.1f} Tỷ".format(val/1e9)
+                    return "{:,.0f}".format(val)
+
                 metrics = {
-                    "Vốn hóa":    ("{:,.0f} Tỷ".format(info.get("marketCap",0)/1e9)) if info.get("marketCap") else "N/A",
-                    "KL TB ngày": ("{:,.0f}".format(info.get("averageVolume",0))) if info.get("averageVolume") else "N/A",
-                    "EPS (TTM)":  ("{:,.0f} ₫".format(info.get("trailingEps",0))) if info.get("trailingEps") else "N/A",
-                    "P/E":        ("{:.2f}".format(info.get("trailingPE",0))) if info.get("trailingPE") else "N/A",
-                    "P/B":        ("{:.2f}".format(info.get("priceToBook",0))) if info.get("priceToBook") else "N/A",
-                    "Beta":       ("{:.2f}".format(info.get("beta",0))) if info.get("beta") else "N/A",
-                    "Div Yield":  ("{:.2f}%".format(info.get("dividendYield",0)*100)) if info.get("dividendYield") else "N/A",
-                    "ROE":        ("{:.1f}%".format(info.get("returnOnEquity",0)*100)) if info.get("returnOnEquity") else "N/A",
+                    "Vốn hóa":   _money(_mktcap),
+                    "KL TB 20p": "{:,.0f}".format(_avg_vol) if _avg_vol else "—",
+                    "EPS (TTM)": "{:,.0f} ₫".format(_eps_info) if _eps_info else "—",
+                    "P/E":       "{:.1f}x".format(_pe_info) if _pe_info else "—",
+                    "P/B":       "{:.2f}x".format(_pb_info) if _pb_info else "—",
+                    "Beta":      _beta_disp,
+                    "Div Yield": "{:.2f}%".format(_div_info*100) if _div_info else "—",
+                    "ROE":       "{:.1f}%".format(_roe_info*100) if _roe_info else "—",
+                    "Biến động": "{:.1f}%/năm".format(_ann_vol),
+                    "52W High":  "{:,.0f} ₫".format(w52_high),
+                    "52W Low":   "{:,.0f} ₫".format(w52_low),
                 }
                 rows_html = ""
                 for k, v in metrics.items():
@@ -1959,10 +2006,13 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
                     fig_vol.update_layout(
                         margin=dict(l=0,r=0,t=10,b=0), height=380,
                         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                        yaxis=dict(gridcolor="#F0F0F0"), xaxis=dict(fixedrange=False), bargap=0.1,
+                        yaxis=dict(gridcolor="#F0F0F0", fixedrange=False),
+                        xaxis=dict(fixedrange=False, type="date"),
+                        bargap=0.1, dragmode="pan",
+                        uirevision=True,
                         legend=dict(orientation="h", yanchor="bottom", y=1.02, font=dict(size=11))
                     )
-                    st.plotly_chart(fig_vol, use_container_width=True, config={"scrollZoom":True,"displayModeBar":False})
+                    st.plotly_chart(fig_vol, use_container_width=True, key="chart_vol_"+search_ticker, config={"scrollZoom":True,"displayModeBar":True,"displaylogo":False,"modeBarButtonsToRemove":["lasso2d","select2d"]})
 
                 with chart_tabs[3]:
                     fig_rsi = go.Figure()
@@ -1980,10 +2030,12 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
                     fig_rsi.update_layout(
                         margin=dict(l=0,r=0,t=10,b=0), height=380,
                         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                        yaxis=dict(gridcolor="#F0F0F0", range=[0,100]),
-                        xaxis=dict(fixedrange=False), showlegend=False
+                        yaxis=dict(gridcolor="#F0F0F0", range=[0,100], fixedrange=False),
+                        xaxis=dict(fixedrange=False, type="date"),
+                        showlegend=False, dragmode="pan",
+                        uirevision=True,
                     )
-                    st.plotly_chart(fig_rsi, use_container_width=True, config={"scrollZoom":True,"displayModeBar":False})
+                    st.plotly_chart(fig_rsi, use_container_width=True, key="chart_rsi_"+search_ticker, config={"scrollZoom":True,"displayModeBar":True,"displaylogo":False,"modeBarButtonsToRemove":["lasso2d","select2d"]})
                     rsi_c = "#F6465D" if rsi_now > 70 else "#0ECB81" if rsi_now < 30 else "#FFB300"
                     rsi_msg = "Cổ phiếu đang ở vùng quá mua — thận trọng với rủi ro điều chỉnh." if rsi_now > 70 else \
                               "Cổ phiếu đang ở vùng quá bán — có thể xuất hiện cơ hội bắt đáy." if rsi_now < 30 else \
@@ -2010,11 +2062,13 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
                     fig_macd.update_layout(
                         margin=dict(l=0,r=0,t=10,b=0), height=380,
                         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                        yaxis=dict(gridcolor="#F0F0F0"), xaxis=dict(fixedrange=False),
-                        bargap=0.1,
+                        yaxis=dict(gridcolor="#F0F0F0", fixedrange=False),
+                        xaxis=dict(fixedrange=False, type="date"),
+                        bargap=0.1, dragmode="pan",
+                        uirevision=True,
                         legend=dict(orientation="h", yanchor="bottom", y=1.02, font=dict(size=11))
                     )
-                    st.plotly_chart(fig_macd, use_container_width=True, config={"scrollZoom":True,"displayModeBar":False})
+                    st.plotly_chart(fig_macd, use_container_width=True, key="chart_macd_"+search_ticker, config={"scrollZoom":True,"displayModeBar":True,"displaylogo":False,"modeBarButtonsToRemove":["lasso2d","select2d"]})
                     macd_c = "#0ECB81" if macd_now > signal_now else "#F6465D"
                     macd_msg = "MACD cắt lên Signal — tín hiệu tích cực, xu hướng tăng có thể đang hình thành." if macd_now > signal_now else \
                                "MACD cắt xuống Signal — tín hiệu tiêu cực, xu hướng giảm có thể đang hình thành."
