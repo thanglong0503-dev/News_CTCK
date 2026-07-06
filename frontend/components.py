@@ -2076,25 +2076,88 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
                         st.info("Không đủ dữ liệu EPS để vẽ biểu đồ định giá P/E.")
 
                 with chart_tabs[6]:
-                    # So sánh đa mã — chuẩn hóa về 100 tại điểm đầu
                     compare_tickers = [t.strip().upper() for t in compare_input.replace(",", " ").split() if t.strip()] if compare_input else []
 
                     if not compare_tickers:
-                        st.info("Nhập thêm mã CP vào ô 'So sánh thêm mã khác' ở thanh tìm kiếm để so sánh hiệu suất.")
+                        # Khi chưa nhập: gợi ý mã cùng ngành + hướng dẫn
+                        st.markdown(
+                            '<div style="background:#FFF8F3;border:0.5px solid #FFE0B2;border-radius:10px;padding:16px 20px;margin-bottom:16px;">'
+                            '<div style="font-size:12px;font-weight:600;color:#FF6B00;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px;">Cách sử dụng</div>'
+                            '<div style="font-size:13px;color:#474D57;line-height:1.6;">'
+                            'Nhập thêm mã CP vào ô <b>So sánh thêm</b> ở thanh tìm kiếm (VD: <b>HPG, MBB, VCB</b>) '
+                            'để so sánh hiệu suất tương đối. Biểu đồ sẽ chuẩn hóa về 100 tại điểm đầu kỳ.'
+                            '</div>'
+                            '</div>',
+                            unsafe_allow_html=True
+                        )
+                        # Gợi ý nhóm cổ phiếu phổ biến
+                        st.markdown("<div style='font-size:12px;font-weight:600;color:#1E2329;margin-bottom:10px;'>Gợi ý nhóm so sánh phổ biến</div>", unsafe_allow_html=True)
+                        groups_suggest = {
+                            "Ngân hàng lớn":     ["VCB", "BID", "CTG", "MBB", "TCB"],
+                            "Bất động sản":      ["VHM", "VIC", "NVL", "KDH", "PDR"],
+                            "Chứng khoán":       ["SSI", "VND", "HCM", "VCI", "MBS"],
+                            "Công nghệ & FPT":   ["FPT", "CMG", "VGI", "ELC", "FOX"],
+                            "Thép & Vật liệu":   ["HPG", "HSG", "NKG", "TLH", "TVN"],
+                            "Bán lẻ & Tiêu dùng":["MWG", "PNJ", "FRT", "DGW", "VNM"],
+                        }
+                        g_cols = st.columns(3)
+                        for gi, (gname, gmembers) in enumerate(groups_suggest.items()):
+                            with g_cols[gi % 3]:
+                                pills = " · ".join(gmembers)
+                                st.markdown(
+                                    '<div style="background:#fff;border:0.5px solid #EAECEF;border-radius:8px;padding:12px 14px;margin-bottom:10px;">'
+                                    '<div style="font-size:10px;font-weight:700;color:#848E9C;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">' + gname + '</div>'
+                                    '<div style="font-size:12px;font-weight:600;color:#1E2329;font-family:monospace;">' + pills + '</div>'
+                                    '</div>',
+                                    unsafe_allow_html=True
+                                )
+
+                        # Thống kê hiệu suất 1 năm của mã hiện tại
+                        st.markdown("<div style='font-size:12px;font-weight:600;color:#1E2329;margin:16px 0 10px;'>Hiệu suất 1 năm — " + search_ticker + "</div>", unsafe_allow_html=True)
+                        ret_1m  = (float(hist["Close"].iloc[-1]) / float(hist["Close"].iloc[-21]) - 1) * 100 if len(hist) >= 21 else 0
+                        ret_3m  = (float(hist["Close"].iloc[-1]) / float(hist["Close"].iloc[-63]) - 1) * 100 if len(hist) >= 63 else 0
+                        ret_6m  = (float(hist["Close"].iloc[-1]) / float(hist["Close"].iloc[-126]) - 1) * 100 if len(hist) >= 126 else 0
+                        ret_1y  = (float(hist["Close"].iloc[-1]) / float(hist["Close"].iloc[0]) - 1) * 100 if len(hist) >= 2 else 0
+                        vol_1y  = float(hist["Close"].pct_change().std() * (252**0.5) * 100)
+                        perf_items = [("1 tháng", ret_1m), ("3 tháng", ret_3m), ("6 tháng", ret_6m), ("1 năm", ret_1y)]
+                        p_cols = st.columns(4)
+                        for pi, (plbl, pval) in enumerate(perf_items):
+                            pc = "#0ECB81" if pval >= 0 else "#F6465D"
+                            ps = "+" if pval >= 0 else ""
+                            with p_cols[pi]:
+                                st.markdown(
+                                    '<div style="background:#fff;border:0.5px solid #EAECEF;border-radius:8px;padding:12px;text-align:center;">'
+                                    '<div style="font-size:10px;color:#848E9C;font-weight:600;margin-bottom:5px;text-transform:uppercase;">' + plbl + '</div>'
+                                    '<div style="font-size:20px;font-weight:700;color:' + pc + ';font-family:monospace;">' + ps + '{:.1f}%'.format(pval) + '</div>'
+                                    '</div>',
+                                    unsafe_allow_html=True
+                                )
+                        st.markdown(
+                            '<div style="background:#FAFAFA;border:0.5px solid #EAECEF;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:12px;color:#474D57;">'
+                            'Biến động hàng năm (Annualized Vol): <b style="color:#1E2329;font-family:monospace;">{:.1f}%</b> — '.format(vol_1y) +
+                            ('Biến động cao, thích hợp nhà đầu tư chấp nhận rủi ro.' if vol_1y > 40 else
+                             'Biến động trung bình.' if vol_1y > 20 else
+                             'Biến động thấp, tương đối ổn định.')
+                            + '</div>',
+                            unsafe_allow_html=True
+                        )
+
                     else:
+                        # Có mã so sánh: vẽ chart + bảng tương quan
                         fig_cmp = go.Figure()
-                        # Main ticker
                         base = float(hist["Close"].iloc[0])
                         norm_main = hist["Close"] / base * 100
                         fig_cmp.add_trace(go.Scatter(
                             x=hist.index, y=norm_main, mode="lines",
-                            line=dict(color="#FF6B00", width=2), name=search_ticker
+                            line=dict(color="#FF6B00", width=2.5), name=search_ticker
                         ))
                         colors_cmp = ["#185FA5","#0ECB81","#9C27B0","#F6465D","#FFB300"]
+                        compare_hists = {}
                         for i, cmp_tkr in enumerate(compare_tickers[:4]):
                             with st.spinner("Đang tải " + cmp_tkr + "..."):
                                 h2, _ = fetch_stock_data_pro(cmp_tkr)
                             if h2 is not None and not h2.empty:
+                                compare_hists[cmp_tkr] = h2
                                 b2 = float(h2["Close"].iloc[0])
                                 n2 = h2["Close"] / b2 * 100
                                 fig_cmp.add_trace(go.Scatter(
@@ -2104,15 +2167,77 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
                                 ))
                         fig_cmp.add_hline(y=100, line_dash="dot", line_color="#EAECEF", line_width=1)
                         fig_cmp.update_layout(
-                            margin=dict(l=0,r=0,t=10,b=0), height=380,
+                            margin=dict(l=0,r=0,t=10,b=0), height=320,
                             paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                            yaxis=dict(gridcolor="#F0F0F0", fixedrange=False,
-                                       ticksuffix="%", title="Hiệu suất (gốc = 100)"),
+                            yaxis=dict(gridcolor="#F0F0F0", fixedrange=False, ticksuffix="%"),
                             xaxis=dict(fixedrange=False), dragmode="pan",
                             legend=dict(orientation="h", yanchor="bottom", y=1.02, font=dict(size=11))
                         )
                         st.plotly_chart(fig_cmp, use_container_width=True, config={"scrollZoom":True,"displayModeBar":True,"displaylogo":False})
-                        st.caption("Hiệu suất được chuẩn hóa về 100 tại điểm đầu kỳ (1 năm). Giúp so sánh khách quan giữa các mã có mức giá khác nhau.")
+                        st.caption("Hiệu suất chuẩn hóa về 100 tại điểm đầu kỳ (1 năm).")
+
+                        # Bảng so sánh hiệu suất + tương quan
+                        st.markdown("<div style='font-size:12px;font-weight:600;color:#1E2329;margin:14px 0 10px;'>Bảng so sánh chi tiết</div>", unsafe_allow_html=True)
+
+                        all_tickers_data = {search_ticker: hist}
+                        all_tickers_data.update(compare_hists)
+
+                        rows_html = ""
+                        main_ret = hist["Close"].pct_change().dropna()
+
+                        for tkr_name, h_data in all_tickers_data.items():
+                            r1y = (float(h_data["Close"].iloc[-1]) / float(h_data["Close"].iloc[0]) - 1) * 100 if len(h_data) >= 2 else 0
+                            r1m = (float(h_data["Close"].iloc[-1]) / float(h_data["Close"].iloc[-21]) - 1) * 100 if len(h_data) >= 21 else 0
+                            vol = float(h_data["Close"].pct_change().std() * (252**0.5) * 100)
+                            # Tương quan với mã chính
+                            try:
+                                tkr_ret = h_data["Close"].pct_change().dropna()
+                                common_idx = main_ret.index.intersection(tkr_ret.index)
+                                if len(common_idx) > 10 and tkr_name != search_ticker:
+                                    corr = float(main_ret.loc[common_idx].corr(tkr_ret.loc[common_idx]))
+                                    corr_str = "{:.2f}".format(corr)
+                                    corr_c = "#0ECB81" if corr > 0.7 else "#FFB300" if corr > 0.3 else "#848E9C"
+                                else:
+                                    corr_str = "—"
+                                    corr_c = "#848E9C"
+                            except:
+                                corr_str = "—"; corr_c = "#848E9C"
+
+                            r1y_c = "#0ECB81" if r1y >= 0 else "#F6465D"
+                            r1m_c = "#0ECB81" if r1m >= 0 else "#F6465D"
+                            r1y_s = "+" if r1y >= 0 else ""
+                            r1m_s = "+" if r1m >= 0 else ""
+                            is_main = tkr_name == search_ticker
+
+                            rows_html += (
+                                '<tr style="border-bottom:0.5px solid #F0F2F5;"'
+                                + (' background:#FFF8F3;' if is_main else '') + '>'
+                                '<td style="padding:8px 12px;font-size:12px;font-weight:700;color:#1E2329;font-family:monospace;">'
+                                + tkr_name + ('&nbsp;<span style="font-size:9px;background:#FF6B00;color:#fff;padding:1px 5px;border-radius:3px;">chính</span>' if is_main else '')
+                                + '</td>'
+                                '<td style="padding:8px 12px;font-size:12px;font-weight:700;color:' + r1y_c + ';text-align:right;font-family:monospace;">' + r1y_s + '{:.1f}%'.format(r1y) + '</td>'
+                                '<td style="padding:8px 12px;font-size:12px;font-weight:700;color:' + r1m_c + ';text-align:right;font-family:monospace;">' + r1m_s + '{:.1f}%'.format(r1m) + '</td>'
+                                '<td style="padding:8px 12px;font-size:12px;color:#474D57;text-align:right;font-family:monospace;">{:.1f}%'.format(vol) + '</td>'
+                                '<td style="padding:8px 12px;font-size:12px;font-weight:700;color:' + corr_c + ';text-align:right;">' + corr_str + '</td>'
+                                '</tr>'
+                            )
+
+                        st.markdown(
+                            '<div style="background:#fff;border:0.5px solid #EAECEF;border-radius:8px;overflow:hidden;">'
+                            '<table style="width:100%;border-collapse:collapse;">'
+                            '<thead><tr style="background:#F8FAFC;">'
+                            '<th style="padding:8px 12px;font-size:10px;font-weight:700;color:#848E9C;text-transform:uppercase;letter-spacing:.4px;text-align:left;">Mã CP</th>'
+                            '<th style="padding:8px 12px;font-size:10px;font-weight:700;color:#848E9C;text-transform:uppercase;letter-spacing:.4px;text-align:right;">1 năm</th>'
+                            '<th style="padding:8px 12px;font-size:10px;font-weight:700;color:#848E9C;text-transform:uppercase;letter-spacing:.4px;text-align:right;">1 tháng</th>'
+                            '<th style="padding:8px 12px;font-size:10px;font-weight:700;color:#848E9C;text-transform:uppercase;letter-spacing:.4px;text-align:right;">Biến động</th>'
+                            '<th style="padding:8px 12px;font-size:10px;font-weight:700;color:#848E9C;text-transform:uppercase;letter-spacing:.4px;text-align:right;">Tương quan</th>'
+                            '</tr></thead>'
+                            '<tbody>' + rows_html + '</tbody>'
+                            '</table>'
+                            '</div>',
+                            unsafe_allow_html=True
+                        )
+                        st.caption("Tương quan Pearson so với " + search_ticker + ". Gần 1.0 = cùng chiều mạnh · Gần 0 = độc lập.")
 
         render_stock_analysis_standalone()
 
