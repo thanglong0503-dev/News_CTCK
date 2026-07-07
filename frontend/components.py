@@ -386,7 +386,7 @@ def render_hero_section():
 [data-testid="stTabs"] [data-testid="stTab"] button:focus { border: none !important; box-shadow: none !important;}
 </style>""", unsafe_allow_html=True)
 
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["TỔNG QUAN THỊ TRƯỜNG", "DỮ LIỆU GIAO DỊCH", "PHÂN TÍCH AI", "BÁO CÁO TỔ CHỨC", "SO SÁNH DỊCH VỤ", "PHÂN TÍCH CỔ PHIẾU"])
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["TỔNG QUAN THỊ TRƯỜNG", "DỮ LIỆU GIAO DỊCH", "PHÂN TÍCH AI", "BÁO CÁO TỔ CHỨC", "SO SÁNH DỊCH VỤ", "PHÂN TÍCH CỔ PHIẾU", "BỘ LỌC CỔ PHIẾU"])
 
     # --- TAB 1: TỔNG QUAN THỊ TRƯỜNG ---
     with tab1:
@@ -1934,7 +1934,7 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
 
             # ── CỘT PHẢI: CHARTS ────────────────────────────────────────────────
             with col_right:
-                chart_tabs = st.tabs(["Nến + MA", "Bollinger Bands", "Volume", "RSI", "MACD", "Định giá P/E", "So sánh mã"])
+                chart_tabs = st.tabs(["Nến + MA", "Bollinger Bands", "Volume", "RSI", "MACD", "Định giá P/E", "Dòng tiền", "So sánh mã"])
 
                 with chart_tabs[0]:
                     fig_tech = go.Figure()
@@ -2130,6 +2130,117 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
                         st.info("Không đủ dữ liệu EPS để vẽ biểu đồ định giá P/E.")
 
                 with chart_tabs[6]:
+                    # ── OBV (On-Balance Volume) ──────────────────────────────────
+                    obv = [0]
+                    for i in range(1, len(hist)):
+                        if float(hist["Close"].iloc[i]) > float(hist["Close"].iloc[i-1]):
+                            obv.append(obv[-1] + float(hist["Volume"].iloc[i]))
+                        elif float(hist["Close"].iloc[i]) < float(hist["Close"].iloc[i-1]):
+                            obv.append(obv[-1] - float(hist["Volume"].iloc[i]))
+                        else:
+                            obv.append(obv[-1])
+                    hist["OBV"] = obv
+                    hist["OBV_MA20"] = hist["OBV"].rolling(20).mean()
+
+                    # ── MFI (Money Flow Index 14) ────────────────────────────────
+                    tp = (hist["High"] + hist["Low"] + hist["Close"]) / 3
+                    rmf = tp * hist["Volume"]
+                    pos_mf = rmf.where(tp > tp.shift(1), 0)
+                    neg_mf = rmf.where(tp < tp.shift(1), 0)
+                    pos_sum = pos_mf.rolling(14).sum()
+                    neg_sum = neg_mf.rolling(14).sum()
+                    mfi_series = 100 - (100 / (1 + pos_sum / neg_sum.replace(0, 1e-9)))
+                    hist["MFI"] = mfi_series
+                    mfi_now = float(hist["MFI"].iloc[-1]) if not hist["MFI"].isna().all() else 50
+
+                    # ── VẼ SUBPLOT: OBV trên, MFI dưới ─────────────────────────
+                    from plotly.subplots import make_subplots
+                    fig_flow = make_subplots(
+                        rows=2, cols=1,
+                        shared_xaxes=True,
+                        row_heights=[0.55, 0.45],
+                        vertical_spacing=0.06,
+                        subplot_titles=["On-Balance Volume (OBV)", "Money Flow Index (MFI 14)"]
+                    )
+
+                    # OBV line
+                    obv_color = "#0ECB81" if float(hist["OBV"].iloc[-1]) > float(hist["OBV"].iloc[-20]) else "#F6465D"
+                    fig_flow.add_trace(go.Scatter(
+                        x=hist.index, y=hist["OBV"], mode="lines",
+                        line=dict(color=obv_color, width=1.8), name="OBV",
+                        fill="tozeroy", fillcolor=("rgba(14,203,129,0.07)" if obv_color=="#0ECB81" else "rgba(246,70,93,0.07)"),
+                        hovertemplate="%{x|%d/%m/%Y}<br>OBV: %{y:,.0f}<extra></extra>"
+                    ), row=1, col=1)
+                    fig_flow.add_trace(go.Scatter(
+                        x=hist.index, y=hist["OBV_MA20"], mode="lines",
+                        line=dict(color="#FF6B00", width=1.2, dash="dot"), name="OBV MA20",
+                        hovertemplate="%{x|%d/%m/%Y}<br>MA20: %{y:,.0f}<extra></extra>"
+                    ), row=1, col=1)
+
+                    # MFI bars
+                    mfi_colors = ["#F6465D" if v > 80 else "#0ECB81" if v < 20 else "#185FA5" for v in hist["MFI"].fillna(50)]
+                    fig_flow.add_trace(go.Bar(
+                        x=hist.index, y=hist["MFI"],
+                        marker_color=mfi_colors, opacity=0.75, name="MFI",
+                        hovertemplate="%{x|%d/%m/%Y}<br>MFI: %{y:.1f}<extra></extra>"
+                    ), row=2, col=1)
+                    fig_flow.add_hline(y=80, line_dash="dot", line_color="#F6465D", line_width=1, row=2, col=1)
+                    fig_flow.add_hline(y=20, line_dash="dot", line_color="#0ECB81", line_width=1, row=2, col=1)
+
+                    fig_flow.update_layout(
+                        height=480, margin=dict(l=0, r=0, t=30, b=0),
+                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                        dragmode="pan", uirevision=True, bargap=0.1,
+                        showlegend=True,
+                        legend=dict(orientation="h", yanchor="bottom", y=1.04, font=dict(size=11)),
+                    )
+                    fig_flow.update_xaxes(showgrid=False, fixedrange=False, type="date")
+                    fig_flow.update_yaxes(gridcolor="#F0F0F0", fixedrange=False)
+                    fig_flow.update_yaxes(range=[0, 100], row=2, col=1)
+
+                    st.plotly_chart(fig_flow, use_container_width=True,
+                        key="chart_flow_"+search_ticker,
+                        config={"scrollZoom":True,"displayModeBar":True,"displaylogo":False,
+                                "modeBarButtonsToRemove":["lasso2d","select2d"]})
+
+                    # Nhận xét dòng tiền
+                    obv_trend = float(hist["OBV"].iloc[-1]) > float(hist["OBV"].iloc[-20])
+                    mfi_zone  = "quá mua" if mfi_now > 80 else "quá bán" if mfi_now < 20 else "trung tính"
+                    mfi_c     = "#F6465D" if mfi_now > 80 else "#0ECB81" if mfi_now < 20 else "#FFB300"
+
+                    if obv_trend and mfi_now < 80:
+                        flow_msg = "OBV đang tăng — dòng tiền tích lũy vào cổ phiếu. MFI " + mfi_zone + " (" + "{:.1f}".format(mfi_now) + "). Tín hiệu tích lũy tích cực."
+                        flow_c = "#0ECB81"
+                    elif not obv_trend and mfi_now > 20:
+                        flow_msg = "OBV đang giảm — dòng tiền đang rút khỏi cổ phiếu. MFI " + mfi_zone + " (" + "{:.1f}".format(mfi_now) + "). Cần thận trọng."
+                        flow_c = "#F6465D"
+                    else:
+                        flow_msg = "Tín hiệu dòng tiền chưa rõ ràng. MFI " + mfi_zone + " (" + "{:.1f}".format(mfi_now) + "). Chờ xác nhận thêm."
+                        flow_c = "#FFB300"
+
+                    fc1, fc2, fc3 = st.columns(3)
+                    _obv_now  = float(hist["OBV"].iloc[-1])
+                    _obv_20   = float(hist["OBV"].iloc[-20]) if len(hist) >= 20 else _obv_now
+                    _obv_chg  = (_obv_now - _obv_20) / abs(_obv_20) * 100 if _obv_20 != 0 else 0
+                    _obv_s    = "+" if _obv_chg >= 0 else ""
+                    _obv_col  = "#0ECB81" if _obv_chg >= 0 else "#F6465D"
+                    for col, lbl, val, vc in [
+                        (fc1, "OBV 20 phiên", _obv_s + "{:.1f}%".format(_obv_chg), _obv_col),
+                        (fc2, "MFI hiện tại", "{:.1f}".format(mfi_now), mfi_c),
+                        (fc3, "Vùng MFI", mfi_zone.upper(), mfi_c),
+                    ]:
+                        col.markdown(
+                            '<div style="background:#fff;border:0.5px solid #EAECEF;border-radius:8px;padding:10px 12px;text-align:center;">'
+                            '<div style="font-size:10px;color:#848E9C;font-weight:600;text-transform:uppercase;margin-bottom:4px;">' + lbl + '</div>'
+                            '<div style="font-size:17px;font-weight:700;color:' + vc + ';font-family:monospace;">' + val + '</div>'
+                            '</div>', unsafe_allow_html=True
+                        )
+                    st.markdown(
+                        '<div style="background:#FAFAFA;border-left:3px solid ' + flow_c + ';border-radius:4px;padding:10px 14px;font-size:12px;color:#474D57;margin-top:8px;">'
+                        + flow_msg + '</div>', unsafe_allow_html=True
+                    )
+
+                with chart_tabs[7]:
                     compare_tickers = [t.strip().upper() for t in compare_input.replace(",", " ").split() if t.strip()] if compare_input else []
 
                     if not compare_tickers:
@@ -2295,8 +2406,290 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
 
         render_stock_analysis_standalone()
 
+    # ==========================================
+    # TAB 7: BỘ LỌC CỔ PHIẾU (STOCK SCREENER)
+    # ==========================================
+    with tab7:
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown(
+            '<div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;">'
+            '<h2 style="font-size:20px;font-weight:700;color:#1E2329;margin:0;">Bộ lọc cổ phiếu</h2>'
+            '<span style="background:#185FA5;color:#fff;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;letter-spacing:.3px;">SCREENER</span>'
+            '</div>'
+            '<div style="color:#707A8A;font-size:13px;margin-bottom:24px;">Lọc cổ phiếu từ RS_DATA theo nhiều tiêu chí — kết quả click thẳng sang tab Phân tích.</div>',
+            unsafe_allow_html=True
+        )
 
+        @st.fragment
+        def render_screener():
+            import json, math
 
+            # Load data từ session_state (tận dụng cache RS đã có từ Tab 3)
+            @st.cache_data(ttl=1800, show_spinner=False)
+            def load_screener_data():
+                try:
+                    import gspread, json as _json
+                    from oauth2client.service_account import ServiceAccountCredentials
+                    creds_dict = _json.loads(st.secrets["GOOGLE_CREDENTIALS"])
+                    scope = ["https://spreadsheets.google.com/feeds","https://www.googleapis.com/auth/drive"]
+                    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+                    client = gspread.authorize(creds)
+                    sheet = client.open("LINANCE_DB").worksheet("RS_DATA")
+                    raw = sheet.get_all_values()
+                    if len(raw) < 2: return pd.DataFrame()
+                    df = pd.DataFrame(raw[1:], columns=raw[0])
+                    for col in ["RS_1M","RS_3M","Điểm_KT","Thanh_Khoản_Tỷ","Giá"]:
+                        if col in df.columns:
+                            df[col] = pd.to_numeric(
+                                df[col].astype(str).str.replace(",","."), errors="coerce"
+                            ).fillna(0)
+                    return df
+                except Exception:
+                    return pd.DataFrame()
+
+            with st.spinner("Đang tải dữ liệu screener..."):
+                df_sc = load_screener_data()
+
+            if df_sc.empty:
+                st.warning("Chưa kết nối được RS_DATA. Kiểm tra lại Google Sheets.")
+                return
+
+            total_stocks = len(df_sc)
+
+            # ── PRESET NHANH ────────────────────────────────────────────────────
+            st.markdown("<div style='font-size:12px;font-weight:600;color:#1E2329;margin-bottom:8px;'>Bộ lọc nhanh</div>", unsafe_allow_html=True)
+            preset_cols = st.columns(5)
+            presets = {
+                "Xu hướng mạnh":   dict(rs1_min=80, rs3_min=70, kt_min=4, liq_min=5,  liq_max=9999),
+                "Bứt phá sức mạnh":dict(rs1_min=90, rs3_min=80, kt_min=4, liq_min=10, liq_max=9999),
+                "Tích lũy tiềm năng":dict(rs1_min=60,rs3_min=50, kt_min=3, liq_min=2, liq_max=9999),
+                "Thanh khoản cao": dict(rs1_min=0,  rs3_min=0,  kt_min=0, liq_min=50, liq_max=9999),
+                "Tất cả":          dict(rs1_min=0,  rs3_min=0,  kt_min=0, liq_min=0,  liq_max=9999),
+            }
+            preset_colors = ["#0ECB81","#9C27B0","#185FA5","#FF6B00","#848E9C"]
+            for i, (pname, _) in enumerate(presets.items()):
+                if preset_cols[i].button(pname, key="preset_"+str(i), use_container_width=True):
+                    st.session_state["sc_preset"] = pname
+
+            active_preset = st.session_state.get("sc_preset", "Tất cả")
+            pvals = presets[active_preset]
+
+            # ── BỘ LỌC CHI TIẾT ─────────────────────────────────────────────────
+            with st.expander("Tùy chỉnh bộ lọc chi tiết", expanded=(active_preset == "Tất cả")):
+                fc1, fc2, fc3 = st.columns(3)
+                fc4, fc5, fc6 = st.columns(3)
+
+                with fc1:
+                    rs1_min = st.slider("RS 1 tháng tối thiểu", 0, 100, pvals["rs1_min"], key="sc_rs1")
+                with fc2:
+                    rs3_min = st.slider("RS 3 tháng tối thiểu", 0, 100, pvals["rs3_min"], key="sc_rs3")
+                with fc3:
+                    kt_min  = st.slider("Điểm kỹ thuật tối thiểu", 0, 5, pvals["kt_min"], key="sc_kt")
+                with fc4:
+                    liq_min = st.number_input("Thanh khoản tối thiểu (Tỷ)", 0.0, 9999.0, float(pvals["liq_min"]), step=1.0, key="sc_liq_min")
+                with fc5:
+                    liq_max = st.number_input("Thanh khoản tối đa (Tỷ)", 0.0, 9999.0, float(pvals["liq_max"]), step=10.0, key="sc_liq_max")
+                with fc6:
+                    industries = ["Tất cả ngành"] + sorted(df_sc["Ngành"].dropna().unique().tolist()) if "Ngành" in df_sc.columns else ["Tất cả ngành"]
+                    sel_industry = st.selectbox("Ngành", industries, key="sc_industry")
+
+                sort_col_map = {
+                    "RS 1 tháng (cao → thấp)": ("RS_1M", False),
+                    "RS 3 tháng (cao → thấp)": ("RS_3M", False),
+                    "Thanh khoản (cao → thấp)": ("Thanh_Khoản_Tỷ", False),
+                    "Điểm kỹ thuật (cao → thấp)": ("Điểm_KT", False),
+                    "Giá (thấp → cao)": ("Giá", True),
+                }
+                sort_opt = st.selectbox("Sắp xếp theo", list(sort_col_map.keys()), key="sc_sort")
+
+            # ── ÁP DỤNG BỘ LỌC ─────────────────────────────────────────────────
+            df_filtered = df_sc.copy()
+            if "RS_1M" in df_filtered.columns:
+                df_filtered = df_filtered[df_filtered["RS_1M"] >= rs1_min]
+            if "RS_3M" in df_filtered.columns:
+                df_filtered = df_filtered[df_filtered["RS_3M"] >= rs3_min]
+            if "Điểm_KT" in df_filtered.columns:
+                df_filtered = df_filtered[df_filtered["Điểm_KT"] >= kt_min]
+            if "Thanh_Khoản_Tỷ" in df_filtered.columns:
+                df_filtered = df_filtered[
+                    (df_filtered["Thanh_Khoản_Tỷ"] >= liq_min) &
+                    (df_filtered["Thanh_Khoản_Tỷ"] <= (liq_max if liq_max < 9999 else 999999))
+                ]
+            if sel_industry != "Tất cả ngành" and "Ngành" in df_filtered.columns:
+                df_filtered = df_filtered[df_filtered["Ngành"] == sel_industry]
+
+            sort_field, sort_asc = sort_col_map[sort_opt]
+            if sort_field in df_filtered.columns:
+                df_filtered = df_filtered.sort_values(sort_field, ascending=sort_asc).reset_index(drop=True)
+
+            n_result = len(df_filtered)
+
+            # ── SUMMARY BAR ─────────────────────────────────────────────────────
+            sb1, sb2, sb3, sb4 = st.columns(4)
+            pct_pass = round(n_result / total_stocks * 100) if total_stocks > 0 else 0
+
+            for col, lbl, val, vc in [
+                (sb1, "Kết quả", str(n_result) + " mã", "#1E2329"),
+                (sb2, "Tỷ lệ lọc", str(pct_pass) + "%", "#185FA5"),
+                (sb3, "Tổng vũ trụ", str(total_stocks) + " mã", "#848E9C"),
+                (sb4, "Preset", active_preset, "#FF6B00"),
+            ]:
+                col.markdown(
+                    '<div style="background:#fff;border:0.5px solid #EAECEF;border-radius:8px;padding:10px 12px;margin-bottom:14px;">'
+                    '<div style="font-size:10px;color:#848E9C;font-weight:600;text-transform:uppercase;margin-bottom:4px;">' + lbl + '</div>'
+                    '<div style="font-size:15px;font-weight:700;color:' + vc + ';font-family:monospace;">' + val + '</div>'
+                    '</div>', unsafe_allow_html=True
+                )
+
+            if df_filtered.empty:
+                st.info("Không có mã nào thỏa mãn tiêu chí. Hãy nới lỏng bộ lọc.")
+                return
+
+            # ── BIỂU ĐỒ PHÂN BỔ ────────────────────────────────────────────────
+            if len(df_filtered) > 1:
+                ch_a, ch_b = st.columns(2)
+                with ch_a:
+                    # Scatter: RS1M vs Thanh khoản
+                    fig_sc1 = px.scatter(
+                        df_filtered,
+                        x="RS_1M" if "RS_1M" in df_filtered.columns else df_filtered.columns[0],
+                        y="Thanh_Khoản_Tỷ" if "Thanh_Khoản_Tỷ" in df_filtered.columns else df_filtered.columns[1],
+                        color="Điểm_KT" if "Điểm_KT" in df_filtered.columns else None,
+                        text="Mã CK" if "Mã CK" in df_filtered.columns else None,
+                        size="Thanh_Khoản_Tỷ" if "Thanh_Khoản_Tỷ" in df_filtered.columns else None,
+                        color_continuous_scale=[[0,"#F6465D"],[0.5,"#FFB300"],[1,"#0ECB81"]],
+                        hover_data={"Ngành":True} if "Ngành" in df_filtered.columns else {},
+                        title=""
+                    )
+                    fig_sc1.update_traces(
+                        textposition="top center",
+                        textfont=dict(size=9, color="#1E2329"),
+                        marker=dict(line=dict(width=0.5, color="#fff"), opacity=0.85)
+                    )
+                    fig_sc1.update_layout(
+                        height=280, margin=dict(l=0,r=0,t=10,b=0),
+                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                        xaxis=dict(gridcolor="#F0F2F5", title="RS 1 tháng"),
+                        yaxis=dict(gridcolor="#F0F2F5", title="Thanh khoản (Tỷ)"),
+                        coloraxis_showscale=False, dragmode="pan"
+                    )
+                    st.plotly_chart(fig_sc1, use_container_width=True, config={"scrollZoom":True,"displayModeBar":False})
+
+                with ch_b:
+                    # Bar: top ngành
+                    if "Ngành" in df_filtered.columns:
+                        industry_counts = df_filtered["Ngành"].value_counts().head(10)
+                        fig_sc2 = go.Figure(go.Bar(
+                            x=industry_counts.values[::-1],
+                            y=industry_counts.index[::-1],
+                            orientation="h",
+                            marker_color="#185FA5", opacity=0.8,
+                            text=industry_counts.values[::-1],
+                            textposition="outside",
+                            textfont=dict(size=10)
+                        ))
+                        fig_sc2.update_layout(
+                            height=280, margin=dict(l=0,r=30,t=10,b=0),
+                            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                            xaxis=dict(gridcolor="#F0F2F5"),
+                            yaxis=dict(tickfont=dict(size=10)),
+                            bargap=0.2
+                        )
+                        st.plotly_chart(fig_sc2, use_container_width=True, config={"displayModeBar":False})
+
+            # ── BẢNG KẾT QUẢ ────────────────────────────────────────────────────
+            st.markdown("<div style='font-size:12px;font-weight:600;color:#1E2329;margin:8px 0 10px;'>Danh sách kết quả</div>", unsafe_allow_html=True)
+
+            # CSS table
+            st.markdown("""<style>
+.sc-table{width:100%;border-collapse:collapse;font-size:12px}
+.sc-table th{background:#F8FAFC;padding:9px 12px;font-size:10px;font-weight:700;color:#848E9C;text-transform:uppercase;letter-spacing:.4px;border-bottom:0.5px solid #EAECEF;text-align:left}
+.sc-table td{padding:9px 12px;border-bottom:0.5px solid #F0F2F5;color:#1E2329;vertical-align:middle}
+.sc-table tr:hover td{background:#FAFAFA}
+.sc-tkr{font-weight:700;font-size:13px;color:#185FA5;font-family:monospace}
+.sc-rs{font-weight:700;color:#fff;border-radius:4px;padding:2px 7px;font-size:11px;display:inline-block;min-width:28px;text-align:center}
+.sc-stars{color:#FF6B00;font-size:12px;letter-spacing:-1px}
+</style>""", unsafe_allow_html=True)
+
+            # Phân trang
+            SC_PER_PAGE = 15
+            sc_total_pg = max(1, math.ceil(n_result / SC_PER_PAGE))
+            if "sc_page" not in st.session_state: st.session_state.sc_page = 1
+            st.session_state.sc_page = max(1, min(st.session_state.sc_page, sc_total_pg))
+            page_df = df_filtered.iloc[(st.session_state.sc_page-1)*SC_PER_PAGE : st.session_state.sc_page*SC_PER_PAGE]
+
+            def rs_badge(score):
+                s = int(score)
+                if s >= 90: bg="#9C27B0"
+                elif s >= 70: bg="#0ECB81"
+                elif s >= 40: bg="#FFB300"
+                else: bg="#F6465D"
+                return '<span class="sc-rs" style="background:' + bg + ';">' + str(s) + '</span>'
+
+            rows = ""
+            for rank, (_, row) in enumerate(page_df.iterrows(), start=(st.session_state.sc_page-1)*SC_PER_PAGE+1):
+                ma_ck   = str(row.get("Mã CK", ""))
+                nganh   = str(row.get("Ngành", "—"))
+                rs1     = row.get("RS_1M", 0)
+                rs3     = row.get("RS_3M", 0)
+                kt      = int(row.get("Điểm_KT", 0))
+                liq     = float(row.get("Thanh_Khoản_Tỷ", 0))
+                gia     = float(row.get("Giá", 0))
+                stars   = "★" * kt + "☆" * (5-kt)
+                gia_fmt = "{:,.0f}".format(gia) if gia > 0 else "—"
+                liq_fmt = "{:.1f} Tỷ".format(liq) if liq > 0 else "—"
+
+                rows += (
+                    "<tr>"
+                    "<td style='color:#848E9C;font-size:11px;'>" + str(rank) + "</td>"
+                    "<td><span class='sc-tkr'>" + ma_ck + "</span></td>"
+                    "<td style='color:#707A8A;font-size:11px;'>" + nganh + "</td>"
+                    "<td>" + rs_badge(rs1) + "</td>"
+                    "<td>" + rs_badge(rs3) + "</td>"
+                    "<td><span class='sc-stars'>" + stars + "</span></td>"
+                    "<td style='font-family:monospace;font-weight:600;'>" + liq_fmt + "</td>"
+                    "<td style='font-family:monospace;'>" + gia_fmt + "</td>"
+                    "</tr>"
+                )
+
+            st.markdown(
+                '<div style="background:#fff;border:0.5px solid #EAECEF;border-radius:10px;overflow:hidden;">'
+                '<table class="sc-table"><thead><tr>'
+                '<th style="width:32px">#</th><th>Mã CP</th><th>Ngành</th>'
+                '<th>RS 1T</th><th>RS 3T</th><th>Kỹ thuật</th>'
+                '<th>Thanh khoản</th><th>Giá</th>'
+                '</tr></thead><tbody>' + rows + '</tbody></table>'
+                '</div>',
+                unsafe_allow_html=True
+            )
+
+            # Phân trang
+            if sc_total_pg > 1:
+                pc = st.columns([2, 1, 2, 1, 2])
+                with pc[1]:
+                    if st.button("Trước", disabled=(st.session_state.sc_page<=1), use_container_width=True, key="sc_prev"):
+                        st.session_state.sc_page -= 1
+                        st.rerun(scope="fragment")
+                with pc[2]:
+                    st.markdown(
+                        "<div style='text-align:center;padding-top:8px;font-size:12px;color:#474D57;font-weight:600;'>Trang "
+                        + str(st.session_state.sc_page) + " / " + str(sc_total_pg) + "</div>",
+                        unsafe_allow_html=True
+                    )
+                with pc[3]:
+                    if st.button("Tiếp", disabled=(st.session_state.sc_page>=sc_total_pg), use_container_width=True, key="sc_next"):
+                        st.session_state.sc_page += 1
+                        st.rerun(scope="fragment")
+
+            st.markdown(
+                '<div style="margin-top:12px;padding:10px 14px;background:#FFF8F3;border:0.5px solid #FFE0B2;border-radius:6px;font-size:11px;color:#707A8A;">'
+                'Dữ liệu từ LINANCE_DB · RS_DATA. Cache 30 phút. '
+                'RS = Relative Strength so với toàn thị trường. Điểm kỹ thuật 1–5 sao.'
+                '</div>',
+                unsafe_allow_html=True
+            )
+
+        render_screener()
 
 
 @st.fragment
