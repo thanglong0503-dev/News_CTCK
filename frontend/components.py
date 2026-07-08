@@ -556,31 +556,152 @@ def render_hero_section():
 
         with col_left:
             st.markdown(
-                "<div style='font-size:13px;font-weight:600;color:#E65100;margin-bottom:10px;text-transform:uppercase;'>Bảng Xếp Hạng RS — Top 20</div>"
-                "<div style='color:#707A8A;font-size:12px;margin-bottom:14px;'>"
-                "<span style='color:#9C27B0;font-weight:700;'>Tím RS&gt;90</span> = mã dẫn dắt. "
-                "Bộ lọc đầy đủ hơn tại tab <b>Bộ lọc cổ phiếu</b>.</div>",
+                "<div style='font-size:13px;font-weight:600;color:#E65100;margin-bottom:10px;text-transform:uppercase;'>Tín Hiệu AI — Cảnh Báo Sớm</div>"
+                "<div style='color:#707A8A;font-size:12px;margin-bottom:14px;'>Hệ thống tự động quét và phát hiện tín hiệu bất thường từ dữ liệu RS & kỹ thuật.</div>",
                 unsafe_allow_html=True
             )
             if df_rs.empty:
-                st.warning("Đang tải dữ liệu cổ phiếu...")
+                st.warning("Đang tải dữ liệu...")
             else:
-                df_rs_filtered = df_rs[df_rs['RS_1M'] >= 80]
-                df_rs_sorted = df_rs_filtered.sort_values(by="RS_1M", ascending=False).head(20).reset_index(drop=True)
-                css_rs_table = "<style>.rs-table-container { width: 100%; background: #fff; border: 1px solid #EAECEF; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }.rs-table { width: 100%; border-collapse: collapse; text-align: center; font-family: 'Segoe UI', sans-serif; }.rs-table th { background-color: #F8FAFC; color: #474D57; font-size: 11px; font-weight: 800; text-transform: uppercase; padding: 12px 16px; border-bottom: 2px solid #EAECEF; }.rs-table td { padding: 10px 16px; border-bottom: 1px solid #F0F2F5; font-size: 14px; font-weight: 700; color: #1E2329; }.rs-ticker { font-size: 15px; font-weight: 900; color: #1E2329; }.rs-sector { font-size: 10px; color: #848E9C; font-weight: 600; }.rs-cell { color: #fff; font-weight: 800; font-size: 13px; border-radius: 4px; padding: 4px 8px; display: inline-block; min-width: 32px; }</style>"
-                def get_rs_style(score):
-                    if score >= 90: return "background-color: #9C27B0; color: #FFFFFF;"
-                    elif score >= 70: return "background-color: #0ECB81; color: #FFFFFF;"
-                    elif score >= 40: return "background-color: #FFB300; color: #1E2329;"
-                    else: return "background-color: #F6465D; color: #FFFFFF;"
-                rows_html = ""
-                for _, row in df_rs_sorted.iterrows():
-                    style_1m = get_rs_style(row['RS_1M'])
-                    style_3m = get_rs_style(row['RS_3M'])
-                    _mk=row['Mã CK'];_ng=row['Ngành'];_r1=int(row['RS_1M']);_r3=int(row['RS_3M'])
-                    rows_html += f"<tr><td style='text-align: left;'><div class='rs-ticker'>{_mk}</div><div class='rs-sector'>{_ng}</div></td><td><div class='rs-cell' style='{style_1m}'>{_r1}</div></td><td><div class='rs-cell' style='{style_3m}'>{_r3}</div></td></tr>"
-                table_html = f"<div class='rs-table-container'><table class='rs-table'><thead><tr><th style='text-align: left;'>CỔ PHIẾU</th><th>RS 1T</th><th>RS 3T</th></tr></thead><tbody>{rows_html}</tbody></table></div>"
-                st.markdown(css_rs_table + table_html, unsafe_allow_html=True)
+                # ── AI SIGNAL 1: Mã đột phá RS (RS tháng > RS 3 tháng nhiều nhất) ──
+                df_rs_copy = df_rs.copy()
+                df_rs_copy["RS_Momentum"] = df_rs_copy["RS_1M"] - df_rs_copy["RS_3M"]
+                df_breakout = df_rs_copy[
+                    (df_rs_copy["RS_1M"] >= 75) &
+                    (df_rs_copy["RS_Momentum"] > 10) &
+                    (df_rs_copy["Thanh_Khoản_Tỷ"] > 3)
+                ].sort_values("RS_Momentum", ascending=False).head(5)
+
+                # ── AI SIGNAL 2: Mã RS cao nhưng KT thấp (divergence) ──
+                df_diverge = df_rs_copy[
+                    (df_rs_copy["RS_1M"] >= 80) &
+                    (df_rs_copy["Điểm_KT"] <= 2) &
+                    (df_rs_copy["Thanh_Khoản_Tỷ"] > 3)
+                ].sort_values("RS_1M", ascending=False).head(3)
+
+                # ── AI SIGNAL 3: Mã RS thấp hơn RS 3 tháng mạnh (suy yếu) ──
+                df_weaken = df_rs_copy[
+                    (df_rs_copy["RS_3M"] >= 70) &
+                    (df_rs_copy["RS_Momentum"] < -15) &
+                    (df_rs_copy["Thanh_Khoản_Tỷ"] > 5)
+                ].sort_values("RS_Momentum", ascending=True).head(3)
+
+                # Render signal cards
+                sig_css = """<style>
+.ai-sig-card{background:#fff;border:0.5px solid #EAECEF;border-radius:8px;padding:12px 14px;margin-bottom:10px}
+.ai-sig-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.ai-sig-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:0.5px solid #F0F2F5}
+.ai-sig-row:last-child{border-bottom:none}
+.ai-sig-tkr{font-size:12px;font-weight:700;color:#1E2329;font-family:monospace}
+.ai-sig-ng{font-size:10px;color:#848E9C}
+.ai-sig-val{font-size:11px;font-weight:700;font-family:monospace}
+</style>"""
+                st.markdown(sig_css, unsafe_allow_html=True)
+
+                # Card 1: Đột phá momentum
+                if not df_breakout.empty:
+                    rows_b = ""
+                    for _, r in df_breakout.iterrows():
+                        _mk = str(r.get("Mã CK",""))
+                        _ng = str(r.get("Ngành",""))[:15]
+                        _mom = float(r.get("RS_Momentum",0))
+                        _r1  = int(r.get("RS_1M",0))
+                        rows_b += (
+                            '<div class="ai-sig-row">'
+                            '<div><div class="ai-sig-tkr">' + _mk + '</div>'
+                            '<div class="ai-sig-ng">' + _ng + '</div></div>'
+                            '<div style="text-align:right">'
+                            '<div class="ai-sig-val" style="color:#0ECB81;">RS ' + str(_r1) + '</div>'
+                            '<div style="font-size:10px;color:#0ECB81;">+' + "{:.0f}".format(_mom) + ' momentum</div>'
+                            '</div></div>'
+                        )
+                    st.markdown(
+                        '<div class="ai-sig-card">'
+                        '<div class="ai-sig-title" style="color:#0ECB81;">Đột phá sức mạnh — RS tăng tốc</div>'
+                        + rows_b + '</div>', unsafe_allow_html=True
+                    )
+
+                # Card 2: Phân kỳ (RS cao, KT thấp — cảnh báo)
+                if not df_diverge.empty:
+                    rows_d = ""
+                    for _, r in df_diverge.iterrows():
+                        _mk = str(r.get("Mã CK",""))
+                        _ng = str(r.get("Ngành",""))[:15]
+                        _kt = int(r.get("Điểm_KT",0))
+                        _r1 = int(r.get("RS_1M",0))
+                        stars = "★" * _kt + "☆" * (5-_kt)
+                        rows_d += (
+                            '<div class="ai-sig-row">'
+                            '<div><div class="ai-sig-tkr">' + _mk + '</div>'
+                            '<div class="ai-sig-ng">' + _ng + '</div></div>'
+                            '<div style="text-align:right">'
+                            '<div class="ai-sig-val" style="color:#FFB300;">RS ' + str(_r1) + '</div>'
+                            '<div style="font-size:10px;color:#FF6B00;">' + stars + '</div>'
+                            '</div></div>'
+                        )
+                    st.markdown(
+                        '<div class="ai-sig-card">'
+                        '<div class="ai-sig-title" style="color:#FFB300;">Phân kỳ RS-KT — Cảnh báo kiểm tra</div>'
+                        + rows_d + '</div>', unsafe_allow_html=True
+                    )
+
+                # Card 3: Suy yếu — RS giảm tốc
+                if not df_weaken.empty:
+                    rows_w = ""
+                    for _, r in df_weaken.iterrows():
+                        _mk  = str(r.get("Mã CK",""))
+                        _ng  = str(r.get("Ngành",""))[:15]
+                        _mom = float(r.get("RS_Momentum",0))
+                        _r1  = int(r.get("RS_1M",0))
+                        rows_w += (
+                            '<div class="ai-sig-row">'
+                            '<div><div class="ai-sig-tkr">' + _mk + '</div>'
+                            '<div class="ai-sig-ng">' + _ng + '</div></div>'
+                            '<div style="text-align:right">'
+                            '<div class="ai-sig-val" style="color:#F6465D;">RS ' + str(_r1) + '</div>'
+                            '<div style="font-size:10px;color:#F6465D;">' + "{:.0f}".format(_mom) + ' momentum</div>'
+                            '</div></div>'
+                        )
+                    st.markdown(
+                        '<div class="ai-sig-card">'
+                        '<div class="ai-sig-title" style="color:#F6465D;">Suy yếu — Cần theo dõi</div>'
+                        + rows_w + '</div>', unsafe_allow_html=True
+                    )
+
+                # Thống kê thị trường nhanh
+                n_total = len(df_rs_copy)
+                n_strong = (df_rs_copy["RS_1M"] >= 80).sum()
+                n_accel  = (df_rs_copy["RS_Momentum"] > 5).sum()
+                n_weak   = (df_rs_copy["RS_1M"] < 40).sum()
+                mkt_score = int(n_strong / n_total * 100) if n_total > 0 else 50
+                mkt_c = "#0ECB81" if mkt_score > 60 else "#F6465D" if mkt_score < 35 else "#FFB300"
+                mkt_lbl = "Thị trường MẠNH" if mkt_score > 60 else "Thị trường YẾU" if mkt_score < 35 else "Thị trường TRUNG TÍNH"
+                st.markdown(
+                    '<div style="background:#fff;border:0.5px solid #EAECEF;border-radius:8px;padding:12px 14px;">'
+                    '<div style="font-size:10px;font-weight:700;color:#848E9C;text-transform:uppercase;margin-bottom:8px;">Sức khoẻ thị trường</div>'
+                    '<div style="display:flex;gap:8px;margin-bottom:8px;">'
+                    '<div style="flex:1;text-align:center;background:#F8FAFC;border-radius:6px;padding:6px;">'
+                    '<div style="font-size:16px;font-weight:700;color:#0ECB81;">' + str(n_strong) + '</div>'
+                    '<div style="font-size:9px;color:#848E9C;">RS≥80</div></div>'
+                    '<div style="flex:1;text-align:center;background:#F8FAFC;border-radius:6px;padding:6px;">'
+                    '<div style="font-size:16px;font-weight:700;color:#185FA5;">' + str(n_accel) + '</div>'
+                    '<div style="font-size:9px;color:#848E9C;">Tăng tốc</div></div>'
+                    '<div style="flex:1;text-align:center;background:#F8FAFC;border-radius:6px;padding:6px;">'
+                    '<div style="font-size:16px;font-weight:700;color:#F6465D;">' + str(n_weak) + '</div>'
+                    '<div style="font-size:9px;color:#848E9C;">RS&lt;40</div></div>'
+                    '</div>'
+                    '<div style="height:5px;background:#F0F2F5;border-radius:3px;margin-bottom:5px;">'
+                    '<div style="width:' + str(mkt_score) + '%;height:100%;background:' + mkt_c + ';border-radius:3px;"></div>'
+                    '</div>'
+                    '<div style="font-size:11px;font-weight:700;color:' + mkt_c + ';">' + mkt_lbl + ' · ' + str(mkt_score) + '% mã mạnh</div>'
+                    '</div>',
+                    unsafe_allow_html=True
+                )
+                st.markdown(
+                    '<div style="margin-top:8px;font-size:11px;color:#848E9C;padding:6px 10px;border-left:2px solid #EAECEF;">'
+                    'Bộ lọc chi tiết → tab <b style="color:#FF6B00;">Bộ lọc cổ phiếu</b></div>',
+                    unsafe_allow_html=True
+                )
 
         with col_right:
             st.markdown(
@@ -2487,7 +2608,6 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
             unsafe_allow_html=True
         )
 
-        @st.fragment
         def render_screener():
             import json, math
 
@@ -2537,6 +2657,7 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
             for i, (pname, _) in enumerate(presets.items()):
                 if preset_cols[i].button(pname, key="preset_"+str(i), use_container_width=True):
                     st.session_state["sc_preset"] = pname
+                    st.rerun()
 
             active_preset = st.session_state.get("sc_preset", "Tất cả")
             pvals = presets[active_preset]
