@@ -2896,7 +2896,7 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
                 with pc[1]:
                     if st.button("Trước", disabled=(st.session_state.sc_page<=1), use_container_width=True, key="sc_prev"):
                         st.session_state.sc_page -= 1
-                        st.rerun(scope="fragment")
+                        st.rerun()
                 with pc[2]:
                     st.markdown(
                         "<div style='text-align:center;padding-top:8px;font-size:12px;color:#474D57;font-weight:600;'>Trang "
@@ -2906,7 +2906,7 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
                 with pc[3]:
                     if st.button("Tiếp", disabled=(st.session_state.sc_page>=sc_total_pg), use_container_width=True, key="sc_next"):
                         st.session_state.sc_page += 1
-                        st.rerun(scope="fragment")
+                        st.rerun()
 
             st.markdown(
                 '<div style="margin-top:12px;padding:10px 14px;background:#FFF8F3;border:0.5px solid #FFE0B2;border-radius:6px;font-size:11px;color:#707A8A;">'
