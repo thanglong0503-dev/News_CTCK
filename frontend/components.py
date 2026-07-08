@@ -504,7 +504,7 @@ def render_hero_section():
         else:
             st.warning("Đang kết nối Database")
 
-        st.markdown("<br><h3 style='color: #1E2329; margin-top: 32px; margin-bottom: 20px; border-top: 1px solid #EAECEF; padding-top: 32px;'>Định Lượng Dòng Tiền & Tín Hiệu Thị Trường</h3>", unsafe_allow_html=True)
+        st.markdown("<br><h3 style='color: #1E2329; margin-top: 32px; margin-bottom: 24px; border-top: 1px solid #EAECEF; padding-top: 32px;'>Định Lượng Dòng Tiền & Bộ Lọc Sóng Ngành</h3>", unsafe_allow_html=True)
 
         import gspread
         from oauth2client.service_account import ServiceAccountCredentials
@@ -529,7 +529,7 @@ def render_hero_section():
                 st.error(f"Lỗi kết nối Tab {worksheet_name}: {e}")
                 return pd.DataFrame()
 
-        with st.spinner("Đang xử lý dữ liệu..."):
+        with st.spinner("Đang xử lý dữ liệu chuẩn Việt Nam..."):
             df_rs_raw = fetch_db_from_sheet("RS_DATA")
             df_ind_raw = fetch_db_from_sheet("INDUSTRY_DATA")
 
@@ -555,13 +555,8 @@ def render_hero_section():
         col_left, col_right = st.columns([1, 1.1], gap="large")
 
         with col_left:
-            st.markdown(
-                "<div style='font-size:13px;font-weight:600;color:#E65100;margin-bottom:10px;text-transform:uppercase;'>Bảng Xếp Hạng RS — Top 20</div>"
-                "<div style='color:#707A8A;font-size:12px;margin-bottom:14px;'>"
-                "<span style='color:#9C27B0;font-weight:700;'>Tím RS&gt;90</span> = mã dẫn dắt. "
-                "Bộ lọc đầy đủ hơn tại tab <b>Bộ lọc cổ phiếu</b>.</div>",
-                unsafe_allow_html=True
-            )
+            st.markdown("<div style='font-size: 14px; font-weight: 700; color: #E65100; margin-bottom: 16px; text-transform: uppercase;'>Bảng Xếp Hạng Sức Mạnh Giá (RS)</div>", unsafe_allow_html=True)
+            st.markdown("<div style='color: #707A8A; font-size: 13px; margin-bottom: 16px;'>Dữ liệu đã lọc Rác. <span style='color: #9C27B0; font-weight: 800;'>Màu Tím (RS > 90)</span> là các mã dẫn dắt.</div>", unsafe_allow_html=True)
             if df_rs.empty:
                 st.warning("Đang tải dữ liệu cổ phiếu...")
             else:
@@ -583,107 +578,45 @@ def render_hero_section():
                 st.markdown(css_rs_table + table_html, unsafe_allow_html=True)
 
         with col_right:
-            st.markdown(
-                "<div style='font-size:13px;font-weight:600;color:#303F9F;text-transform:uppercase;margin-bottom:10px;'>Tín Hiệu Luân Chuyển Ngành (Sector Rotation)</div>"
-                "<div style='color:#707A8A;font-size:12px;margin-bottom:14px;'>Phân tích sức mạnh tương đối của từng ngành — xác định dòng tiền đang chảy vào đâu.</div>",
-                unsafe_allow_html=True
-            )
+            st.markdown("<div style='font-size: 14px; font-weight: 700; color: #303F9F; text-transform: uppercase; margin-bottom: 16px;'>Screener Tài Chính: Lọc Sóng Ngành</div>", unsafe_allow_html=True)
+            st.markdown("<div style='color: #707A8A; font-size: 13px; margin-bottom: 16px;'>Chọn Ngành đang dẫn sóng để tìm ra những Cổ phiếu mạnh nhất.</div>", unsafe_allow_html=True)
             if df_ind.empty or df_rs.empty:
-                st.warning("Đang tải dữ liệu...")
+                st.warning("Đang tải dữ liệu bộ lọc...")
             else:
-                # ── SECTOR ROTATION CHART ──────────────────────────────────────
-                df_ind_sorted = df_ind.sort_values(by="RS_TB", ascending=False).reset_index(drop=True)
-
-                # Bubble chart: RS_TB vs Điểm_KT_TB, size = số mã trong ngành
-                sector_counts = df_rs.groupby("Ngành").size().reset_index(name="SoMa")
-                df_ind_plot = df_ind_sorted.merge(sector_counts, on="Ngành", how="left").fillna({"SoMa": 1})
-
-                trend_colors = []
-                for _, row in df_ind_plot.iterrows():
-                    trend = str(row.get("Xu_Hướng", "")).upper()
-                    if "TÍCH CỰC" in trend: trend_colors.append("#0ECB81")
-                    elif "YẾU" in trend:    trend_colors.append("#F6465D")
-                    else:                   trend_colors.append("#FFB300")
-
-                fig_sector = go.Figure()
-                fig_sector.add_trace(go.Scatter(
-                    x=df_ind_plot["RS_TB"],
-                    y=df_ind_plot["Điểm_KT_TB"],
-                    mode="markers+text",
-                    text=df_ind_plot["Ngành"].apply(lambda x: str(x)[:12]),
-                    textposition="top center",
-                    textfont=dict(size=9, color="#1E2329"),
-                    marker=dict(
-                        size=df_ind_plot["SoMa"].clip(upper=30) * 3 + 12,
-                        color=trend_colors,
-                        opacity=0.8,
-                        line=dict(width=1, color="#fff")
-                    ),
-                    customdata=df_ind_plot[["Ngành","SoMa","RS_TB","Điểm_KT_TB"]].values,
-                    hovertemplate=(
-                        "<b>%{customdata[0]}</b><br>"
-                        "RS TB: %{customdata[2]:.1f}<br>"
-                        "Điểm KT TB: %{customdata[3]:.1f}<br>"
-                        "Số mã: %{customdata[1]}<extra></extra>"
-                    )
-                ))
-                # Vẽ đường trung bình chia 4 góc
-                avg_rs  = float(df_ind_plot["RS_TB"].mean())
-                avg_kt  = float(df_ind_plot["Điểm_KT_TB"].mean())
-                fig_sector.add_vline(x=avg_rs, line_dash="dot", line_color="#EAECEF", line_width=1)
-                fig_sector.add_hline(y=avg_kt, line_dash="dot", line_color="#EAECEF", line_width=1)
-
-                # Label 4 góc
-                x_max = float(df_ind_plot["RS_TB"].max()) * 1.05
-                y_max = float(df_ind_plot["Điểm_KT_TB"].max()) * 1.1
-                x_min = float(df_ind_plot["RS_TB"].min()) * 0.95
-                y_min = float(df_ind_plot["Điểm_KT_TB"].min()) * 0.9
-                for txt, x, y, c in [
-                    ("DẪN DẮT", x_max, y_max, "#0ECB81"),
-                    ("YẾU DẦN", x_min, y_max, "#FFB300"),
-                    ("TÍCH LŨY", x_max, y_min, "#185FA5"),
-                    ("PHÂN PHỐI", x_min, y_min, "#F6465D"),
-                ]:
-                    fig_sector.add_annotation(
-                        x=x, y=y, text=txt, showarrow=False,
-                        font=dict(size=9, color=c, family="monospace"),
-                        opacity=0.5, xanchor="right" if x == x_min else "left"
-                    )
-
-                fig_sector.update_layout(
-                    height=320, margin=dict(l=0,r=0,t=10,b=0),
-                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                    xaxis=dict(gridcolor="#F0F2F5", title="Sức mạnh RS trung bình", titlefont=dict(size=11)),
-                    yaxis=dict(gridcolor="#F0F2F5", title="Điểm kỹ thuật TB", titlefont=dict(size=11)),
-                    showlegend=False, dragmode="pan"
-                )
-                st.plotly_chart(fig_sector, use_container_width=True, config={"scrollZoom":True,"displayModeBar":False})
-
-                # ── TOP 3 NGÀNH DẪN DẮT + YẾU NHẤT ─────────────────────────
-                top3_strong = df_ind_sorted.head(3)
-                top3_weak   = df_ind_sorted.tail(3)
-
-                sig_html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;">'
-                sig_html += '<div style="background:#F0FDFA;border-left:3px solid #0ECB81;border-radius:6px;padding:10px 12px;"><div style="font-size:10px;font-weight:700;color:#0ECB81;text-transform:uppercase;margin-bottom:6px;">Ngành dẫn dắt</div>'
-                for _, r in top3_strong.iterrows():
-                    _ng = str(r.get("Ngành",""))[:20]
-                    _rs = float(r.get("RS_TB",0))
-                    sig_html += '<div style="font-size:11px;color:#1E2329;font-weight:600;margin-bottom:3px;">' + _ng + ' <span style="color:#0ECB81;font-family:monospace;">' + "{:.0f}".format(_rs) + '</span></div>'
-                sig_html += '</div>'
-                sig_html += '<div style="background:#FEF2F2;border-left:3px solid #F6465D;border-radius:6px;padding:10px 12px;"><div style="font-size:10px;font-weight:700;color:#F6465D;text-transform:uppercase;margin-bottom:6px;">Ngành yếu nhất</div>'
-                for _, r in top3_weak.iterrows():
-                    _ng = str(r.get("Ngành",""))[:20]
-                    _rs = float(r.get("RS_TB",0))
-                    sig_html += '<div style="font-size:11px;color:#1E2329;font-weight:600;margin-bottom:3px;">' + _ng + ' <span style="color:#F6465D;font-family:monospace;">' + "{:.0f}".format(_rs) + '</span></div>'
-                sig_html += '</div></div>'
-                st.markdown(sig_html, unsafe_allow_html=True)
-
-                st.markdown(
-                    '<div style="margin-top:10px;padding:8px 12px;background:#FFF8F3;border:0.5px solid #FFE0B2;border-radius:6px;font-size:11px;color:#707A8A;">'
-                    'Bộ lọc cổ phiếu chi tiết theo ngành — truy cập tab <b style="color:#FF6B00;">Bộ lọc cổ phiếu</b> để lọc đa tiêu chí.'
-                    '</div>',
-                    unsafe_allow_html=True
-                )
+                @st.fragment
+                def render_industry_filter():
+                    df_ind_sorted = df_ind.sort_values(by="RS_TB", ascending=False).reset_index(drop=True)
+                    industry_options = []
+                    for _, row in df_ind_sorted.iterrows():
+                        trend = str(row.get('Xu_Hướng', 'TRUNG TÍNH')).strip()
+                        _ng = row['Ngành']
+                        _rtb = row['RS_TB']
+                        industry_options.append(f"{_ng} (RS: {_rtb:.1f}) - {trend}")
+                    st.markdown("<span style='font-weight:700; font-size:14px; color:#1E2329;'>BƯỚC 1: CHỌN NGÀNH ĐỂ SOI DÒNG TIỀN</span>", unsafe_allow_html=True)
+                    selected_option = st.selectbox("Danh sách Ngành (Sắp xếp từ mạnh đến yếu):", industry_options, label_visibility="collapsed")
+                    selected_industry_name = selected_option.split(" (RS:")[0]
+                    selected_trend = selected_option.split(" - ")[-1].strip()
+                    if "TÍCH CỰC" in selected_trend: trend_color = "#0ECB81"
+                    elif "YẾU" in selected_trend: trend_color = "#F6465D"
+                    else: trend_color = "#FFB300"
+                    trend_badge = f"<span style='background-color: {trend_color}; color: #ffffff; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 800; margin-left: 10px; vertical-align: middle;'>{selected_trend}</span>"
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='margin-bottom: 16px;'><span style='font-weight:700; font-size:14px; color:#1E2329;'>BƯỚC 2: TOP CỔ PHIẾU NGÀNH <span style='color:#E65100;'>{selected_industry_name.upper()}</span></span>{trend_badge}</div>", unsafe_allow_html=True)
+                    df_filtered = df_rs[(df_rs['Ngành'] == selected_industry_name) & (df_rs['Thanh_Khoản_Tỷ'] > 0)].copy()
+                    df_filtered = df_filtered.sort_values(by="RS_1M", ascending=False).head(15).reset_index(drop=True)
+                    if df_filtered.empty:
+                        st.info("Chưa có dữ liệu cổ phiếu thanh khoản cao cho ngành này.")
+                    else:
+                        rows_html_right = ""
+                        for _, row in df_filtered.iterrows():
+                            style_1m = get_rs_style(row['RS_1M'])
+                            score = int(row['Điểm_KT'])
+                            stars = "★" * score + "☆" * (5 - score)
+                            _mk=row['Mã CK'];_tk=row['Thanh_Khoản_Tỷ'];_r1=int(row['RS_1M'])
+                            rows_html_right += f"<tr><td style='text-align: left;'><div class='rs-ticker'>{_mk}</div><div class='rs-sector'>Thanh khoản: {_tk:.1f} Tỷ</div></td><td><div class='rs-cell' style='{style_1m}'>{_r1}</div></td><td style='color: #E65100; font-size: 13px; font-weight: 700;'>{stars}</td></tr>"
+                        table_html_right = f"<div class='rs-table-container'><table class='rs-table'><thead><tr><th style='text-align: left;'>MÃ CK</th><th>RS 1T</th><th>ĐIỂM KỸ THUẬT</th></tr></thead><tbody>{rows_html_right}</tbody></table></div>"
+                        st.markdown(css_rs_table + table_html_right, unsafe_allow_html=True)
+                render_industry_filter()
 
         st.markdown("<br><div style='font-size: 14px; font-weight: 700; color: #E65100; margin-bottom: 16px; text-transform: uppercase; border-top: 1px solid #EAECEF; padding-top: 32px;'>Cộng Đồng Nhà Đầu Tư (Social Sentiment)</div>", unsafe_allow_html=True)
         if not f319_data['posts']:
@@ -2541,72 +2474,33 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
             active_preset = st.session_state.get("sc_preset", "Tất cả")
             pvals = presets[active_preset]
 
-            # Init session_state lần đầu
-            if "sc_rs1" not in st.session_state:
-                st.session_state["sc_rs1"]     = pvals["rs1_min"]
-                st.session_state["sc_rs3"]     = pvals["rs3_min"]
-                st.session_state["sc_kt"]      = pvals["kt_min"]
-                st.session_state["sc_liq_min"] = float(pvals["liq_min"])
-                st.session_state["sc_liq_max"] = float(pvals["liq_max"])
-
-            # Khi preset thay đổi → ghi giá trị mới vào session_state của từng widget
-            # (Streamlit sẽ đọc từ session_state.key nếu key tồn tại, bỏ qua default)
-            prev_preset = st.session_state.get("sc_preset_prev", "")
-            if prev_preset != active_preset:
-                st.session_state["sc_rs1"]     = pvals["rs1_min"]
-                st.session_state["sc_rs3"]     = pvals["rs3_min"]
-                st.session_state["sc_kt"]      = pvals["kt_min"]
-                st.session_state["sc_liq_min"] = float(pvals["liq_min"])
-                st.session_state["sc_liq_max"] = float(pvals["liq_max"])
-                st.session_state["sc_preset_prev"] = active_preset
-
-            # ── TABS BÊN TRONG SCREENER: Đa tiêu chí | Theo ngành ──────────────
-            sc_tab1, sc_tab2 = st.tabs(["Lọc đa tiêu chí", "Lọc theo ngành"])
-
-            with sc_tab1:
+            # ── BỘ LỌC CHI TIẾT ─────────────────────────────────────────────────
+            with st.expander("Tùy chỉnh bộ lọc chi tiết", expanded=(active_preset == "Tất cả")):
                 fc1, fc2, fc3 = st.columns(3)
                 fc4, fc5, fc6 = st.columns(3)
 
                 with fc1:
-                    rs1_min = st.slider("RS 1 tháng tối thiểu", 0, 100, key="sc_rs1")
+                    rs1_min = st.slider("RS 1 tháng tối thiểu", 0, 100, pvals["rs1_min"], key="sc_rs1")
                 with fc2:
-                    rs3_min = st.slider("RS 3 tháng tối thiểu", 0, 100, key="sc_rs3")
+                    rs3_min = st.slider("RS 3 tháng tối thiểu", 0, 100, pvals["rs3_min"], key="sc_rs3")
                 with fc3:
-                    kt_min  = st.slider("Điểm kỹ thuật tối thiểu", 0, 5, key="sc_kt")
+                    kt_min  = st.slider("Điểm kỹ thuật tối thiểu", 0, 5, pvals["kt_min"], key="sc_kt")
                 with fc4:
-                    liq_min = st.number_input("Thanh khoản tối thiểu (Tỷ)", 0.0, 9999.0, step=1.0, key="sc_liq_min")
+                    liq_min = st.number_input("Thanh khoản tối thiểu (Tỷ)", 0.0, 9999.0, float(pvals["liq_min"]), step=1.0, key="sc_liq_min")
                 with fc5:
-                    liq_max = st.number_input("Thanh khoản tối đa (Tỷ)", 0.0, 9999.0, step=10.0, key="sc_liq_max")
+                    liq_max = st.number_input("Thanh khoản tối đa (Tỷ)", 0.0, 9999.0, float(pvals["liq_max"]), step=10.0, key="sc_liq_max")
                 with fc6:
                     industries = ["Tất cả ngành"] + sorted(df_sc["Ngành"].dropna().unique().tolist()) if "Ngành" in df_sc.columns else ["Tất cả ngành"]
                     sel_industry = st.selectbox("Ngành", industries, key="sc_industry")
 
                 sort_col_map = {
-                    "RS 1 tháng (cao → thấp)":   ("RS_1M", False),
-                    "RS 3 tháng (cao → thấp)":   ("RS_3M", False),
-                    "Thanh khoản (cao → thấp)":  ("Thanh_Khoản_Tỷ", False),
-                    "Điểm kỹ thuật (cao → thấp)":("Điểm_KT", False),
-                    "Giá (thấp → cao)":           ("Giá", True),
+                    "RS 1 tháng (cao → thấp)": ("RS_1M", False),
+                    "RS 3 tháng (cao → thấp)": ("RS_3M", False),
+                    "Thanh khoản (cao → thấp)": ("Thanh_Khoản_Tỷ", False),
+                    "Điểm kỹ thuật (cao → thấp)": ("Điểm_KT", False),
+                    "Giá (thấp → cao)": ("Giá", True),
                 }
                 sort_opt = st.selectbox("Sắp xếp theo", list(sort_col_map.keys()), key="sc_sort")
-
-            # Đọc sel_industry & sort_opt từ session_state sau expander
-            sel_industry = st.session_state.get("sc_industry", "Tất cả ngành")
-            sort_col_map = {
-                "RS 1 tháng (cao → thấp)":   ("RS_1M", False),
-                "RS 3 tháng (cao → thấp)":   ("RS_3M", False),
-                "Thanh khoản (cao → thấp)":  ("Thanh_Khoản_Tỷ", False),
-                "Điểm kỹ thuật (cao → thấp)":("Điểm_KT", False),
-                "Giá (thấp → cao)":           ("Giá", True),
-            }
-            sort_opt = st.session_state.get("sc_sort", "RS 1 tháng (cao → thấp)")
-
-            # Đọc giá trị thực từ session_state (sau khi widgets đã render và sync)
-            rs1_min = st.session_state.get("sc_rs1", 0)
-            rs3_min = st.session_state.get("sc_rs3", 0)
-            kt_min  = st.session_state.get("sc_kt", 0)
-            liq_min = st.session_state.get("sc_liq_min", 0.0)
-            liq_max = st.session_state.get("sc_liq_max", 9999.0)
 
             # ── ÁP DỤNG BỘ LỌC ─────────────────────────────────────────────────
             df_filtered = df_sc.copy()
@@ -2794,129 +2688,6 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
                 '</div>',
                 unsafe_allow_html=True
             )
-
-            # ── SC TAB 2: LỌC THEO NGÀNH ────────────────────────────────────────
-            with sc_tab2:
-                st.markdown("<div style='font-size:12px;color:#707A8A;margin-bottom:14px;'>Chọn ngành đang dẫn sóng → xem toàn bộ cổ phiếu trong ngành sắp xếp theo RS. Tích hợp từ phân tích Luân chuyển ngành.</div>", unsafe_allow_html=True)
-
-                # Load INDUSTRY_DATA nếu chưa có
-                @st.cache_data(ttl=1800, show_spinner=False)
-                def load_industry_data_sc():
-                    try:
-                        import gspread as _gs, json as _j
-                        from oauth2client.service_account import ServiceAccountCredentials as SCA
-                        cd = _j.loads(st.secrets["GOOGLE_CREDENTIALS"])
-                        sc = ["https://spreadsheets.google.com/feeds","https://www.googleapis.com/auth/drive"]
-                        cr = SCA.from_json_keyfile_dict(cd, sc)
-                        cl = _gs.authorize(cr)
-                        sh = cl.open("LINANCE_DB").worksheet("INDUSTRY_DATA")
-                        raw = sh.get_all_values()
-                        if len(raw) < 2: return pd.DataFrame()
-                        df = pd.DataFrame(raw[1:], columns=raw[0])
-                        for c in ["RS_TB","Điểm_KT_TB"]:
-                            if c in df.columns:
-                                df[c] = pd.to_numeric(df[c].astype(str).str.replace(",","."), errors="coerce").fillna(0)
-                        return df
-                    except: return pd.DataFrame()
-
-                df_ind_sc = load_industry_data_sc()
-
-                if df_ind_sc.empty or df_sc.empty:
-                    st.warning("Đang tải dữ liệu ngành...")
-                else:
-                    df_ind_sc2 = df_ind_sc.sort_values("RS_TB", ascending=False).reset_index(drop=True)
-
-                    t2c1, t2c2 = st.columns([1.5, 1])
-                    with t2c1:
-                        # Dropdown ngành với RS và xu hướng
-                        ind_options = []
-                        for _, r in df_ind_sc2.iterrows():
-                            ng   = str(r.get("Ngành",""))
-                            rs   = float(r.get("RS_TB",0))
-                            xh   = str(r.get("Xu_Hướng","TRUNG TÍNH")).strip()
-                            ind_options.append(ng + "  ·  RS " + "{:.0f}".format(rs) + "  ·  " + xh)
-
-                        sel_ind_opt = st.selectbox("Chọn ngành:", ind_options, key="sc2_industry")
-                        sel_ind_name = sel_ind_opt.split("  ·  ")[0].strip()
-                        sel_ind_rs   = float(sel_ind_opt.split("RS ")[1].split("  ")[0])
-                        sel_ind_xh   = sel_ind_opt.split("  ·  ")[-1].strip()
-
-                        xh_c = "#0ECB81" if "TÍCH CỰC" in sel_ind_xh.upper() else "#F6465D" if "YẾU" in sel_ind_xh.upper() else "#FFB300"
-                        st.markdown(
-                            '<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">'
-                            '<span style="font-size:11px;color:#848E9C;">RS trung bình ngành:</span>'
-                            '<span style="font-size:14px;font-weight:700;color:#1E2329;font-family:monospace;">' + "{:.1f}".format(sel_ind_rs) + '</span>'
-                            '<span style="background:' + xh_c + ';color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;">' + sel_ind_xh + '</span>'
-                            '</div>',
-                            unsafe_allow_html=True
-                        )
-
-                    with t2c2:
-                        sc2_sort = st.selectbox("Sắp xếp:", ["RS 1T cao nhất", "RS 3T cao nhất", "Thanh khoản cao nhất", "Điểm KT cao nhất"], key="sc2_sort")
-                        sc2_kt_min = st.slider("Điểm kỹ thuật tối thiểu", 0, 5, 0, key="sc2_kt")
-
-                    # Lọc mã trong ngành
-                    df_ind_mkt = df_sc[df_sc["Ngành"] == sel_ind_name].copy() if "Ngành" in df_sc.columns else pd.DataFrame()
-                    df_ind_mkt = df_ind_mkt[df_ind_mkt["Điểm_KT"] >= sc2_kt_min]
-
-                    sort_map2 = {
-                        "RS 1T cao nhất":       ("RS_1M",  False),
-                        "RS 3T cao nhất":       ("RS_3M",  False),
-                        "Thanh khoản cao nhất": ("Thanh_Khoản_Tỷ", False),
-                        "Điểm KT cao nhất":     ("Điểm_KT", False),
-                    }
-                    sf, sa = sort_map2[sc2_sort]
-                    if sf in df_ind_mkt.columns:
-                        df_ind_mkt = df_ind_mkt.sort_values(sf, ascending=sa).reset_index(drop=True)
-
-                    if df_ind_mkt.empty:
-                        st.info("Không có mã nào trong ngành này thỏa mãn điều kiện.")
-                    else:
-                        st.markdown("<div style='font-size:11px;color:#848E9C;margin-bottom:8px;'>" + str(len(df_ind_mkt)) + " mã trong ngành " + sel_ind_name + "</div>", unsafe_allow_html=True)
-
-                        css_rs_t2 = "<style>.rs2c{color:#fff;font-weight:700;border-radius:4px;padding:2px 7px;font-size:11px;display:inline-block;min-width:28px;text-align:center}</style>"
-                        def rs2_badge(s):
-                            bg="#9C27B0" if s>=90 else "#0ECB81" if s>=70 else "#FFB300" if s>=40 else "#F6465D"
-                            tc="#fff" if s>=40 else "#1E2329"
-                            return '<span class="rs2c" style="background:' + bg + ';color:' + tc + ';">' + str(int(s)) + '</span>'
-
-                        rows2 = ""
-                        for i, (_, r) in enumerate(df_ind_mkt.iterrows(), 1):
-                            ma  = str(r.get("Mã CK",""))
-                            r1  = float(r.get("RS_1M",0))
-                            r3  = float(r.get("RS_3M",0))
-                            kt  = int(r.get("Điểm_KT",0))
-                            liq = float(r.get("Thanh_Khoản_Tỷ",0))
-                            gia = float(r.get("Giá",0))
-                            rows2 += (
-                                "<tr>"
-                                "<td style='padding:8px 10px;font-size:11px;color:#848E9C;'>" + str(i) + "</td>"
-                                "<td style='padding:8px 10px;font-weight:700;font-size:13px;color:#185FA5;font-family:monospace;'>" + ma + "</td>"
-                                "<td style='padding:8px 10px;text-align:center;'>" + rs2_badge(r1) + "</td>"
-                                "<td style='padding:8px 10px;text-align:center;'>" + rs2_badge(r3) + "</td>"
-                                "<td style='padding:8px 10px;color:#FF6B00;font-size:12px;font-weight:600;'>" + ("★"*kt + "☆"*(5-kt)) + "</td>"
-                                "<td style='padding:8px 10px;font-size:11px;font-family:monospace;color:#474D57;'>" + ("{:.1f} Tỷ".format(liq) if liq>0 else "—") + "</td>"
-                                "<td style='padding:8px 10px;font-size:11px;font-family:monospace;'>" + ("{:,.0f}".format(gia) if gia>0 else "—") + "</td>"
-                                "</tr>"
-                            )
-
-                        st.markdown(
-                            css_rs_t2 +
-                            '<div style="background:#fff;border:0.5px solid #EAECEF;border-radius:10px;overflow:hidden;">'
-                            '<table style="width:100%;border-collapse:collapse;">'
-                            '<thead><tr style="background:#F8FAFC;">'
-                            '<th style="padding:8px 10px;font-size:10px;font-weight:700;color:#848E9C;text-align:left;">#</th>'
-                            '<th style="padding:8px 10px;font-size:10px;font-weight:700;color:#848E9C;text-align:left;">MÃ CP</th>'
-                            '<th style="padding:8px 10px;font-size:10px;font-weight:700;color:#848E9C;text-align:center;">RS 1T</th>'
-                            '<th style="padding:8px 10px;font-size:10px;font-weight:700;color:#848E9C;text-align:center;">RS 3T</th>'
-                            '<th style="padding:8px 10px;font-size:10px;font-weight:700;color:#848E9C;">KỸ THUẬT</th>'
-                            '<th style="padding:8px 10px;font-size:10px;font-weight:700;color:#848E9C;">THANH KHOẢN</th>'
-                            '<th style="padding:8px 10px;font-size:10px;font-weight:700;color:#848E9C;">GIÁ</th>'
-                            '</tr></thead>'
-                            '<tbody>' + rows2 + '</tbody>'
-                            '</table></div>',
-                            unsafe_allow_html=True
-                        )
 
         render_screener()
 
