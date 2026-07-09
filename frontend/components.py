@@ -2608,34 +2608,33 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
             unsafe_allow_html=True
         )
 
+        @st.cache_data(ttl=1800, show_spinner=False)
+        def load_screener_data():
+            try:
+                import gspread, json as _json
+                from oauth2client.service_account import ServiceAccountCredentials
+                creds_dict = _json.loads(st.secrets["GOOGLE_CREDENTIALS"])
+                scope = ["https://spreadsheets.google.com/feeds","https://www.googleapis.com/auth/drive"]
+                creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+                client = gspread.authorize(creds)
+                sheet = client.open("LINANCE_DB").worksheet("RS_DATA")
+                raw = sheet.get_all_values()
+                if len(raw) < 2: return pd.DataFrame()
+                df = pd.DataFrame(raw[1:], columns=raw[0])
+                for col in ["RS_1M","RS_3M","Điểm_KT","Thanh_Khoản_Tỷ","Giá"]:
+                    if col in df.columns:
+                        df[col] = pd.to_numeric(
+                            df[col].astype(str).str.replace(",","."), errors="coerce"
+                        ).fillna(0)
+                return df
+            except Exception:
+                return pd.DataFrame()
+
+        @st.fragment
         def render_screener():
             import json, math
 
-            # Load data từ session_state (tận dụng cache RS đã có từ Tab 3)
-            @st.cache_data(ttl=1800, show_spinner=False)
-            def load_screener_data():
-                try:
-                    import gspread, json as _json
-                    from oauth2client.service_account import ServiceAccountCredentials
-                    creds_dict = _json.loads(st.secrets["GOOGLE_CREDENTIALS"])
-                    scope = ["https://spreadsheets.google.com/feeds","https://www.googleapis.com/auth/drive"]
-                    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-                    client = gspread.authorize(creds)
-                    sheet = client.open("LINANCE_DB").worksheet("RS_DATA")
-                    raw = sheet.get_all_values()
-                    if len(raw) < 2: return pd.DataFrame()
-                    df = pd.DataFrame(raw[1:], columns=raw[0])
-                    for col in ["RS_1M","RS_3M","Điểm_KT","Thanh_Khoản_Tỷ","Giá"]:
-                        if col in df.columns:
-                            df[col] = pd.to_numeric(
-                                df[col].astype(str).str.replace(",","."), errors="coerce"
-                            ).fillna(0)
-                    return df
-                except Exception:
-                    return pd.DataFrame()
-
-            with st.spinner("Đang tải dữ liệu screener..."):
-                df_sc = load_screener_data()
+            df_sc = load_screener_data()
 
             if df_sc.empty:
                 st.warning("Chưa kết nối được RS_DATA. Kiểm tra lại Google Sheets.")
@@ -2657,7 +2656,7 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
             for i, (pname, _) in enumerate(presets.items()):
                 if preset_cols[i].button(pname, key="preset_"+str(i), use_container_width=True):
                     st.session_state["sc_preset"] = pname
-                    st.rerun()
+                    st.rerun(scope="fragment")
 
             active_preset = st.session_state.get("sc_preset", "Tất cả")
             pvals = presets[active_preset]
@@ -2896,7 +2895,7 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
                 with pc[1]:
                     if st.button("Trước", disabled=(st.session_state.sc_page<=1), use_container_width=True, key="sc_prev"):
                         st.session_state.sc_page -= 1
-                        st.rerun()
+                        st.rerun(scope="fragment")
                 with pc[2]:
                     st.markdown(
                         "<div style='text-align:center;padding-top:8px;font-size:12px;color:#474D57;font-weight:600;'>Trang "
@@ -2906,7 +2905,7 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
                 with pc[3]:
                     if st.button("Tiếp", disabled=(st.session_state.sc_page>=sc_total_pg), use_container_width=True, key="sc_next"):
                         st.session_state.sc_page += 1
-                        st.rerun()
+                        st.rerun(scope="fragment")
 
             st.markdown(
                 '<div style="margin-top:12px;padding:10px 14px;background:#FFF8F3;border:0.5px solid #FFE0B2;border-radius:6px;font-size:11px;color:#707A8A;">'
