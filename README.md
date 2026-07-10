@@ -1,6 +1,5 @@
 # 📊 News_CTCK - Nền Tảng Tổng Hợp & Phân Tích Dữ Liệu Chứng Khoán Toàn Diện
 
-[![Streamlit App](https://static.streamlit.io/badge_gradient.svg)](https://newsctck-fwynyibuz6nanj3iynasmh.streamlit.app/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Language: Python](https://img.shields.io/badge/Language-Python-blue.svg)](https://www.python.org/)
 
