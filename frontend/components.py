@@ -692,68 +692,7 @@ def render_hero_section():
                 st.plotly_chart(fig_grp, use_container_width=True,
                     key="grp_chart_" + selected,
                     config={"displayModeBar": False})
-                    col.markdown(
-                        '<div style="background:#fff;border:0.5px solid #EAECEF;border-radius:8px;padding:10px 14px;margin-bottom:10px;">'
-                        '<div style="font-size:10px;color:#848E9C;font-weight:600;text-transform:uppercase;margin-bottom:4px;">' + lbl + '</div>'
-                        '<div style="font-size:13px;font-weight:700;color:' + vc + ';font-family:monospace;">' + val + '</div>'
-                        '</div>', unsafe_allow_html=True
-                    )
 
-                # Detail panel — 2 columns: table + chart
-                dp_table, dp_chart = st.columns([1.2, 1])
-
-                with dp_table:
-                    rows_det = ""
-                    for t, d in all_data:
-                        chg   = d.get("change", 0)
-                        cc    = "c-up" if chg >= 0 else "c-dn"
-                        s     = "+" if chg > 0 else ""
-                        bar_w = int(abs(chg)/max_abs*100)
-                        bar_c = "#0ECB81" if chg >= 0 else "#F6465D"
-                        rows_det += (
-                            '<div class="det-row">'
-                            '<div class="det-name">' + str(d.get("name", t)) + '</div>'
-                            '<div class="det-price">' + str(d.get("price", "N/A")) + '</div>'
-                            '<div class="det-chg ' + cc + '">' + s + "{:.2f}%".format(chg) + '</div>'
-                            '<div class="det-bar-wrap">'
-                            '<div class="det-bar-bg">'
-                            '<div class="det-bar-fill" style="width:' + str(bar_w) + '%;background:' + bar_c + ';"></div>'
-                            '</div></div></div>'
-                        )
-                    st.markdown(
-                        '<div class="det-panel">'
-                        '<div style="font-size:11px;font-weight:700;color:#FF6B00;text-transform:uppercase;'
-                        'letter-spacing:.5px;margin-bottom:12px;">' + selected + ' — ' + str(len(sel_tickers)) + ' mã</div>'
-                        + rows_det + '</div>',
-                        unsafe_allow_html=True
-                    )
-
-                with dp_chart:
-                    # Bar chart biến động
-                    name_vals  = [str(d.get("name", t))[:8] for t, d in all_data]
-                    chg_vals   = [d.get("change", 0) for _, d in all_data]
-                    bar_colors = ["#0ECB81" if c >= 0 else "#F6465D" for c in chg_vals]
-
-                    fig_grp = go.Figure(go.Bar(
-                        x=name_vals, y=chg_vals,
-                        marker_color=bar_colors, opacity=0.85,
-                        hovertemplate="%{x}<br>%{y:.2f}%<extra></extra>",
-                        text=[("{:+.1f}%".format(c)) for c in chg_vals],
-                        textposition="outside",
-                        textfont=dict(size=9)
-                    ))
-                    fig_grp.add_hline(y=0, line_color="#EAECEF", line_width=1)
-                    fig_grp.update_layout(
-                        height=300, margin=dict(l=0, r=0, t=10, b=0),
-                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                        yaxis=dict(gridcolor="#F0F2F5", ticksuffix="%",
-                                   fixedrange=True, zeroline=False),
-                        xaxis=dict(fixedrange=True, tickfont=dict(size=9)),
-                        bargap=0.25
-                    )
-                    st.plotly_chart(fig_grp, use_container_width=True,
-                        key="grp_chart_" + selected,
-                        config={"displayModeBar": False})
 
         render_market_overview()
         st.markdown("<br>", unsafe_allow_html=True)
