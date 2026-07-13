@@ -390,315 +390,35 @@ def render_hero_section():
 
     # --- TAB 1: TỔNG QUAN THỊ TRƯỜNG ---
     with tab1:
-        @st.fragment
-        def render_tab1():
-            st.markdown("<br>", unsafe_allow_html=True)
-            groups_items = list(groups.items())
-
-            # ── STATE ────────────────────────────────────────────────────────────────
-            if "t1_selected_group" not in st.session_state:
-                st.session_state.t1_selected_group = None
-            selected = st.session_state.t1_selected_group
-
-            # ── CSS ──────────────────────────────────────────────────────────────────
-            st.markdown("""<style>
-    .mg{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;width:100%}
-    .mc{background:#fff;border:0.5px solid #EAECEF;border-radius:12px;padding:16px 18px;position:relative;overflow:hidden}
-    .mc.active{border:1.5px solid #FF6B00;box-shadow:0 6px 20px rgba(255,107,0,.1)}
-    .mc-accent{position:absolute;top:0;left:0;width:3px;height:100%;background:#FF6B00}
-    .mc-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:10px;border-bottom:0.5px solid #F0F2F5}
-    .mc-title{font-weight:700;font-size:12px;color:#1E2329;text-transform:uppercase;letter-spacing:.3px}
-    .mc-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px}
-    .mc-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0}
-    .mc-name{font-size:12px;font-weight:600;color:#474D57;flex:2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:8px}
-    .mc-price{font-size:12px;color:#1E2329;flex:1.5;text-align:right;font-family:monospace;font-weight:600}
-    .mc-chg{font-size:12px;font-weight:700;flex:1;text-align:right}
-    .c-up{color:#0ECB81}.c-dn{color:#F6465D}
-    .det-panel{background:#fff;border:0.5px solid #FFE0B2;border-left:3px solid #FF6B00;border-radius:0 12px 12px 0;padding:20px;margin-top:4px;margin-bottom:14px}
-    .det-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:0.5px solid #F0F2F5}
-    .det-row:last-child{border-bottom:none}
-    .det-name{font-size:13px;font-weight:600;color:#1E2329;flex:2}
-    .det-price{font-size:13px;font-family:monospace;font-weight:700;color:#1E2329;flex:1.5;text-align:right}
-    .det-chg{font-size:13px;font-weight:700;flex:1;text-align:right}
-    .det-bar-wrap{flex:1.2;padding-left:12px}
-    .det-bar-bg{height:4px;background:#F0F2F5;border-radius:2px;overflow:hidden}
-    .det-bar-fill{height:100%;border-radius:2px}
-    </style>""", unsafe_allow_html=True)
-
-            # ── MARKET SUMMARY ROW ────────────────────────────────────────────────────
-            all_changes = []
-            for _, tickers in groups_items[:6]:
-                for t in tickers:
-                    chg = market_data.get(t, {}).get("change", 0)
-                    if chg != 0:
-                        all_changes.append(chg)
-
-            n_up   = sum(1 for c in all_changes if c > 0)
-            n_dn   = sum(1 for c in all_changes if c < 0)
-            n_flat = len(all_changes) - n_up - n_dn
-            avg_chg = sum(all_changes)/len(all_changes) if all_changes else 0
-            mkt_color = "#0ECB81" if avg_chg >= 0 else "#F6465D"
-            mkt_sign  = "+" if avg_chg >= 0 else ""
-
-            s1, s2, s3, s4 = st.columns(4)
-            for col, lbl, val, vc in [
-                (s1, "Đang tăng",    str(n_up) + " mã",   "#0ECB81"),
-                (s2, "Đang giảm",    str(n_dn) + " mã",   "#F6465D"),
-                (s3, "Tham chiếu",   str(n_flat) + " mã",  "#FFB300"),
-                (s4, "Biến động TB", mkt_sign + "{:.2f}%".format(avg_chg), mkt_color),
-            ]:
-                col.markdown(
-                    '<div style="background:#fff;border:0.5px solid #EAECEF;border-radius:8px;'
-                    'padding:10px 14px;margin-bottom:16px;border-top:2px solid ' + vc + ';">'
-                    '<div style="font-size:10px;color:#848E9C;font-weight:600;text-transform:uppercase;margin-bottom:4px;">' + lbl + '</div>'
-                    '<div style="font-size:18px;font-weight:700;color:' + vc + ';font-family:monospace;">' + val + '</div>'
-                    '</div>', unsafe_allow_html=True
-                )
-
-            # ── 6 CARDS + TOGGLE BUTTONS ─────────────────────────────────────────────
-            row1 = st.columns(3)
-            row2 = st.columns(3)
-
-            for gi, (group_name, tickers) in enumerate(groups_items[:6]):
-                col = row1[gi] if gi < 3 else row2[gi - 3]
-
-                g_changes = [market_data.get(t, {}).get("change", 0) for t in tickers]
-                g_up  = sum(1 for c in g_changes if c > 0)
-                g_dn  = sum(1 for c in g_changes if c < 0)
-                g_avg = sum(g_changes)/len(g_changes) if g_changes else 0
-                g_color = "#0ECB81" if g_avg >= 0 else "#F6465D"
-                g_sign  = "+" if g_avg >= 0 else ""
-                is_active = (selected == group_name)
-
-                # Top 3 rows
-                rows_preview = ""
-                for t in tickers[:3]:
-                    d  = market_data.get(t, {"name": t, "price": "N/A", "change": 0})
-                    cc = "c-up" if d.get("change", 0) >= 0 else "c-dn"
-                    s  = "+" if d.get("change", 0) > 0 else ""
-                    rows_preview += (
-                        '<div class="mc-row">'
-                        '<div class="mc-name">' + str(d.get("name", t))[:16] + '</div>'
-                        '<div class="mc-price">' + str(d.get("price", "N/A")) + '</div>'
-                        '<div class="mc-chg ' + cc + '">' + s + "{:.2f}%".format(d.get("change", 0)) + '</div>'
-                        '</div>'
-                    )
-
-                badge_bg  = "rgba(14,203,129,.12)" if g_avg >= 0 else "rgba(246,70,93,.12)"
-                card_html = (
-                    '<div class="mc' + (' active' if is_active else '') + '">'
-                    + ('<div class="mc-accent"></div>' if is_active else '') +
-                    '<div class="mc-head">'
-                    '<div class="mc-title">' + group_name + '</div>'
-                    '<span class="mc-badge" style="background:' + badge_bg + ';color:' + g_color + ';">'
-                    + g_sign + "{:.2f}%".format(g_avg) +
-                    '</span></div>'
-                    + rows_preview +
-                    '<div style="display:flex;justify-content:space-between;margin-top:10px;'
-                    'padding-top:8px;border-top:0.5px solid #F0F2F5;">'
-                    '<span style="font-size:10px;color:#848E9C;">'
-                    + str(g_up) + ' tăng · ' + str(g_dn) + ' giảm · ' + str(len(tickers)) + ' mã'
-                    '</span>'
-                    '<span style="font-size:10px;font-weight:600;color:' + ('#FF6B00' if is_active else '#848E9C') + ';">'
-                    + ('Thu gọn ▲' if is_active else 'Chi tiết ▾') +
-                    '</span></div></div>'
-                )
-
-                with col:
-                    st.markdown(card_html, unsafe_allow_html=True)
-                    if st.button(
-                        ("▲ Đóng " if is_active else "▾ Chi tiết ") + group_name,
-                        key="grp_btn_" + str(gi),
-                        use_container_width=True
-                    ):
-                        st.session_state.t1_selected_group = None if is_active else group_name
-                        st.rerun(scope="fragment")
-
-            # ── DETAIL PANEL ──────────────────────────────────────────────────────────
-            if selected:
-                match = [(g, t) for g, t in groups_items[:6] if g == selected]
-                if match:
-                    sel_tickers = match[0][1]
-                    all_data = sorted(
-                        [(t, market_data.get(t, {"name": t, "price": "N/A", "change": 0}))
-                         for t in sel_tickers],
-                        key=lambda x: x[1].get("change", 0), reverse=True
-                    )
-
-                    d_chgs  = [d.get("change", 0) for _, d in all_data]
-                    d_avg   = sum(d_chgs)/len(d_chgs) if d_chgs else 0
-                    d_up    = sum(1 for c in d_chgs if c > 0)
-                    d_dn    = sum(1 for c in d_chgs if c < 0)
-                    d_best  = all_data[0]
-                    d_worst = all_data[-1]
-                    d_color = "#0ECB81" if d_avg >= 0 else "#F6465D"
-                    d_sign  = "+" if d_avg >= 0 else ""
-                    max_abs = max(abs(c) for c in d_chgs) or 1
-
-                    # ── FETCH VOLUME + OHLC ──────────────────────────────────────────
-                    @st.cache_data(ttl=120, show_spinner=False)
-                    def fetch_group_ohlcv(ticker_tuple):
-                        result = {}
-                        try:
-                            yf_list = [t + ".VN" for t in ticker_tuple]
-                            raw = yf.download(yf_list, period="1d", interval="1d",
-                                              progress=False, threads=False, ignore_tz=True)
-                            if raw.empty: return result
-                            for t in ticker_tuple:
-                                yt = t + ".VN"
-                                try:
-                                    if len(yf_list) == 1:
-                                        vol = float(raw["Volume"].iloc[-1])
-                                        op  = float(raw["Open"].iloc[-1])
-                                        hi  = float(raw["High"].iloc[-1])
-                                        lo  = float(raw["Low"].iloc[-1])
-                                    else:
-                                        vol = float(raw["Volume"][yt].iloc[-1])
-                                        op  = float(raw["Open"][yt].iloc[-1])
-                                        hi  = float(raw["High"][yt].iloc[-1])
-                                        lo  = float(raw["Low"][yt].iloc[-1])
-                                    # Chuẩn hóa đơn vị
-                                    if 0 < vol < 1e5: vol *= 1000
-                                    if 0 < op < 1000: op *= 1000; hi *= 1000; lo *= 1000
-                                    result[t] = {"vol": vol, "open": op, "high": hi, "low": lo}
-                                except Exception: pass
-                        except Exception: pass
-                        return result
-
-                    ohlcv = fetch_group_ohlcv(tuple(sel_tickers))
-
-                    def fmt_vol(v):
-                        if v <= 0: return "—"
-                        if v >= 1e6: return "{:.2f}M CP".format(v/1e6)
-                        return "{:,.0f} CP".format(v)
-
-                    def fmt_val_tỷ(vol, price_str):
-                        try:
-                            p = float(str(price_str).replace(",",""))
-                            v = vol * p / 1e9
-                            if v >= 1:   return "{:.1f} Tỷ".format(v)
-                            if v >= 0.1: return "{:.2f} Tỷ".format(v)
-                            return "{:.0f}M".format(v*1000)
-                        except: return "—"
-
-                    total_vol = sum(ohlcv.get(t,{}).get("vol",0) for t in sel_tickers)
-                    top_vol_t = max(sel_tickers, key=lambda t: ohlcv.get(t,{}).get("vol",0)) if ohlcv else None
-                    top_vol_v = ohlcv.get(top_vol_t,{}).get("vol",0) if top_vol_t else 0
-                    top_vol_n = str(market_data.get(top_vol_t,{}).get("name",top_vol_t))[:12] if top_vol_t else "—"
-                    total_val = sum(
-                        ohlcv.get(t,{}).get("vol",0) * float(str(market_data.get(t,{}).get("price","0")).replace(",",""))
-                        for t in sel_tickers
-                        if ohlcv.get(t,{}).get("vol",0) > 0
-                    ) / 1e9
-
-                    # Stat row — 6 metrics
-                    _bn = str(d_best[1].get("name", d_best[0]))[:12]
-                    _wn = str(d_worst[1].get("name", d_worst[0]))[:12]
-                    _bc = "+{:.2f}%".format(d_best[1].get("change", 0))
-                    _wc = "{:.2f}%".format(d_worst[1].get("change", 0))
-
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    sc1, sc2, sc3, sc4, sc5, sc6 = st.columns(6)
-                    for col, lbl, val, vc in [
-                        (sc1, "Biến động TB",    d_sign + "{:.2f}%".format(d_avg),   d_color),
-                        (sc2, "Tăng mạnh nhất",  _bn + " " + _bc,                    "#0ECB81"),
-                        (sc3, "Giảm mạnh nhất",  _wn + " " + _wc,                    "#F6465D"),
-                        (sc4, "Tăng / Giảm",     str(d_up) + " / " + str(d_dn),     "#1E2329"),
-                        (sc5, "Tổng KL cả nhóm", fmt_vol(total_vol),                  "#185FA5"),
-                        (sc6, "Tổng GTGD",       "{:.1f} Tỷ".format(total_val) if total_val > 0 else "—", "#FF6B00"),
-                    ]:
-                        col.markdown(
-                            '<div style="background:#fff;border:0.5px solid #EAECEF;border-radius:8px;'
-                            'padding:10px 12px;margin-bottom:10px;">'
-                            '<div style="font-size:9px;color:#848E9C;font-weight:600;text-transform:uppercase;'
-                            'letter-spacing:.3px;margin-bottom:4px;">' + lbl + '</div>'
-                            '<div style="font-size:12px;font-weight:700;color:' + vc + ';font-family:monospace;">' + val + '</div>'
-                            '</div>', unsafe_allow_html=True
-                        )
-
-                    # Detail panel — table đầy đủ OHLCV
-                    st.markdown(
-                        '<div class="det-panel">'
-                        '<div style="font-size:11px;font-weight:700;color:#FF6B00;text-transform:uppercase;'
-                        'letter-spacing:.5px;margin-bottom:10px;">' + selected + ' — Chi tiết ' + str(len(sel_tickers)) + ' mã</div>'
-                        # Header
-                        '<div style="display:grid;grid-template-columns:2fr 1.1fr 0.9fr 1fr 2fr 1.4fr 1.3fr;'
-                        'padding:6px 0;border-bottom:1.5px solid #EAECEF;">'
-                        '<span style="font-size:9px;font-weight:700;color:#848E9C;text-transform:uppercase;">Mã CP</span>'
-                        '<span style="font-size:9px;font-weight:700;color:#848E9C;text-align:right;display:block;">Giá đóng</span>'
-                        '<span style="font-size:9px;font-weight:700;color:#848E9C;text-align:right;display:block;">%</span>'
-                        '<span style="font-size:9px;font-weight:700;color:#848E9C;text-align:right;display:block;">Mở cửa</span>'
-                        '<span style="font-size:9px;font-weight:700;color:#848E9C;text-align:right;display:block;">Cao / Thấp</span>'
-                        '<span style="font-size:9px;font-weight:700;color:#185FA5;text-align:right;display:block;">KL giao dịch</span>'
-                        '<span style="font-size:9px;font-weight:700;color:#FF6B00;text-align:right;display:block;">Giá trị GD</span>'
-                        '</div>',
-                        unsafe_allow_html=True
-                    )
-
-                    rows_det = ""
-                    for t, d in all_data:
-                        chg   = d.get("change", 0)
-                        cc    = "#0ECB81" if chg >= 0 else "#F6465D"
-                        s     = "+" if chg > 0 else ""
-                        bar_w = int(abs(chg)/max_abs*100)
-                        _n    = str(d.get("name", t))
-                        _p    = str(d.get("price", "N/A"))
-                        vd    = ohlcv.get(t, {})
-                        vol_v = vd.get("vol", 0)
-                        _vol  = fmt_vol(vol_v)
-                        _val  = fmt_val_tỷ(vol_v, _p)
-                        _op   = "{:,.0f}".format(vd.get("open",0))  if vd.get("open",0)>0  else "—"
-                        _hi   = "{:,.0f}".format(vd.get("high",0))  if vd.get("high",0)>0  else "—"
-                        _lo   = "{:,.0f}".format(vd.get("low",0))   if vd.get("low",0)>0   else "—"
-                        rows_det += (
-                            '<div style="display:grid;grid-template-columns:2fr 1.1fr 0.9fr 1fr 2fr 1.4fr 1.3fr;'
-                            'padding:8px 0;border-bottom:0.5px solid #F0F2F5;align-items:center;">'
-                            '<div style="display:flex;align-items:center;gap:6px;">'
-                            '<div style="width:3px;height:26px;background:' + cc + ';border-radius:2px;flex-shrink:0;"></div>'
-                            '<div><div style="font-size:12px;font-weight:700;color:#1E2329;">' + _n + '</div>'
-                            '<div style="height:3px;background:#F0F2F5;border-radius:2px;margin-top:3px;width:50px;">'
-                            '<div style="width:' + str(bar_w) + '%;height:100%;background:' + cc + ';border-radius:2px;"></div>'
-                            '</div></div></div>'
-                            '<div style="font-size:12px;font-weight:700;color:#1E2329;font-family:monospace;text-align:right;">' + _p + '</div>'
-                            '<div style="font-size:12px;font-weight:700;color:' + cc + ';text-align:right;">' + s + "{:.2f}%".format(chg) + '</div>'
-                            '<div style="font-size:11px;color:#707A8A;font-family:monospace;text-align:right;">' + _op + '</div>'
-                            '<div style="font-size:11px;color:#707A8A;font-family:monospace;text-align:right;">' + _hi + ' <span style="color:#D0D0D0;">/</span> ' + _lo + '</div>'
-                            '<div style="font-size:11px;font-weight:600;color:#185FA5;font-family:monospace;text-align:right;">' + _vol + '</div>'
-                            '<div style="font-size:11px;font-weight:600;color:#FF6B00;font-family:monospace;text-align:right;">' + _val + '</div>'
-                            '</div>'
-                        )
-                    st.markdown(rows_det + '</div>', unsafe_allow_html=True)
-
-                    # Bar chart biến động
-                    name_vals  = [str(d.get("name", t))[:8] for t, d in all_data]
-                    chg_vals   = [d.get("change", 0) for _, d in all_data]
-                    bar_colors = ["#0ECB81" if c >= 0 else "#F6465D" for c in chg_vals]
-
-                    fig_grp = go.Figure(go.Bar(
-                        x=name_vals, y=chg_vals,
-                        marker_color=bar_colors, opacity=0.85,
-                        hovertemplate="%{x}<br>%{y:.2f}%<extra></extra>",
-                        text=[("{:+.1f}%".format(c)) for c in chg_vals],
-                        textposition="outside",
-                        textfont=dict(size=9)
-                    ))
-                    fig_grp.add_hline(y=0, line_color="#EAECEF", line_width=1)
-                    fig_grp.update_layout(
-                        height=220, margin=dict(l=0, r=0, t=16, b=0),
-                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                        yaxis=dict(gridcolor="#F0F2F5", ticksuffix="%",
-                                   fixedrange=True, zeroline=False),
-                        xaxis=dict(fixedrange=True, tickfont=dict(size=9)),
-                        bargap=0.25
-                    )
-                    st.plotly_chart(fig_grp, use_container_width=True,
-                        key="grp_chart_" + selected,
-                        config={"displayModeBar": False})
-
-
-            st.markdown("<br>", unsafe_allow_html=True)
-
-        render_tab1()
+        st.markdown("<br>", unsafe_allow_html=True)
+        groups_items = list(groups.items())
+        css_market = """<style>
+        .m-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; width: 100%; }
+        .m-card { background: #fff; border: 1px solid #EAECEF; border-radius: 12px; padding: 20px; transition: all 0.2s ease; width: 100%; box-sizing: border-box; box-shadow: 0 2px 8px rgba(0,0,0,0.02);}
+        .m-card:hover { border-color: #E65100; box-shadow: 0 8px 24px rgba(230, 81, 0, 0.08); transform: translateY(-4px); }
+        .m-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid #F0F2F5; padding-bottom: 12px;}
+        .m-title { font-weight: 800; font-size: 14px; color: #1E2329; text-transform: uppercase; }
+        .m-more { font-size: 12px; color: #707A8A; text-decoration: none; font-weight: 600;}
+        .m-more:hover { color: #E65100; }
+        .m-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding: 4px 0;}
+        .m-row:last-child { margin-bottom: 0; }
+        .m-name { font-weight: 700; font-size: 14px; color: #1E2329; flex: 2; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 10px;}
+        .m-price { font-size: 14px; color: #1E2329; flex: 1.5; text-align: right; font-family: 'SF Mono', Consolas, monospace; font-weight: 600;}
+        .m-change { font-size: 14px; font-weight: 700; flex: 1; text-align: right; }
+        .c-up { color: #0ECB81; }
+        .c-down { color: #F6465D; }
+        </style>"""
+        cards_html = ""
+        for group_name, tickers in groups_items[:6]:
+            rows_html = ""
+            for t in tickers:
+                data = market_data.get(t, {"name": t, "price": "N/A", "change": 0})
+                color_class = "c-up" if data['change'] >= 0 else "c-down"
+                sign = "+" if data['change'] > 0 else ""
+                rows_html += f"""<div class="m-row"><div class="m-name">{data.get('name','')}</div><div class="m-price">{data.get('price','N/A')}</div><div class="m-change {color_class}">{sign}{data.get('change',0):.2f}%</div></div>"""
+            cards_html += f"""<div class="m-card"><div class="m-header"><div class="m-title">{group_name}</div><a href="#" class="m-more">Chi tiết &rsaquo;</a></div>{rows_html}</div>"""
+        st.markdown(f"{css_market}<div class='m-grid'>{cards_html}</div>", unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
 
     # --- TAB 2: DỮ LIỆU GIAO DỊCH ---
     with tab2:
@@ -2888,33 +2608,34 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
             unsafe_allow_html=True
         )
 
-        @st.cache_data(ttl=1800, show_spinner=False)
-        def load_screener_data():
-            try:
-                import gspread, json as _json
-                from oauth2client.service_account import ServiceAccountCredentials
-                creds_dict = _json.loads(st.secrets["GOOGLE_CREDENTIALS"])
-                scope = ["https://spreadsheets.google.com/feeds","https://www.googleapis.com/auth/drive"]
-                creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-                client = gspread.authorize(creds)
-                sheet = client.open("LINANCE_DB").worksheet("RS_DATA")
-                raw = sheet.get_all_values()
-                if len(raw) < 2: return pd.DataFrame()
-                df = pd.DataFrame(raw[1:], columns=raw[0])
-                for col in ["RS_1M","RS_3M","Điểm_KT","Thanh_Khoản_Tỷ","Giá"]:
-                    if col in df.columns:
-                        df[col] = pd.to_numeric(
-                            df[col].astype(str).str.replace(",","."), errors="coerce"
-                        ).fillna(0)
-                return df
-            except Exception:
-                return pd.DataFrame()
-
-        @st.fragment
         def render_screener():
             import json, math
 
-            df_sc = load_screener_data()
+            # Load data từ session_state (tận dụng cache RS đã có từ Tab 3)
+            @st.cache_data(ttl=1800, show_spinner=False)
+            def load_screener_data():
+                try:
+                    import gspread, json as _json
+                    from oauth2client.service_account import ServiceAccountCredentials
+                    creds_dict = _json.loads(st.secrets["GOOGLE_CREDENTIALS"])
+                    scope = ["https://spreadsheets.google.com/feeds","https://www.googleapis.com/auth/drive"]
+                    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+                    client = gspread.authorize(creds)
+                    sheet = client.open("LINANCE_DB").worksheet("RS_DATA")
+                    raw = sheet.get_all_values()
+                    if len(raw) < 2: return pd.DataFrame()
+                    df = pd.DataFrame(raw[1:], columns=raw[0])
+                    for col in ["RS_1M","RS_3M","Điểm_KT","Thanh_Khoản_Tỷ","Giá"]:
+                        if col in df.columns:
+                            df[col] = pd.to_numeric(
+                                df[col].astype(str).str.replace(",","."), errors="coerce"
+                            ).fillna(0)
+                    return df
+                except Exception:
+                    return pd.DataFrame()
+
+            with st.spinner("Đang tải dữ liệu screener..."):
+                df_sc = load_screener_data()
 
             if df_sc.empty:
                 st.warning("Chưa kết nối được RS_DATA. Kiểm tra lại Google Sheets.")
@@ -2936,7 +2657,7 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
             for i, (pname, _) in enumerate(presets.items()):
                 if preset_cols[i].button(pname, key="preset_"+str(i), use_container_width=True):
                     st.session_state["sc_preset"] = pname
-                    st.rerun(scope="fragment")
+                    st.rerun()
 
             active_preset = st.session_state.get("sc_preset", "Tất cả")
             pvals = presets[active_preset]
@@ -3175,7 +2896,7 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
                 with pc[1]:
                     if st.button("Trước", disabled=(st.session_state.sc_page<=1), use_container_width=True, key="sc_prev"):
                         st.session_state.sc_page -= 1
-                        st.rerun(scope="fragment")
+                        st.rerun()
                 with pc[2]:
                     st.markdown(
                         "<div style='text-align:center;padding-top:8px;font-size:12px;color:#474D57;font-weight:600;'>Trang "
@@ -3185,7 +2906,7 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
                 with pc[3]:
                     if st.button("Tiếp", disabled=(st.session_state.sc_page>=sc_total_pg), use_container_width=True, key="sc_next"):
                         st.session_state.sc_page += 1
-                        st.rerun(scope="fragment")
+                        st.rerun()
 
             st.markdown(
                 '<div style="margin-top:12px;padding:10px 14px;background:#FFF8F3;border:0.5px solid #FFE0B2;border-radius:6px;font-size:11px;color:#707A8A;">'
@@ -3321,13 +3042,9 @@ Dữ liệu được rà soát tự động. Mức độ hưng phấn áp đảo
         render_screener()
 
 
-@st.cache_data(ttl=300, show_spinner=False)
-def _cached_news():
-    return fetch_mainstream_news()
-
 @st.fragment
 def render_news_section():
-    df_news = _cached_news()
+    df_news = fetch_mainstream_news()
 
     st.markdown("<br><div style='font-size: 14px; font-weight: 700; color: #E65100; margin-bottom: 16px; text-transform: uppercase; border-top: 1px solid #EAECEF; padding-top: 24px;'>Tiêu điểm Giao dịch</div>", unsafe_allow_html=True)
     if not df_news.empty:
