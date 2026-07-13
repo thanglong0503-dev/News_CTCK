@@ -694,7 +694,6 @@ def render_hero_section():
                     config={"displayModeBar": False})
 
 
-        render_market_overview()
         st.markdown("<br>", unsafe_allow_html=True)
 
     # --- TAB 2: DỮ LIỆU GIAO DỊCH ---
