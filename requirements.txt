@@ -7,7 +7,7 @@ cloudscraper
 plotly
 gspread
 google-auth
-vnstock==0.2.9.2.3
+vnstock
 oauth2client
 tqdm
 ipython
