@@ -7,7 +7,7 @@ cloudscraper
 plotly
 gspread
 google-auth
-vnstock
+git+https://github.com/thinh-vu/vnstock.git@legacy
 oauth2client
 tqdm
 ipython
